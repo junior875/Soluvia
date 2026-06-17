@@ -1,0 +1,255 @@
+/* ─────────────────────────────────────────────
+   Soluvia — estilos globais + tokens de tema
+   Tema claro/escuro via variáveis CSS em [data-theme].
+   A maior parte do estilo é inline nos componentes;
+   cores vêm destes tokens (var(--token)).
+───────────────────────────────────────────── */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+  position: relative;
+  background: var(--bg);
+  color: var(--text);
+  transition: background 0.4s ease, color 0.4s ease;
+}
+
+::selection {
+  background: #f2921e;
+  color: #fff;
+}
+
+a { cursor: pointer; }
+
+input, select, textarea {
+  font-family: 'Poppins', sans-serif;
+}
+
+/* ── Tokens de marca (iguais nos dois temas) ── */
+:root {
+  --accent: #f2921e;
+  --accent-2: #e07b12;
+  --accent-soft: rgba(242, 146, 30, 0.12);
+  --accent-border: rgba(242, 146, 30, 0.35);
+  --accent-shadow: rgba(242, 146, 30, 0.4);
+  --blue: #2f6fb0;
+  --blue-soft: rgba(47, 111, 176, 0.12);
+  --navy: #0e2c46;
+  --navy-2: #1a3f5e;
+  --wa: #25d366;
+}
+
+/* ── Tema CLARO ── */
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f4f6f9;
+  --text: #16263a;
+  --text-muted: #5d6b7a;
+  --heading: #0e2c46;
+  --border: rgba(20, 40, 70, 0.08);
+  --card-shadow: 0 4px 32px rgba(0, 0, 0, 0.06);
+  --section-navy: #0e2c46;
+  --footer-bg: #07192a;
+}
+
+/* ── Tema ESCURO ── */
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0a1622;
+  --surface: #0f2233;
+  --surface-2: #0c1c2b;
+  --text: #e9f1f8;
+  --text-muted: rgba(233, 241, 248, 0.6);
+  --heading: #ffffff;
+  --border: rgba(255, 255, 255, 0.08);
+  --card-shadow: 0 4px 32px rgba(0, 0, 0, 0.4);
+  --section-navy: #081320;
+  --footer-bg: #060f18;
+}
+
+/* ── Keyframes ── */
+@keyframes scrollBounce {
+  0%, 100% { opacity: 0.7; transform: translateY(0); }
+  50%      { opacity: 0.3; transform: translateY(10px); }
+}
+@keyframes orbPulse {
+  0%, 100% { transform: scale(1);    opacity: 0.18; }
+  50%      { transform: scale(1.1);  opacity: 0.28; }
+}
+@keyframes orbPulse2 {
+  0%, 100% { transform: scale(1);    opacity: 0.12; }
+  50%      { transform: scale(1.07); opacity: 0.22; }
+}
+@keyframes dotBlink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+@keyframes waPing {
+  0%, 100% { box-shadow: 0 0 0 0   rgba(37, 211, 102, 0.55); }
+  70%      { box-shadow: 0 0 0 16px rgba(37, 211, 102, 0); }
+}
+
+/* ── Mobile nav overlay ── */
+#mobile-nav {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 180;
+  background: rgba(8, 19, 32, 0.98);
+  backdrop-filter: blur(20px);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 36px;
+}
+#mobile-nav.open { display: flex; }
+#mobile-nav a {
+  color: white;
+  text-decoration: none;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  transition: color 0.2s;
+}
+#mobile-nav a:hover { color: #f2921e; }
+#nav-hbg { display: none; }
+
+/* ── Responsivo ── */
+@media (max-width: 960px) {
+  .rsp-nav   { display: none !important; }
+  #main-nav  { padding: 16px 24px !important; }
+  #nav-hbg   {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    cursor: pointer;
+    color: white;
+  }
+  .rsp-sec     { padding: 80px 32px !important; }
+  .rsp-g2      { grid-template-columns: 1fr !important; gap: 48px !important; }
+  .rsp-g3      { grid-template-columns: 1fr !important; gap: 36px !important; }
+  .rsp-gfeat   { grid-template-columns: 1fr !important; }
+  .rsp-gpric   { grid-template-columns: 1fr !important; max-width: 480px !important; }
+  .rsp-stats   { grid-template-columns: 1fr !important; gap: 52px !important; }
+  .rsp-imgw    { height: 300px !important; }
+  .rsp-ctabtns { flex-direction: column !important; align-items: center !important; }
+  .rsp-ctabtns a { width: 100% !important; max-width: 340px !important; text-align: center !important; }
+  .rsp-foot    {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 20px !important;
+    text-align: center !important;
+  }
+}
+
+@media (max-width: 600px) {
+  #main-nav  { padding: 14px 18px !important; }
+  #main-nav img { height: 52px !important; }
+  .rsp-sec   { padding: 60px 20px !important; }
+  .rsp-fgrid { grid-template-columns: 1fr !important; }
+  .rsp-g2    { gap: 32px !important; }
+  .mission-stats { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 14px !important; }
+  .mission-div   { display: none !important; }
+  .stat-num      { font-size: 28px !important; letter-spacing: -1px !important; }
+  .rsp-gfeat > div { padding: 34px 26px !important; }
+  .rsp-gpric > div { padding: 38px 28px !important; }
+  .fab-wa    { right: 18px !important; bottom: 20px !important; }
+  .fab-gear  { right: 18px !important; bottom: 90px !important; }
+}
+
+/* ─────────────────────────────────────────────
+   Sistema de movimento premium (Etapa 1)
+───────────────────────────────────────────── */
+:root {
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+  --fs-display: clamp(50px, 7.5vw, 92px);
+  --fs-h2: clamp(32px, 5vw, 60px);
+  --fs-h3: clamp(24px, 3vw, 34px);
+}
+
+/* Foco acessível e bonito (AA) */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+/* Mesh gradient vivo do hero */
+@keyframes shieldPulse {
+  0%   { transform: scale(.7); opacity: .5; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+@keyframes meshDrift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  33%      { transform: translate3d(3%, -2.5%, 0) scale(1.07); }
+  66%      { transform: translate3d(-2.5%, 2%, 0) scale(1.04); }
+}
+
+/* Brilho que cruza o CTA principal */
+@keyframes sheen {
+  0%      { transform: translateX(-130%) skewX(-18deg); }
+  55%, 100% { transform: translateX(260%) skewX(-18deg); }
+}
+.cta-sheen { position: relative; overflow: hidden; }
+.cta-sheen::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 36%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .5), transparent);
+  transform: translateX(-130%) skewX(-18deg);
+  animation: sheen 5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Textura de grão sobre fundos escuros (atmosfera) */
+.grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .045;
+  z-index: 1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Transição de tema (View Transitions API) */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: .5s;
+  animation-timing-function: var(--ease-out);
+}
+
+/* Respeita preferência de menos movimento */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
