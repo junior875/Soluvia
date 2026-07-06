@@ -81,8 +81,8 @@ export default function DocumentUploader({ onUploaded, onToast }: Props) {
       <span style={{ width: 52, height: 52, borderRadius: 16, background: 'var(--accent-soft)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Icon name={busy ? 'signature' : 'download'} size={24} style={busy ? { animation: 'spin 1s linear infinite' } : { transform: 'rotate(180deg)' }} />
       </span>
-      <span style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 15 }}>{busy ? t.sig.uploading : t.sig.dropHint}</span>
-      <span style={{ fontSize: 12.5 }}>{t.sig.dropTypes}</span>
+      <span style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 15, whiteSpace: 'normal', maxWidth: '100%', lineHeight: 1.35 }}>{busy ? t.sig.uploading : t.sig.dropHint}</span>
+      <span style={{ fontSize: 12.5, whiteSpace: 'normal', maxWidth: '100%' }}>{t.sig.dropTypes}</span>
     </button>
   )
 }

@@ -154,17 +154,25 @@ export default function PdfViewer({ documentId, canManage, initialFields, onFiel
   const onUp = () => {
     if (!drag) return
     const { w, h } = overlaySize()
-    const left = Math.min(drag.x0, drag.x1)
-    const top = Math.min(drag.y0, drag.y1)
+    let left = Math.min(drag.x0, drag.x1)
+    let top = Math.min(drag.y0, drag.y1)
     let width = Math.abs(drag.x1 - drag.x0)
     let height = Math.abs(drag.y1 - drag.y0)
     setDrag(null)
-    // Clique simples (sem arrastar) → cria um campo com tamanho padrão.
-    if (width < 12 || height < 12) { width = 0.22 * w; height = 0.08 * h }
-    const nx = Math.max(0, Math.min(1, left / w))
-    const ny = Math.max(0, Math.min(1, top / h))
-    const nw = Math.min(1 - nx, width / w)
-    const nh = Math.min(1 - ny, height / h)
+    // Toque simples (sem arrastar) → campo de tamanho padrão CENTRADO no ponto
+    // tocado. Antes o canto superior-esquerdo nascia no dedo, então a caixa
+    // "descia" para baixo/direita e a assinatura não ficava onde foi clicada.
+    if (width < 12 || height < 12) {
+      width = 0.22 * w
+      height = 0.08 * h
+      left = drag.x0 - width / 2
+      top = drag.y0 - height / 2
+    }
+    // Normaliza (0..1) e garante que a caixa inteira fique dentro da página.
+    const nw = Math.min(1, width / w)
+    const nh = Math.min(1, height / h)
+    const nx = Math.max(0, Math.min(1 - nw, left / w))
+    const ny = Math.max(0, Math.min(1 - nh, top / h))
     setFields((prev) => [
       ...prev,
       { key: uid(), page, x: nx, y: ny, w: nw, h: nh, order_index: prev.length, placeholder: t.sig.signHere },

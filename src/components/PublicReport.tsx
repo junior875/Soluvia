@@ -4,17 +4,19 @@
 // escolher identificar-se ou não, e no fim mostra o protocolo + hash (UMA vez).
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { BASE_URL } from '../lib/api'
+import type { SigGeo } from '../lib/types'
 import { useTranslation } from '../i18n/LanguageProvider'
 import PrefSwitcher from './PrefSwitcher'
+import ParecerSignModal from '../app/screens/signature/ParecerSignModal'
 
 interface FF { key: string; type: string; label: string; help: string; required: boolean; options: string[]; sensitive: boolean }
 interface PublicForm { tenant_slug: string; tenant_name: string; channel_name: string; title: string; intro: string; identification: string; fields: FF[]; published: boolean; lang?: string; available_langs?: string[] }
 interface Receipt { protocol: string; access_hash: string }
 
 const L = {
-  pt: { loading: 'Carregando…', unavailable: 'Canal indisponível', unavailableBody: 'Este canal ainda não tem um formulário publicado, ou o link é inválido.', identifyLegend: 'Como você quer relatar?', anon: 'Anônimo', anonHint: 'Não pediremos nada que te identifique.', identify: 'Identificar-me', email: 'Seu e-mail', emailHint: 'Usaremos só para dar retorno do seu relato.', anonForced: 'Este canal é 100% anônimo.', idRequired: 'Este canal exige identificação.', send: 'Enviar relato', sending: 'Enviando…', required: 'Preencha os campos obrigatórios.', doneTitle: 'Relato registrado', doneBody: 'Guarde o protocolo e o código abaixo — é a única forma de acompanhar (inclusive de forma anônima).', protocol: 'Protocolo', code: 'Código de acesso', copy: 'Copiar', copied: 'Copiado!', track: 'Acompanhar depois em', another: 'Enviar outro relato', secure: 'Ambiente seguro e confidencial', yes: 'Sim', no: 'Não', choose: 'Selecione' },
-  en: { loading: 'Loading…', unavailable: 'Channel unavailable', unavailableBody: 'This channel has no published form yet, or the link is invalid.', identifyLegend: 'How do you want to report?', anon: 'Anonymous', anonHint: 'We will not ask anything that identifies you.', identify: 'Identify myself', email: 'Your email', emailHint: 'Only used to get back to you about your report.', anonForced: 'This channel is 100% anonymous.', idRequired: 'This channel requires identification.', send: 'Send report', sending: 'Sending…', required: 'Please fill the required fields.', doneTitle: 'Report received', doneBody: 'Keep the protocol and code below — it is the only way to follow up (even anonymously).', protocol: 'Protocol', code: 'Access code', copy: 'Copy', copied: 'Copied!', track: 'Follow up later at', another: 'Send another report', secure: 'Secure & confidential', yes: 'Yes', no: 'No', choose: 'Select' },
-  es: { loading: 'Cargando…', unavailable: 'Canal no disponible', unavailableBody: 'Este canal aún no tiene un formulario publicado, o el enlace no es válido.', identifyLegend: '¿Cómo quieres denunciar?', anon: 'Anónimo', anonHint: 'No pediremos nada que te identifique.', identify: 'Identificarme', email: 'Tu correo', emailHint: 'Solo para darte seguimiento de tu denuncia.', anonForced: 'Este canal es 100% anónimo.', idRequired: 'Este canal exige identificación.', send: 'Enviar denuncia', sending: 'Enviando…', required: 'Completa los campos obligatorios.', doneTitle: 'Denuncia registrada', doneBody: 'Guarda el protocolo y el código — es la única forma de dar seguimiento (incluso anónimo).', protocol: 'Protocolo', code: 'Código de acceso', copy: 'Copiar', copied: '¡Copiado!', track: 'Da seguimiento luego en', another: 'Enviar otra denuncia', secure: 'Entorno seguro y confidencial', yes: 'Sí', no: 'No', choose: 'Selecciona' },
+  pt: { loading: 'Carregando…', unavailable: 'Canal indisponível', unavailableBody: 'Este canal ainda não tem um formulário publicado, ou o link é inválido.', identifyLegend: 'Como você quer relatar?', anon: 'Anônimo', anonHint: 'Não pediremos nada que te identifique.', identify: 'Identificar-me', email: 'Seu e-mail', emailHint: 'Usaremos só para dar retorno do seu relato.', anonForced: 'Este canal é 100% anônimo.', idRequired: 'Este canal exige identificação.', send: 'Enviar relato', sending: 'Enviando…', required: 'Preencha os campos obrigatórios.', doneTitle: 'Relato registrado', doneBody: 'Guarde o protocolo e o código abaixo — é a única forma de acompanhar (inclusive de forma anônima).', protocol: 'Protocolo', code: 'Código de acesso', copy: 'Copiar', copied: 'Copiado!', track: 'Acompanhar depois em', another: 'Enviar outro relato', secure: 'Ambiente seguro e confidencial', yes: 'Sim', no: 'Não', choose: 'Selecione', signTitle: 'Assine seu relato', signKicker: 'Identificação', signCta: 'Assinar e enviar', signNote: 'Ao se identificar, você assina digitalmente o relato (rubrica + localização opcional).' },
+  en: { loading: 'Loading…', unavailable: 'Channel unavailable', unavailableBody: 'This channel has no published form yet, or the link is invalid.', identifyLegend: 'How do you want to report?', anon: 'Anonymous', anonHint: 'We will not ask anything that identifies you.', identify: 'Identify myself', email: 'Your email', emailHint: 'Only used to get back to you about your report.', anonForced: 'This channel is 100% anonymous.', idRequired: 'This channel requires identification.', send: 'Send report', sending: 'Sending…', required: 'Please fill the required fields.', doneTitle: 'Report received', doneBody: 'Keep the protocol and code below — it is the only way to follow up (even anonymously).', protocol: 'Protocol', code: 'Access code', copy: 'Copy', copied: 'Copied!', track: 'Follow up later at', another: 'Send another report', secure: 'Secure & confidential', yes: 'Yes', no: 'No', choose: 'Select', signTitle: 'Sign your report', signKicker: 'Identification', signCta: 'Sign & send', signNote: 'By identifying yourself, you digitally sign the report (signature + optional location).' },
+  es: { loading: 'Cargando…', unavailable: 'Canal no disponible', unavailableBody: 'Este canal aún no tiene un formulario publicado, o el enlace no es válido.', identifyLegend: '¿Cómo quieres denunciar?', anon: 'Anónimo', anonHint: 'No pediremos nada que te identifique.', identify: 'Identificarme', email: 'Tu correo', emailHint: 'Solo para darte seguimiento de tu denuncia.', anonForced: 'Este canal es 100% anónimo.', idRequired: 'Este canal exige identificación.', send: 'Enviar denuncia', sending: 'Enviando…', required: 'Completa los campos obligatorios.', doneTitle: 'Denuncia registrada', doneBody: 'Guarda el protocolo y el código — es la única forma de dar seguimiento (incluso anónimo).', protocol: 'Protocolo', code: 'Código de acceso', copy: 'Copiar', copied: '¡Copiado!', track: 'Da seguimiento luego en', another: 'Enviar otra denuncia', secure: 'Entorno seguro y confidencial', yes: 'Sí', no: 'No', choose: 'Selecciona', signTitle: 'Firma tu denuncia', signKicker: 'Identificación', signCta: 'Firmar y enviar', signNote: 'Al identificarte, firmas digitalmente la denuncia (firma + ubicación opcional).' },
 }
 
 export function isPublicReportPath(): boolean {
@@ -37,6 +39,7 @@ export default function PublicReport() {
   const [err, setErr] = useState<string | null>(null)
   const [receipt, setReceipt] = useState<Receipt | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [signOpen, setSignOpen] = useState(false)
 
   useEffect(() => {
     // Busca o form no idioma escolhido; ao trocar de idioma, recarrega os rótulos.
@@ -53,7 +56,13 @@ export default function PublicReport() {
 
   const setAns = (k: string, v: unknown) => setAnswers((a) => ({ ...a, [k]: v }))
 
-  async function submit() {
+  // Denunciante será identificado? (política do canal manda; senão a escolha dele)
+  const willIdentify = form !== null && form !== 'error'
+    && (form.identification === 'forbidden' ? false
+      : form.identification === 'required' ? true
+      : identifyMode === 'id')
+
+  function submit() {
     if (form === null || form === 'error') return
     setErr(null)
     for (const f of form.fields) {
@@ -62,15 +71,30 @@ export default function PublicReport() {
         if (v == null || v === '' || (Array.isArray(v) && v.length === 0)) { setErr(tr.required); return }
       }
     }
-    const isAnon = form.identification === 'forbidden' ? true : form.identification === 'required' ? false : identifyMode === 'anon'
-    if (!isAnon && !email.trim()) { setErr(tr.email); return }
+    if (willIdentify && !email.trim()) { setErr(tr.email); return }
+    // Identificado → abre o mesmo modal de assinatura (rubrica + geo + CPF) e só
+    // envia após assinar. Anônimo → envia direto.
+    if (willIdentify) { setSignOpen(true); return }
+    void doSubmit()
+  }
+
+  async function doSubmit(sig?: { signature_image: string; geo: SigGeo; cpf: string | null }) {
+    if (form === null || form === 'error') return
     setBusy(true)
     try {
       const res = await fetch(`${BASE_URL}/public/${slug}/cases?token=${token}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_anonymous: isAnon, reporter_email: isAnon ? null : email.trim(), answers }),
+        body: JSON.stringify({
+          is_anonymous: !willIdentify,
+          reporter_email: willIdentify ? email.trim() : null,
+          answers,
+          signature_image: sig?.signature_image ?? null,
+          geo: sig?.geo ?? null,
+          cpf: sig?.cpf ?? null,
+        }),
       })
       if (!res.ok) throw new Error()
+      setSignOpen(false)
       setReceipt(await res.json())
     } catch { setErr('Falha ao enviar. Tente novamente.') } finally { setBusy(false) }
   }
@@ -202,12 +226,24 @@ export default function PublicReport() {
               )}
           </div>
 
+          {willIdentify && <p style={{ color: 'var(--text-muted)', fontSize: 12.5, display: 'flex', gap: 6, alignItems: 'flex-start', lineHeight: 1.5 }}>✍️ {tr.signNote}</p>}
+
           {err && <div style={{ background: 'rgba(217,83,79,.12)', border: '1px solid rgba(217,83,79,.4)', color: '#e08585', borderRadius: 12, padding: '11px 14px', fontSize: 13.5 }}>{err}</div>}
 
-          <button onClick={() => void submit()} disabled={busy} className="app-btn cta-sheen" style={{ background: 'linear-gradient(135deg,var(--accent),var(--accent-2))', color: '#fff', border: 'none', borderRadius: 100, padding: '15px 28px', fontSize: 16, fontWeight: 800, cursor: 'pointer', boxShadow: '0 12px 30px var(--accent-shadow)', opacity: busy ? 0.6 : 1 }}>{busy ? tr.sending : tr.send}</button>
+          <button onClick={() => submit()} disabled={busy} className="app-btn cta-sheen" style={{ background: 'linear-gradient(135deg,var(--accent),var(--accent-2))', color: '#fff', border: 'none', borderRadius: 100, padding: '15px 28px', fontSize: 16, fontWeight: 800, cursor: 'pointer', boxShadow: '0 12px 30px var(--accent-shadow)', opacity: busy ? 0.6 : 1 }}>{busy ? tr.sending : tr.send}</button>
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12.5 }}>🔒 {tr.secure}</p>
         </div>
       </div>
+
+      <ParecerSignModal
+        open={signOpen}
+        busy={busy}
+        onClose={() => setSignOpen(false)}
+        onConfirm={(d) => void doSubmit(d)}
+        title={tr.signTitle}
+        kicker={tr.signKicker}
+        cta={tr.signCta}
+      />
     </div>
   )
 }

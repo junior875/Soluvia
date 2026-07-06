@@ -14,6 +14,11 @@ interface Props {
   busy?: boolean
   onClose: () => void
   onConfirm: (data: { signature_image: string; geo: SigGeo; cpf: string | null }) => void
+  // Rótulos opcionais — permitem reusar o mesmo modal fora do parecer (ex.: o
+  // denunciante que se identifica assinando o próprio relato).
+  title?: string
+  kicker?: string
+  cta?: string
 }
 
 function maskCpf(v: string): string {
@@ -26,7 +31,7 @@ function maskCpf(v: string): string {
   return out
 }
 
-export default function ParecerSignModal({ open, busy, onClose, onConfirm }: Props) {
+export default function ParecerSignModal({ open, busy, onClose, onConfirm, title, kicker, cta }: Props) {
   const t = useT()
   const padRef = useRef<SignaturePadHandle>(null)
   const [image, setImage] = useState<string | null>(null)
@@ -47,7 +52,7 @@ export default function ParecerSignModal({ open, busy, onClose, onConfirm }: Pro
 
   return (
     <>
-      <Modal open={open} onClose={onClose} title={t.sig.signTitle} kicker={t.cases.inv.give} maxWidth={480}>
+      <Modal open={open} onClose={onClose} title={title ?? t.sig.signTitle} kicker={kicker ?? t.cases.inv.give} maxWidth={480}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Rubrica */}
           <Field label={t.sig.rubric}>
@@ -86,7 +91,7 @@ export default function ParecerSignModal({ open, busy, onClose, onConfirm }: Pro
           {err && <div style={{ background: 'rgba(217,83,79,.12)', border: '1px solid rgba(217,83,79,.4)', color: '#e08585', borderRadius: 12, padding: '11px 14px', fontSize: 13.5 }}>{err}</div>}
 
           <Button onClick={submit} loading={busy} leftIcon="signature" style={{ padding: '14px 24px', fontSize: 15.5 }}>
-            {busy ? t.sig.signing : t.cases.inv.signAndSend}
+            {busy ? t.sig.signing : (cta ?? t.cases.inv.signAndSend)}
           </Button>
         </div>
       </Modal>

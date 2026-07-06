@@ -113,8 +113,9 @@ export default function FormBuilder() {
 
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2600) }
 
-  async function save(publish = false) {
+  async function save(publish = false, overrideLang?: Lang) {
     if (!form || !channelId) return
+    const saveLang = overrideLang ?? lang
     setBusy(true)
     try {
       // Chave estável e válida (<=60, só [a-z0-9_], única). Preserva a key do
@@ -128,11 +129,11 @@ export default function FormBuilder() {
         return base
       }
       const payload = {
-        title: form.title, intro: form.intro, identification: form.identification, lang,
+        title: form.title, intro: form.intro, identification: form.identification, lang: saveLang,
         fields: form.fields.map((x, i) => ({ ...x, key: mkKey(x, i) })),
       }
       const saved = await api.put<FormData>(`/channels/${channelId}/form`, payload)
-      setForm((f) => f ? { ...f, base_lang: lang, available_langs: saved.available_langs ?? [lang], published: publish ? f.published : f.published } : f)
+      setForm((f) => f ? { ...f, base_lang: saveLang, available_langs: saved.available_langs ?? [saveLang], published: publish ? f.published : f.published } : f)
       if (publish) {
         const p = await api.post<FormData>(`/channels/${channelId}/form/publish`, {})
         setForm((f) => f ? { ...f, published: true, version: p.version } : f)
@@ -144,11 +145,13 @@ export default function FormBuilder() {
   }
 
   async function translateAll() {
-    if (!channelId) return
+    if (!channelId || !form) return
     setTranslating(true)
     try {
-      // Garante que o form atual está salvo antes de traduzir (traduz o que está no banco).
-      await save(false)
+      // Traduz SEMPRE a partir do idioma base — mesmo que o preview esteja num
+      // idioma ainda não traduzido (senão gravaríamos a base com o rótulo errado).
+      const base = (form.base_lang as Lang) || 'pt'
+      await save(false, base)
       const r = await api.post<FormData>(`/channels/${channelId}/form/translate`, {})
       patch({ available_langs: r.available_langs ?? ['pt', 'en', 'es'] })
       flash(t.fb.translated)
@@ -181,6 +184,9 @@ export default function FormBuilder() {
   }
 
   const langsReady = form?.available_langs ?? ['pt']
+  // Idioma escolhido para pré-visualizar ainda SEM tradução salva no banco →
+  // cobrimos o preview com um véu e um convite para traduzir num clique.
+  const needsTranslation = !!form && !langsReady.includes(lang)
 
   return (
     <div className="app-screen">
@@ -339,6 +345,18 @@ export default function FormBuilder() {
                   <Button variant="ghost" onClick={() => { void navigator.clipboard?.writeText(publicUrl); flash(t.common.copied) }}>{t.common.copy}</Button>
                 </div>
                 {!form.published && <p style={{ color: '#e0a23c', fontSize: 12.5, marginTop: 8 }}>{t.fb.publishHint}</p>}
+              </div>
+            )}
+
+            {/* Véu quando o idioma pré-visualizado ainda não foi traduzido. */}
+            {needsTranslation && (
+              <div style={{ position: 'absolute', inset: 0, borderRadius: 20, zIndex: 6, background: 'rgba(242,146,30,.14)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: 18, paddingTop: 'clamp(40px, 10vh, 110px)', boxSizing: 'border-box' }}>
+                <div className="chat-in" style={{ background: 'var(--surface)', border: '1.5px solid var(--accent)', borderRadius: 16, padding: '22px 24px', maxWidth: 340, textAlign: 'center', boxShadow: '0 18px 44px rgba(8,22,38,.22)' }}>
+                  <span style={{ width: 54, height: 54, borderRadius: 16, background: 'var(--accent-soft)', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}><Icon name="globe" size={25} /></span>
+                  <div style={{ color: 'var(--heading)', fontWeight: 800, fontSize: 16.5 }}>{t.fb.previewOffTitle} · {LANGS.find((l) => l.v === lang)?.label}</div>
+                  <p style={{ color: 'var(--text-muted)', fontSize: 13.5, marginTop: 6, lineHeight: 1.6 }}>{t.fb.previewOffBody}</p>
+                  <Button leftIcon="globe" onClick={() => void translateAll()} loading={translating} style={{ marginTop: 16 }}>{t.fb.previewOffCta}</Button>
+                </div>
               </div>
             )}
           </Card>

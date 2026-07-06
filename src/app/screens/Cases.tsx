@@ -6,7 +6,9 @@ import { createPortal } from 'react-dom'
 import { api, downloadAuthedFile } from '../../lib/api'
 import type { ApiError, CaseDetail, CaseOut, SigGeo } from '../../lib/types'
 import { useCaps } from '../capabilities'
+import { goScreen } from '../nav'
 import { useT } from '../strings'
+import { useTranslation } from '../../i18n/LanguageProvider'
 import { Button, Card, Chip, EmptyState, Input, Modal, PageHeader, SectionLabel, Select, Skeleton } from '../ui'
 import ParecerSignModal from './signature/ParecerSignModal'
 
@@ -19,6 +21,7 @@ const ta: CSSProperties = { width: '100%', minHeight: 72, resize: 'vertical', ba
 export default function Cases() {
   const { can } = useCaps()
   const t = useT()
+  const { lang } = useTranslation()
   const sevL = (s: string) => (t.cases.sev as Record<string, string>)[s] ?? s
   const statL = (s: string) => (t.cases.stat as Record<string, string>)[s] ?? s
   const [cases, setCases] = useState<CaseOut[] | null>(null)
@@ -49,6 +52,7 @@ export default function Cases() {
   }
 
   const isEtica = can('etica.view_cases')
+  const canManageChannels = can('admin.manage_roles')
   const canTriage = can('etica.triage')
   const canRespond = can('etica.respond')
   const canClose = can('etica.close')
@@ -140,10 +144,14 @@ export default function Cases() {
     <div className="app-screen">
       {isEtica && (
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
-          <img src="/canal-denuncias.png" alt="Canal de Denúncias" className="module-logo" style={{ height: 'clamp(110px, 16vw, 150px)', width: 'auto', objectFit: 'contain' }} />
+          <img src={lang === 'en' ? '/canal-denuncias-en.png' : '/canal-denuncias.png'} alt={lang === 'en' ? 'Whistleblowing Channel' : 'Canal de Denúncias'} className="module-logo" style={{ height: 'clamp(150px, 26vw, 260px)', width: 'auto', maxWidth: '92%', objectFit: 'contain' }} />
         </div>
       )}
-      <PageHeader title={t.cases.title} subtitle={t.cases.subtitle} />
+      <PageHeader
+        title={t.cases.title}
+        subtitle={t.cases.subtitle}
+        action={canManageChannels && <Button leftIcon="channels" onClick={() => goScreen('channels')}>{t.cases.createChannel}</Button>}
+      />
       {cases === null ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{[0, 1, 2].map((i) => <Skeleton key={i} h={72} r={16} />)}</div>
       ) : cases.length === 0 ? (
@@ -185,6 +193,24 @@ export default function Cases() {
                 {answersView ?? <p style={{ color: 'var(--heading)', fontSize: 14.5, whiteSpace: 'pre-wrap' }}>{detail.events.find((e) => e.type === 'created')?.content ?? '—'}</p>}
               </div>
             </div>
+
+            {/* Assinatura digital do denunciante identificado */}
+            {detail.reporter_signature && (
+              <div>
+                <SectionLabel>{t.cases.rsigTitle}</SectionLabel>
+                <div style={{ display: 'flex', gap: 14, alignItems: 'center', background: 'var(--surface-2)', border: '1px solid var(--accent-border)', borderRadius: 14, padding: 14, flexWrap: 'wrap' }}>
+                  <img src={detail.reporter_signature.image} alt="rubrica" style={{ height: 64, width: 'auto', maxWidth: 200, background: '#f6f8fc', border: '1px solid var(--border)', borderRadius: 10, padding: 4, objectFit: 'contain' }} />
+                  <div style={{ display: 'grid', gap: 3, fontSize: 12.5, color: 'var(--text-muted)', minWidth: 0 }}>
+                    <div><b style={{ color: 'var(--heading)' }}>{t.cases.rsigSignedAt}:</b> {new Date(detail.reporter_signature.signed_at).toLocaleString()}</div>
+                    {detail.reporter_signature.cpf_masked && <div><b style={{ color: 'var(--heading)' }}>{t.cases.rsigCpf}:</b> {detail.reporter_signature.cpf_masked}</div>}
+                    <div><b style={{ color: 'var(--heading)' }}>{t.cases.rsigGeo}:</b> {detail.reporter_signature.geo?.consent && detail.reporter_signature.geo.lat != null
+                      ? `${detail.reporter_signature.geo.lat.toFixed(5)}, ${detail.reporter_signature.geo.lng?.toFixed(5)}`
+                      : t.cases.rsigNoGeo}</div>
+                    <div style={{ fontFamily: 'monospace', fontSize: 11, wordBreak: 'break-all' }}>#{detail.reporter_signature.hash.slice(0, 24)}…</div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Linha do tempo */}
             <div>

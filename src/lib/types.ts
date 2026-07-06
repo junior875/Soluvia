@@ -243,6 +243,18 @@ export interface CaseDetail extends CaseOut {
   my_pending_assignment_id: string | null
   answers: Record<string, unknown>
   form_snapshot: FormFieldSnap[]
+  reporter_signature: ReporterSignature | null
+}
+
+export interface ReporterSignature {
+  image: string
+  cpf_masked: string | null
+  geo: SigGeo
+  signed_at: string
+  ip?: string | null
+  user_agent?: string | null
+  hash: string
+  method?: string
 }
 
 export interface PublicCaseReceipt {

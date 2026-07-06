@@ -73,7 +73,7 @@ export default function Channels() {
                   <div style={{ color: 'var(--heading)', fontWeight: 800, fontSize: 16 }}>{c.name}</div>
                   <div style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>/{c.slug}</div>
                 </div>
-                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   <Chip tone="blue">{t.modules[c.module as keyof typeof t.modules] ?? c.module}</Chip>
                   <Chip tone={c.is_active ? 'green' : 'muted'}>{c.is_active ? t.channels.active : t.channels.inactive}</Chip>
                   <Button variant="ghost" leftIcon="copy" onClick={() => void showLink(c.id)}>{t.channels.link}</Button>
