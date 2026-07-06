@@ -12,6 +12,11 @@ dist-ssr
 *.tsbuildinfo
 *.local
 
+# Segredos / ambiente (NUNCA commitar — só o .env.example)
+.env
+.env.*
+!.env.example
+
 # Editor
 .vscode/*
 !.vscode/extensions.json

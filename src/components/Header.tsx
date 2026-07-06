@@ -12,24 +12,21 @@ const NAV_LINKS = [
  * Recebe um leve brilho branco para legibilidade sobre o header escuro,
  * sem caixa/chip ao redor.
  */
-function Logo({ height = 66 }: { height?: number }) {
+function Logo({ height = 88 }: { height?: number }) {
   return (
     <img
       src="/soluvia.png"
       alt="Soluvia"
-      style={{
-        height,
-        width: 'auto',
-        display: 'block',
-        filter: 'drop-shadow(0 0 3px rgba(255,255,255,.85)) drop-shadow(0 0 1px rgba(255,255,255,.9))',
-      }}
+      className="brand-logo"
+      style={{ height, width: 'auto', display: 'block' }}
     />
   )
 }
 
 export default function Header() {
   const [open, setOpen] = useState(false)
-  const { t } = useTranslation()
+  const { t, lang } = useTranslation()
+  const closeLabel = lang === 'en' ? 'Close' : lang === 'es' ? 'Cerrar' : 'Fechar'
 
   const openMenu = () => {
     setOpen(true)
@@ -69,8 +66,11 @@ export default function Header() {
               {t(l.key)}
             </a>
           ))}
+          <a href="#entrar" style={{ color: 'rgba(255,255,255,.9)', textDecoration: 'none', fontSize: 15, fontWeight: 600 }}>
+            Entrar
+          </a>
           <a
-            href="#contato"
+            href="#assinar"
             style={{
               background: 'linear-gradient(135deg,var(--accent),var(--accent-2))',
               color: 'white',
@@ -95,7 +95,7 @@ export default function Header() {
 
       <div id="mobile-nav" className={open ? 'open' : ''}>
         <button
-          aria-label="Fechar"
+          aria-label={closeLabel}
           onClick={closeMenu}
           style={{
             position: 'absolute',
@@ -124,8 +124,11 @@ export default function Header() {
             {t(l.key)}
           </a>
         ))}
+        <a href="#entrar" onClick={closeMenu}>
+          Entrar
+        </a>
         <a
-          href="#contato"
+          href="#assinar"
           onClick={closeMenu}
           style={{ background: 'linear-gradient(135deg,var(--accent),var(--accent-2))', color: 'white', padding: '16px 48px', borderRadius: 100, fontSize: 20, fontWeight: 700 }}
         >

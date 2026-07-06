@@ -9,6 +9,17 @@ import Faq from './components/Faq'
 import ContactForm from './components/ContactForm'
 import WhatsappButton from './components/WhatsappButton'
 import SettingsMenu from './components/SettingsMenu'
+import SignupFlow from './components/SignupFlow'
+import LoginModal from './components/LoginModal'
+import Panel from './components/Panel'
+import PlatformConsole from './components/PlatformConsole'
+import CheckoutReturn from './components/CheckoutReturn'
+import Onboarding from './components/Onboarding'
+import LegalDocs from './components/LegalDocs'
+import PublicReport, { isPublicReportPath } from './components/PublicReport'
+import AcceptInvite, { isAcceptInvitePath } from './components/AcceptInvite'
+import VerifierPage, { isVerifierPath } from './components/VerifierPage'
+import PublicTracker from './components/PublicTracker'
 import { useTranslation } from './i18n/LanguageProvider'
 
 /* ════════════════════════════════════════════
@@ -37,6 +48,13 @@ const C = {
   sectionNavy: 'var(--section-navy)',
   footerBg: 'var(--footer-bg)',
 } as const
+
+// Fundos "lux": cor sólida com aurora sutil (laranja+azul) por baixo do conteúdo,
+// dando profundidade sem mexer no z-index do conteúdo (vai no próprio background).
+const navyLux =
+  'radial-gradient(55% 50% at 85% -8%, rgba(242,146,30,.12), transparent 60%), radial-gradient(52% 48% at -6% 108%, rgba(47,111,176,.17), transparent 62%), var(--section-navy)'
+const surfaceLux =
+  'radial-gradient(46% 40% at 100% -5%, rgba(242,146,30,.06), transparent 60%), radial-gradient(42% 40% at -5% 105%, rgba(47,111,176,.07), transparent 62%), var(--surface)'
 
 function CheckIcon({ color }: { color: string }) {
   return (
@@ -105,6 +123,13 @@ export default function App() {
     { grad: C.accentGrad, icon: <><circle cx="8" cy="8" r="6" stroke="white" strokeWidth="1.8" /><path d="M5.5 8l2 2 3-3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></>, delay: 0.62 },
   ]
 
+  // Link público do canal (/c/slug/token): página de relato isolada, sem site.
+  if (isPublicReportPath()) return <PublicReport />
+  // Aceite de convite (/aceitar-convite?token=...): registro da pessoa convidada.
+  if (isAcceptInvitePath()) return <AcceptInvite />
+  // Verificação pública de assinatura (/verificar/{token}): sem login.
+  if (isVerifierPath()) return <VerifierPage />
+
   return (
     <>
       <div id="scroll-progress" style={{ position: 'fixed', top: 0, left: 0, height: 3, width: '0%', background: C.accentGrad, zIndex: 300, pointerEvents: 'none' }} />
@@ -134,7 +159,7 @@ export default function App() {
 
           <Reveal as="div" delay={0.42} y={44} duration={0.9} className="rsp-ctabtns" style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Magnetic strength={0.4}>
-              <a href="#contato" className="cta-sheen" style={{ display: 'block', background: C.accentGrad, color: 'white', padding: '18px 44px', borderRadius: 100, fontSize: 17, fontWeight: 700, textDecoration: 'none', boxShadow: '0 10px 36px var(--accent-shadow)' }}>{t('hero.ctaPrimary')}</a>
+              <a href="#assinar" className="cta-sheen" style={{ display: 'block', background: C.accentGrad, color: 'white', padding: '18px 44px', borderRadius: 100, fontSize: 17, fontWeight: 700, textDecoration: 'none', boxShadow: '0 10px 36px var(--accent-shadow)' }}>{t('hero.ctaPrimary')}</a>
             </Magnetic>
             <Magnetic strength={0.4}>
               <a href="#features" style={{ display: 'block', background: 'rgba(255,255,255,.07)', border: '1px solid rgba(255,255,255,.2)', color: 'white', padding: '18px 44px', borderRadius: 100, fontSize: 17, fontWeight: 600, textDecoration: 'none', backdropFilter: 'blur(12px)' }}>{t('hero.ctaSecondary')}</a>
@@ -151,7 +176,7 @@ export default function App() {
       </section>
 
       {/* ══════════════ PROBLEMA ══════════════ */}
-      <section data-screen-label="Problema" className="rsp-sec" style={{ background: C.surface, padding: '128px 60px' }}>
+      <section data-screen-label="Problema" className="rsp-sec" style={{ background: surfaceLux, padding: '128px 60px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <div style={{ maxWidth: 680, marginBottom: 80 }}>
             <Reveal as="p" y={36} style={{ color: C.accent, fontSize: 13, fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 18 }}>{t('problema.kicker')}</Reveal>
@@ -179,7 +204,7 @@ export default function App() {
       </section>
 
       {/* ══════════════ MISSÃO / AMBIENTE ══════════════ */}
-      <section id="ambiente" data-screen-label="Ambiente" className="rsp-sec" style={{ background: C.sectionNavy, padding: '128px 60px' }}>
+      <section id="ambiente" data-screen-label="Ambiente" className="rsp-sec" style={{ background: navyLux, padding: '128px 60px' }}>
         <div className="rsp-g2" style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
           <div>
             <Reveal as="p" y={32} style={{ color: C.accent, fontSize: 13, fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 18 }}>{t('mission.kicker')}</Reveal>
@@ -206,14 +231,8 @@ export default function App() {
 
           {/* Foto da equipe — troque o placeholder por <img src="/equipe.jpg" .../> em public/ */}
           <Reveal delay={0.2} x={52} y={0} duration={1} className="rsp-imgw" style={{ height: 520, borderRadius: 24, overflow: 'hidden', position: 'relative' }}>
-            <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#13456f 0%,#0e2c46 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, border: '1px dashed rgba(255,255,255,.18)' }}>
-              <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
-                <rect x="6" y="10" width="44" height="36" rx="5" stroke="rgba(255,255,255,.45)" strokeWidth="2.5" />
-                <circle cx="19" cy="23" r="5" stroke="rgba(255,255,255,.45)" strokeWidth="2.5" />
-                <path d="M9 44l13-13 9 9 6-6 10 10" stroke="rgba(255,255,255,.45)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <span style={{ color: 'rgba(255,255,255,.5)', fontSize: 14, fontWeight: 500, textAlign: 'center', padding: '0 24px' }}>{t('mission.imageNote')}</span>
-            </div>
+            <img src="/equipe.avif" alt={t('mission.imageNote')} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 55%, rgba(8,19,32,.35))', pointerEvents: 'none' }} />
           </Reveal>
         </div>
       </section>
@@ -244,7 +263,7 @@ export default function App() {
       </section>
 
       {/* ══════════════ FORMULÁRIO (preview) ══════════════ */}
-      <section id="formulario" data-screen-label="Formulário Preview" className="rsp-sec" style={{ background: C.sectionNavy, padding: '128px 60px' }}>
+      <section id="formulario" data-screen-label="Formulário Preview" className="rsp-sec" style={{ background: navyLux, padding: '128px 60px' }}>
         <div className="rsp-g2" style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }}>
           <div>
             <Reveal as="p" x={-44} y={0} duration={0.9} style={{ color: C.accent, fontSize: 13, fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 18 }}>{t('form.kicker')}</Reveal>
@@ -292,7 +311,7 @@ export default function App() {
       </section>
 
       {/* ══════════════ PLANOS ══════════════ */}
-      <section id="planos" data-screen-label="Planos" className="rsp-sec" style={{ background: C.surface, padding: '128px 60px' }}>
+      <section id="planos" data-screen-label="Planos" className="rsp-sec" style={{ background: surfaceLux, padding: '128px 60px' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 72 }}>
             <Reveal as="p" y={30} style={{ color: C.accent, fontSize: 13, fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: 18 }}>{t('plans.kicker')}</Reveal>
@@ -304,46 +323,31 @@ export default function App() {
             <Reveal as="p" delay={0.28} y={30} style={{ fontSize: 18, color: C.muted, marginTop: 20, lineHeight: 1.6 }}>{t('plans.subtitle')}</Reveal>
           </div>
 
-          <div className="rsp-gpric" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, maxWidth: 820, margin: '0 auto' }}>
-            {/* Mensal */}
-            <Reveal delay={0} y={48} scale={0.97} duration={0.9} style={{ background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 28, padding: '48px 40px', position: 'relative' }}>
-              <p style={{ fontSize: 13, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: C.muted, marginBottom: 20 }}>{dict.plans.monthly.name}</p>
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, marginBottom: 8 }}>
-                <span style={{ fontSize: 52, fontWeight: 900, color: C.heading, letterSpacing: '-2px', lineHeight: 1 }}>{dict.plans.monthly.price}</span>
-                <span style={{ fontSize: 18, color: C.muted, fontWeight: 500, paddingBottom: 8 }}>{dict.plans.monthly.per}</span>
-              </div>
-              <p style={{ fontSize: 14, color: C.muted, marginBottom: 36 }}>{dict.plans.monthly.billed}</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 40 }}>
-                {dict.plans.monthly.features.map((f: string) => (
-                  <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 22, height: 22, minWidth: 22, borderRadius: '50%', background: 'rgba(120,140,160,.16)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CheckIcon color="var(--heading)" /></div>
-                    <span style={{ fontSize: 15, color: C.text }}>{f}</span>
+          <div className="rsp-gpric" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24, maxWidth: 1080, margin: '0 auto', alignItems: 'stretch' }}>
+            {dict.plans.tiers.map((p: { name: string; price: string; users: string; popular?: boolean; features: string[] }, i: number) => {
+              const pop = !!p.popular
+              return (
+                <Reveal key={p.name} delay={i * 0.12} y={48} scale={0.97} duration={0.9} style={{ background: pop ? C.navy : C.surface2, border: pop ? 'none' : `1px solid ${C.border}`, borderRadius: 28, padding: '44px 32px', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  {pop && <div style={{ position: 'absolute', top: 0, right: 0, width: 200, height: 200, background: 'radial-gradient(circle at 80% 20%,rgba(242,146,30,.22),transparent 70%)', pointerEvents: 'none' }} />}
+                  {pop && <div style={{ alignSelf: 'flex-start', background: C.accentGrad, color: 'white', fontSize: 11, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', padding: '5px 14px', borderRadius: 100, marginBottom: 18 }}>{dict.plans.popular}</div>}
+                  <p style={{ fontSize: 13, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: pop ? 'rgba(255,255,255,.5)' : C.muted, marginBottom: 16 }}>{p.name}</p>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, marginBottom: 6 }}>
+                    <span style={{ fontSize: 46, fontWeight: 900, color: pop ? 'white' : C.heading, letterSpacing: '-2px', lineHeight: 1 }}>{p.price}</span>
+                    <span style={{ fontSize: 17, color: pop ? 'rgba(255,255,255,.55)' : C.muted, fontWeight: 500, paddingBottom: 7 }}>{dict.plans.per}</span>
                   </div>
-                ))}
-              </div>
-              <a href="#contato" style={{ display: 'block', textAlign: 'center', border: '2px solid var(--heading)', color: C.heading, padding: '16px 32px', borderRadius: 100, fontSize: 16, fontWeight: 700, textDecoration: 'none' }}>{dict.plans.monthly.cta}</a>
-            </Reveal>
-
-            {/* Anual */}
-            <Reveal delay={0.18} y={48} scale={0.97} duration={0.9} style={{ background: C.navy, borderRadius: 28, padding: '48px 40px', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', top: 0, right: 0, width: 200, height: 200, background: 'radial-gradient(circle at 80% 20%,rgba(242,146,30,.22),transparent 70%)', pointerEvents: 'none' }} />
-              <div style={{ display: 'inline-block', background: C.accentGrad, color: 'white', fontSize: 11, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', padding: '5px 14px', borderRadius: 100, marginBottom: 20 }}>{dict.plans.annual.popular}</div>
-              <p style={{ fontSize: 13, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,.5)', marginBottom: 20 }}>{dict.plans.annual.name}</p>
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, marginBottom: 8 }}>
-                <span style={{ fontSize: 52, fontWeight: 900, color: 'white', letterSpacing: '-2px', lineHeight: 1 }}>{dict.plans.annual.price}</span>
-                <span style={{ fontSize: 18, color: 'rgba(255,255,255,.55)', fontWeight: 500, paddingBottom: 8 }}>{dict.plans.annual.per}</span>
-              </div>
-              <p style={{ fontSize: 14, color: 'rgba(242,146,30,.95)', fontWeight: 600, marginBottom: 36 }}>{dict.plans.annual.note}</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 40 }}>
-                {dict.plans.annual.features.map((f: string) => (
-                  <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 22, height: 22, minWidth: 22, borderRadius: '50%', background: 'rgba(242,146,30,.22)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CheckIcon color="var(--accent)" /></div>
-                    <span style={{ fontSize: 15, color: 'rgba(255,255,255,.85)' }}>{f}</span>
+                  <p style={{ fontSize: 14, color: pop ? 'rgba(242,146,30,.95)' : C.muted, fontWeight: 600, marginBottom: 30 }}>{p.users}</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 13, marginBottom: 36 }}>
+                    {p.features.map((f: string) => (
+                      <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 22, height: 22, minWidth: 22, borderRadius: '50%', background: pop ? 'rgba(242,146,30,.22)' : 'rgba(120,140,160,.16)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CheckIcon color={pop ? 'var(--accent)' : 'var(--heading)'} /></div>
+                        <span style={{ fontSize: 14.5, color: pop ? 'rgba(255,255,255,.85)' : C.text }}>{f}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <a href="#contato" style={{ display: 'block', textAlign: 'center', background: C.accentGrad, color: 'white', padding: '16px 32px', borderRadius: 100, fontSize: 16, fontWeight: 700, textDecoration: 'none', boxShadow: '0 8px 28px var(--accent-shadow)' }}>{dict.plans.annual.cta}</a>
-            </Reveal>
+                  <a href="#assinar" style={{ marginTop: 'auto', display: 'block', textAlign: 'center', padding: '15px 28px', borderRadius: 100, fontSize: 16, fontWeight: 700, textDecoration: 'none', ...(pop ? { background: C.accentGrad, color: 'white', boxShadow: '0 8px 28px var(--accent-shadow)' } : { border: '2px solid var(--heading)', color: C.heading }) }}>{dict.plans.cta}</a>
+                </Reveal>
+              )
+            })}
           </div>
         </div>
       </section>
@@ -352,7 +356,7 @@ export default function App() {
       <Faq />
 
       {/* ══════════════ SEGURANÇA ══════════════ */}
-      <section id="seguranca" data-screen-label="Zona Segura" className="rsp-sec" style={{ background: C.surface, padding: '128px 60px' }}>
+      <section id="seguranca" data-screen-label="Zona Segura" className="rsp-sec" style={{ background: surfaceLux, padding: '128px 60px' }}>
         <div className="rsp-g2" style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 100, alignItems: 'center' }}>
           <Reveal delay={0} x={-52} y={0} duration={1} style={{ display: 'flex', justifyContent: 'center' }}>
             <Shield />
@@ -383,7 +387,7 @@ export default function App() {
       </section>
 
       {/* ══════════════ CONTATO ══════════════ */}
-      <section id="contato" data-screen-label="Contato" className="rsp-sec" style={{ background: C.sectionNavy, padding: '128px 60px', position: 'relative', overflow: 'hidden' }}>
+      <section id="contato" data-screen-label="Contato" className="rsp-sec" style={{ background: navyLux, padding: '128px 60px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px)', backgroundSize: '64px 64px', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', top: '50%', right: '5%', transform: 'translateY(-50%)', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle,rgba(242,146,30,.1) 0%,transparent 65%)', pointerEvents: 'none' }} />
 
@@ -427,14 +431,22 @@ export default function App() {
         <img src="/soluvia.png" alt="Soluvia" style={{ height: 48, width: 'auto', display: 'block', filter: 'drop-shadow(0 0 3px rgba(255,255,255,.8)) drop-shadow(0 0 1px rgba(255,255,255,.9))' }} />
         <p style={{ color: 'rgba(255,255,255,.28)', fontSize: 13 }}>{t('footer.rights')}</p>
         <div style={{ display: 'flex', gap: 28 }}>
-          <a href="#" style={{ color: 'rgba(255,255,255,.4)', textDecoration: 'none', fontSize: 13, fontWeight: 500 }}>{t('footer.privacy')}</a>
-          <a href="#" style={{ color: 'rgba(255,255,255,.4)', textDecoration: 'none', fontSize: 13, fontWeight: 500 }}>{t('footer.terms')}</a>
+          <a href="#privacidade" style={{ color: 'rgba(255,255,255,.4)', textDecoration: 'none', fontSize: 13, fontWeight: 500 }}>{t('footer.privacy')}</a>
+          <a href="#termos" style={{ color: 'rgba(255,255,255,.4)', textDecoration: 'none', fontSize: 13, fontWeight: 500 }}>{t('footer.terms')}</a>
           <a href="#contato" style={{ color: 'rgba(255,255,255,.4)', textDecoration: 'none', fontSize: 13, fontWeight: 500 }}>{t('footer.contact')}</a>
         </div>
       </footer>
 
       <SettingsMenu />
       <WhatsappButton phone="5500000000000" />
+      <SignupFlow />
+      <LoginModal />
+      <Panel />
+      <PlatformConsole />
+      <CheckoutReturn />
+      <LegalDocs />
+      <PublicTracker />
+      <Onboarding />
     </>
   )
 }

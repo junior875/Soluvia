@@ -1,0 +1,30 @@
+# Caddy do frontend Soluvia no Railway.
+#  • Serve o SPA compilado (/srv) e faz fallback p/ index.html nas rotas do
+#    cliente (/verificar/…, /c/…, /aceitar-convite).
+#  • Repassa /api/* p/ o backend (BACKEND_URL) NO SERVIDOR — o navegador só
+#    enxerga o domínio do front, então não há CORS nem cookie cross-site.
+{
+	admin off
+	persist_config off
+	auto_https off
+}
+
+# Railway injeta $PORT (fallback 8080 p/ rodar local: `docker run -p 8080:8080`).
+:{$PORT:8080} {
+	root * /srv
+	encode gzip zstd
+
+	# /api/* → backend. Defina BACKEND_URL = URL pública do serviço de backend,
+	# ex.: https://soluvia-backend-production.up.railway.app
+	# (Ao proxyar p/ HTTPS, o Caddy já ajusta o Host p/ o upstream — o Railway
+	#  roteia certo pelo Host.)
+	handle /api/* {
+		reverse_proxy {$BACKEND_URL}
+	}
+
+	# SPA: assets reais são servidos; qualquer outra rota cai no index.html.
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}

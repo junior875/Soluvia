@@ -80,8 +80,9 @@ export default function ContactForm() {
               <label style={labelStyle}>{t('contact.form.plan')}</label>
               <select style={{ ...inputStyle, background: 'rgba(14,44,70,.9)', color: 'rgba(255,255,255,.8)', cursor: 'pointer' }}>
                 <option value="">{t('contact.form.planPh')}</option>
-                <option value="mensal">{t('contact.form.planMonthly')}</option>
-                <option value="anual">{t('contact.form.planAnnual')}</option>
+                <option value="starter">{t('contact.form.planMonthly')}</option>
+                <option value="pro">{t('contact.form.planAnnual')}</option>
+                <option value="enterprise">{t('contact.form.planEnterprise')}</option>
                 <option value="duvida">{t('contact.form.planDoubt')}</option>
               </select>
             </div>

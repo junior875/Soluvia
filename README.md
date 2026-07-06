@@ -1,7 +1,62 @@
 # Soluvia — Front-end
 
 Landing page (home) da plataforma **Soluvia**, construída em **Vite + React + TypeScript**.
-Somente front-end — sem back-end. O formulário de contato simula o envio; integre sua API em `src/components/ContactForm.tsx`.
+O back-end (FastAPI) fica em [`../backend`](../backend); a camada de conexão já está pronta (ver abaixo).
+
+## Conectar ao back-end (API)
+
+A integração com a API Diagnostica vive em `src/lib`:
+
+| Arquivo | Papel |
+|---|---|
+| `src/lib/api.ts` | Cliente HTTP: injeta o `Authorization: Bearer`, intercepta **401 e faz refresh automático** (single-flight), e troca o token no **switch-tenant**. Access token em memória; refresh em cookie httpOnly. |
+| `src/lib/auth.tsx` | `AuthProvider` + hook `useAuth()`: `login`, `selectTenant`, `logout`, `can(code)` e `needsTenantSelection`. |
+| `src/lib/types.ts` | Tipos TypeScript espelhando os schemas do back-end. |
+| `src/components/TenantSelector.tsx` | Seletor de empresa (padrão "workspace do Slack"), renderizado quando há mais de um vínculo. |
+
+**1) Configure a URL da API** em `.env` (já há um `.env.development`):
+
+```bash
+VITE_API_URL=http://localhost:8000/api/v1
+```
+
+**2) Envolva o app com o `AuthProvider`** (em `src/main.tsx`):
+
+```tsx
+import { AuthProvider } from './lib/auth'
+// ...
+<AuthProvider>
+  <App />
+</AuthProvider>
+```
+
+**3) Use em qualquer componente:**
+
+```tsx
+import { useAuth } from './lib/auth'
+import TenantSelector from './components/TenantSelector'
+
+function Area() {
+  const { me, needsTenantSelection, can, login } = useAuth()
+  if (!me) return <button onClick={() => login('admin@acme.com', 'senha')}>Entrar</button>
+  if (needsTenantSelection) return <TenantSelector />   // seletor de empresa
+  return can('etica.respond') ? <PainelOperador /> : <SemAcesso />
+}
+```
+
+> A guarda por permissão no front é só **UX** — a checagem real é sempre no back-end.
+
+### Fluxo self-service (planos → cartão → criar conta)
+
+[`src/components/SignupFlow.tsx`](src/components/SignupFlow.tsx) é um overlay de 3 passos
+(escolher plano/ciclo → empresa + admin + **cartão mockado** → conta criada e já logado).
+Abre quando a URL vira `#assinar` — os botões da seção **Planos** do site já apontam
+para `#assinar-mensal` / `#assinar-anual`. Conversa com `POST /api/v1/signup` real.
+Cartão de teste: **4242 4242 4242 4242**, qualquer validade futura e CVC.
+
+O formulário de contato (`src/components/ContactForm.tsx`) continua simulando o envio;
+para submeter um relato real do Colaborador, use os endpoints públicos
+(`POST /api/v1/public/{slug}/cases?token=...`) via `api.post(...)`.
 
 **Recursos:**
 - 🌐 **Triplo idioma** (Português, Inglês, Espanhol) — sistema genérico de i18n
