@@ -104,11 +104,12 @@ const GATE_I18N: Record<Lang, GateStrings> = {
 // email_verified === false, exibe o card de verificação por cima do painel.
 function EmailGuard({ children }: { children: React.ReactNode }) {
   const caps = useCaps()
-  // O tipo PanelContext.user ainda não declara email_verified (arquivo compartilhado
-  // — não editamos). O backend já envia o campo; lemos de forma segura.
   const user = caps.ctx.user as typeof caps.ctx.user & { email_verified?: boolean }
+  // email_configured vem no contexto: SÓ exigimos verificação quando o servidor
+  // consegue enviar e-mail (senão o código não chegaria e o cadastro travaria).
+  const ctx = caps.ctx as typeof caps.ctx & { email_configured?: boolean }
 
-  if (user.email_verified === false) return <EmailGate email={user.email} />
+  if (ctx.email_configured && user.email_verified === false) return <EmailGate email={user.email} />
   return <>{children}</>
 }
 
