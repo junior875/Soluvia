@@ -18,6 +18,13 @@ const L = {
     errNoCompany: 'Sua conta ainda não faz parte de nenhuma empresa ativa. Assine um plano para começar.',
     errInvalid: 'E-mail ou senha inválidos.',
     errServer: (u: string) => `Não foi possível falar com o servidor (${u}). O back-end está rodando?`,
+    forgot: 'Esqueci a senha', forgotTitle: 'Redefinir senha',
+    forgotBody: 'Enviaremos um código de 8 dígitos para o seu e-mail.',
+    sendCode: 'Enviar código', sending: 'Enviando…', codeLabel: 'Código (8 dígitos)',
+    newPassword: 'Nova senha', resetBtn: 'Redefinir senha', backToLogin: 'Voltar ao login',
+    codeSent: 'Se o e-mail existir, enviamos um código. Confira sua caixa (e o spam).',
+    resetOk: 'Senha redefinida! Faça login com a nova senha.',
+    errCode: 'Código inválido ou expirado.',
   },
   en: {
     kicker: 'Access Soluvia', close: 'Close', signIn: 'Sign in', signingIn: 'Signing in…',
@@ -27,6 +34,13 @@ const L = {
     errNoCompany: 'Your account is not part of any active company yet. Subscribe to a plan to get started.',
     errInvalid: 'Invalid email or password.',
     errServer: (u: string) => `Could not reach the server (${u}). Is the backend running?`,
+    forgot: 'Forgot password', forgotTitle: 'Reset password',
+    forgotBody: "We'll send an 8-digit code to your email.",
+    sendCode: 'Send code', sending: 'Sending…', codeLabel: 'Code (8 digits)',
+    newPassword: 'New password', resetBtn: 'Reset password', backToLogin: 'Back to sign in',
+    codeSent: 'If the email exists, we sent a code. Check your inbox (and spam).',
+    resetOk: 'Password reset! Sign in with your new password.',
+    errCode: 'Invalid or expired code.',
   },
   es: {
     kicker: 'Acceder a Soluvia', close: 'Cerrar', signIn: 'Entrar', signingIn: 'Entrando…',
@@ -36,6 +50,13 @@ const L = {
     errNoCompany: 'Tu cuenta aún no forma parte de ninguna empresa activa. Suscribe un plan para empezar.',
     errInvalid: 'Correo o contraseña inválidos.',
     errServer: (u: string) => `No se pudo contactar con el servidor (${u}). ¿El backend está en ejecución?`,
+    forgot: 'Olvidé la contraseña', forgotTitle: 'Restablecer contraseña',
+    forgotBody: 'Enviaremos un código de 8 dígitos a tu correo.',
+    sendCode: 'Enviar código', sending: 'Enviando…', codeLabel: 'Código (8 dígitos)',
+    newPassword: 'Nueva contraseña', resetBtn: 'Restablecer', backToLogin: 'Volver al inicio',
+    codeSent: 'Si el correo existe, enviamos un código. Revisa tu bandeja (y spam).',
+    resetOk: '¡Contraseña restablecida! Inicia sesión con la nueva.',
+    errCode: 'Código inválido o expirado.',
   },
 }
 
@@ -78,6 +99,32 @@ export default function LoginModal() {
   const [error, setError] = useState<string | null>(null)
   // Quando a pessoa tem mais de uma empresa, mostramos o seletor.
   const [choices, setChoices] = useState<MembershipSummary[] | null>(null)
+  // Fluxo de recuperação de senha: 'login' | 'forgot' | 'reset'.
+  const [view, setView] = useState<'login' | 'forgot' | 'reset'>('login')
+  const [code, setCode] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [notice, setNotice] = useState<string | null>(null)
+
+  async function handleForgot(e: FormEvent) {
+    e.preventDefault(); setError(null); setLoading(true)
+    try {
+      await api.post('/auth/forgot-password', { email: email.trim() }, { auth: false })
+      setNotice(tr.codeSent); setView('reset')
+    } catch (err) { setError((err as ApiError).detail ?? tr.errServer(BASE_URL)) }
+    finally { setLoading(false) }
+  }
+
+  async function handleReset(e: FormEvent) {
+    e.preventDefault(); setError(null); setLoading(true)
+    try {
+      await api.post('/auth/reset-password',
+        { email: email.trim(), code: code.trim(), new_password: newPassword }, { auth: false })
+      setNotice(tr.resetOk); setView('login'); setPassword(''); setCode(''); setNewPassword('')
+    } catch (err) {
+      const st = (err as ApiError).status
+      setError(st === 400 ? tr.errCode : (err as ApiError).detail ?? tr.errServer(BASE_URL))
+    } finally { setLoading(false) }
+  }
 
   useEffect(() => {
     const sync = () => {
@@ -184,6 +231,11 @@ export default function LoginModal() {
             {error}
           </div>
         )}
+        {notice && (
+          <div style={{ background: 'rgba(16,185,129,.12)', border: '1px solid rgba(16,185,129,.4)', color: '#6ee7b7', borderRadius: 12, padding: '12px 14px', fontSize: 14, marginBottom: 16 }}>
+            {notice}
+          </div>
+        )}
 
         {/* Seletor de empresa (quando há mais de um vínculo). */}
         {choices ? (
@@ -220,6 +272,39 @@ export default function LoginModal() {
               ))}
             </div>
           </>
+        ) : view === 'forgot' ? (
+          <form onSubmit={handleForgot}>
+            <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--heading)', margin: '2px 0 8px' }}>{tr.forgotTitle}</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 16 }}>{tr.forgotBody}</p>
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>{tr.email}</label>
+              <input className="app-input" style={input} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@empresa.com" autoFocus />
+            </div>
+            <button type="submit" disabled={loading} style={{ ...primaryBtn, opacity: loading ? 0.6 : 1 }}>{loading ? tr.sending : tr.sendCode}</button>
+            <p style={{ textAlign: 'center', marginTop: 16 }}>
+              <button type="button" onClick={() => { setView('login'); setError(null) }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 13.5, cursor: 'pointer', fontFamily: 'inherit' }}>{tr.backToLogin}</button>
+            </p>
+          </form>
+        ) : view === 'reset' ? (
+          <form onSubmit={handleReset}>
+            <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--heading)', margin: '2px 0 18px' }}>{tr.forgotTitle}</h2>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>{tr.email}</label>
+              <input className="app-input" style={input} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>{tr.codeLabel}</label>
+              <input className="app-input" style={{ ...input, letterSpacing: 4, textAlign: 'center', fontSize: 18 }} inputMode="numeric" required value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 8))} placeholder="00000000" autoFocus />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>{tr.newPassword}</label>
+              <input className="app-input" style={input} type="password" required minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" />
+            </div>
+            <button type="submit" disabled={loading} style={{ ...primaryBtn, opacity: loading ? 0.6 : 1 }}>{loading ? tr.sending : tr.resetBtn}</button>
+            <p style={{ textAlign: 'center', marginTop: 16 }}>
+              <button type="button" onClick={() => { setView('login'); setError(null) }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 13.5, cursor: 'pointer', fontFamily: 'inherit' }}>{tr.backToLogin}</button>
+            </p>
+          </form>
         ) : (
           <form onSubmit={handleSubmit}>
             <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--heading)', margin: '2px 0 18px' }}>
@@ -229,9 +314,12 @@ export default function LoginModal() {
               <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>{tr.email}</label>
               <input className="app-input" style={input} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@empresa.com" autoFocus />
             </div>
-            <div style={{ marginBottom: 20 }}>
+            <div style={{ marginBottom: 8 }}>
               <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>{tr.password}</label>
               <input className="app-input" style={input} type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+            </div>
+            <div style={{ textAlign: 'right', marginBottom: 16 }}>
+              <button type="button" onClick={() => { setView('forgot'); setError(null); setNotice(null) }} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>{tr.forgot}</button>
             </div>
             <button type="submit" disabled={loading} style={{ ...primaryBtn, opacity: loading ? 0.6 : 1 }}>
               {loading ? tr.signingIn : tr.signIn}
