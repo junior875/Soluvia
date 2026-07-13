@@ -6,9 +6,10 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../../lib/api'
-import type { ApiError, ChannelOut } from '../../lib/types'
+import type { ApiError, ChannelOut, MemberRow } from '../../lib/types'
 import { useT } from '../strings'
-import { Button, Card, EmptyState, Input, PageHeader, SectionLabel, Select, Skeleton } from '../ui'
+import { useTranslation } from '../../i18n/LanguageProvider'
+import { Button, Card, EmptyState, Input, Modal, PageHeader, SectionLabel, Select, Skeleton } from '../ui'
 import { Icon } from '../icons'
 
 type FieldType =
@@ -33,8 +34,43 @@ const LANGS: { v: Lang; label: string }[] = [{ v: 'pt', label: 'PT' }, { v: 'en'
 const hasOptions = (t: FieldType) => t === 'single_choice' || t === 'multi_choice' || t === 'dropdown'
 const slug = (s: string) => s.normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase() || 'campo'
 
+// i18n LOCAL (só desta tela) para o fluxo "Avisar a empresa". Mantido aqui para
+// não tocar em strings.ts / translations.ts — chaveado pelo idioma da interface.
+const NOTIFY_I18N = {
+  pt: {
+    button: 'Avisar a empresa', title: 'Avisar a empresa', kicker: 'Formulário publicado',
+    intro: 'Envie o link do formulário por e-mail para os membros da empresa.',
+    all: 'Avisar todos', allHint: 'Manda o aviso para todos os membros da empresa.',
+    pick: 'Escolher quem avisar', pickHint: 'Selecione as pessoas que devem receber o aviso.',
+    send: 'Enviar', back: 'Voltar', selectAll: 'Todos', clear: 'Limpar',
+    empty: 'Nenhum membro para avisar.', invited: 'Convite pendente',
+    sentOk: (n: number) => `Avisados: ${n}`, errNotify: 'Não foi possível enviar os avisos.',
+  },
+  en: {
+    button: 'Notify the company', title: 'Notify the company', kicker: 'Form published',
+    intro: 'Email the form link to the company members.',
+    all: 'Notify everyone', allHint: 'Sends the notice to every company member.',
+    pick: 'Choose who to notify', pickHint: 'Pick the people who should get the notice.',
+    send: 'Send', back: 'Back', selectAll: 'All', clear: 'Clear',
+    empty: 'No members to notify.', invited: 'Pending invite',
+    sentOk: (n: number) => `Notified: ${n}`, errNotify: 'Could not send the notifications.',
+  },
+  es: {
+    button: 'Avisar a la empresa', title: 'Avisar a la empresa', kicker: 'Formulario publicado',
+    intro: 'Envía el enlace del formulario por correo a los miembros de la empresa.',
+    all: 'Avisar a todos', allHint: 'Envía el aviso a todos los miembros de la empresa.',
+    pick: 'Elegir a quién avisar', pickHint: 'Selecciona a las personas que recibirán el aviso.',
+    send: 'Enviar', back: 'Volver', selectAll: 'Todos', clear: 'Limpiar',
+    empty: 'No hay miembros para avisar.', invited: 'Invitación pendiente',
+    sentOk: (n: number) => `Avisados: ${n}`, errNotify: 'No fue posible enviar los avisos.',
+  },
+} as const
+
 export default function FormBuilder() {
   const t = useT()
+  // Idioma da INTERFACE (≠ idioma do formulário, que é o `lang` mais abaixo).
+  const { lang: uiLang } = useTranslation()
+  const nt = NOTIFY_I18N[uiLang]
   const [channels, setChannels] = useState<ChannelOut[] | null>(null)
   const [channelId, setChannelId] = useState<string | null>(null)
   const [form, setForm] = useState<FormData | null>(null)
@@ -53,6 +89,12 @@ export default function FormBuilder() {
   const [msgs, setMsgs] = useState<ChatMsg[]>([])
   const [aiInput, setAiInput] = useState('')
   const [aiBusy, setAiBusy] = useState(false)
+  // "Avisar a empresa": modal com dois passos (escolher / selecionar membros).
+  const [notifyOpen, setNotifyOpen] = useState(false)
+  const [notifyView, setNotifyView] = useState<'choose' | 'pick'>('choose')
+  const [members, setMembers] = useState<MemberRow[] | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [notifyBusy, setNotifyBusy] = useState(false)
 
   useEffect(() => {
     api.get<ChannelOut[]>('/channels')
@@ -112,6 +154,36 @@ export default function FormBuilder() {
   })
 
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2600) }
+
+  // ── Avisar a empresa ──────────────────────────────────────────────
+  const openNotify = () => { setNotifyView('choose'); setSelected(new Set()); setNotifyOpen(true) }
+
+  const openPick = () => {
+    setNotifyView('pick')
+    if (members === null) {
+      api.get<MemberRow[]>('/memberships').then(setMembers).catch(() => setMembers([]))
+    }
+  }
+
+  const toggleMember = (id: string) => setSelected((s) => {
+    const next = new Set(s)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+
+  // recipients: null → todos; array de ids → só esses. O backend 400 se o form
+  // ainda não estiver publicado; nesse caso mostramos o detail no toast.
+  async function notify(recipients: string[] | null) {
+    if (!channelId || notifyBusy) return
+    setNotifyBusy(true)
+    try {
+      const r = await api.post<{ sent: number }>(`/channels/${channelId}/form/notify`, { recipients })
+      flash(nt.sentOk(r.sent))
+      setNotifyOpen(false)
+    } catch (e) {
+      flash((e as ApiError).detail ?? nt.errNotify)
+    } finally { setNotifyBusy(false) }
+  }
 
   async function save(publish = false, overrideLang?: Lang) {
     if (!form || !channelId) return
@@ -345,6 +417,7 @@ export default function FormBuilder() {
                   <Button variant="ghost" onClick={() => { void navigator.clipboard?.writeText(publicUrl); flash(t.common.copied) }}>{t.common.copy}</Button>
                 </div>
                 {!form.published && <p style={{ color: '#e0a23c', fontSize: 12.5, marginTop: 8 }}>{t.fb.publishHint}</p>}
+                <Button variant="outline" leftIcon="people" onClick={openNotify} style={{ marginTop: 12, width: '100%' }}>{nt.button}</Button>
               </div>
             )}
 
@@ -363,6 +436,70 @@ export default function FormBuilder() {
         </div>
       )}
 
+      <Modal open={notifyOpen} onClose={() => setNotifyOpen(false)} title={nt.title} kicker={nt.kicker} maxWidth={notifyView === 'pick' ? 520 : 460}>
+        {notifyView === 'choose' ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.6, margin: 0 }}>{nt.intro}</p>
+            <button onClick={() => void notify(null)} disabled={notifyBusy} className="app-card--hover app-btn" style={choiceCard}>
+              <span style={choiceIcon}><Icon name="people" size={20} /></span>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'block', color: 'var(--heading)', fontWeight: 800, fontSize: 15 }}>{nt.all}</span>
+                <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12.5, marginTop: 2 }}>{nt.allHint}</span>
+              </span>
+            </button>
+            <button onClick={openPick} disabled={notifyBusy} className="app-card--hover app-btn" style={choiceCard}>
+              <span style={choiceIcon}><Icon name="roles" size={20} /></span>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'block', color: 'var(--heading)', fontWeight: 800, fontSize: 15 }}>{nt.pick}</span>
+                <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12.5, marginTop: 2 }}>{nt.pickHint}</span>
+              </span>
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {members === null ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <Skeleton h={52} r={12} /><Skeleton h={52} r={12} /><Skeleton h={52} r={12} />
+              </div>
+            ) : members.length === 0 ? (
+              <EmptyState icon="people" title={nt.empty} />
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700 }}>{selected.size} / {members.length}</span>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button className="app-btn" onClick={() => setSelected(new Set(members.map((m) => m.id)))} style={miniBtn}>{nt.selectAll}</button>
+                    <button className="app-btn" onClick={() => setSelected(new Set())} style={miniBtn}>{nt.clear}</button>
+                  </div>
+                </div>
+                <div className="app-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto', paddingRight: 2 }}>
+                  {members.map((m) => {
+                    const on = selected.has(m.id)
+                    const name = m.full_name || m.email || m.invited_email
+                    const sub = m.status === 'invited' ? nt.invited : (m.email || m.invited_email)
+                    return (
+                      <button key={m.id} onClick={() => toggleMember(m.id)} className="app-btn" style={{ ...memberRow, borderColor: on ? 'var(--accent)' : 'var(--border)', background: on ? 'var(--accent-soft)' : 'var(--surface-2)' }}>
+                        <span style={{ ...checkbox, borderColor: on ? 'var(--accent)' : 'var(--border)', background: on ? 'var(--accent)' : 'transparent' }}>
+                          {on && <Icon name="check" size={13} style={{ color: '#fff' }} />}
+                        </span>
+                        <span style={{ minWidth: 0, textAlign: 'left', flex: 1 }}>
+                          <span style={{ display: 'block', color: 'var(--heading)', fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</span>
+                          <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</span>
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', marginTop: 4 }}>
+              <Button variant="ghost" onClick={() => setNotifyView('choose')}>{nt.back}</Button>
+              <Button leftIcon="check" onClick={() => void notify([...selected])} loading={notifyBusy} disabled={selected.size === 0}>{nt.send}</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {toast && createPortal(
         <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: 'var(--heading)', color: 'var(--surface)', padding: '12px 22px', borderRadius: 100, fontWeight: 700, fontSize: 14, boxShadow: '0 12px 30px rgba(0,0,0,.3)', zIndex: 10002 }}>{toast}</div>,
         document.body,
@@ -372,6 +509,13 @@ export default function FormBuilder() {
 }
 
 const iconBtn: CSSProperties = { width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-muted)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }
+
+// Estilos do modal "Avisar a empresa".
+const choiceCard: CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', cursor: 'pointer', padding: '14px 16px', borderRadius: 14, border: '1.5px solid var(--border)', background: 'var(--surface-2)', fontFamily: 'inherit' }
+const choiceIcon: CSSProperties = { width: 40, height: 40, flexShrink: 0, borderRadius: 12, background: 'var(--accent-soft)', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }
+const miniBtn: CSSProperties = { cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', borderRadius: 100, padding: '5px 12px', fontSize: 12, fontWeight: 700 }
+const memberRow: CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, width: '100%', cursor: 'pointer', padding: '10px 12px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'var(--surface-2)', fontFamily: 'inherit' }
+const checkbox: CSSProperties = { width: 20, height: 20, flexShrink: 0, borderRadius: 6, border: '2px solid var(--border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }
 
 function AIChat({ t, msgs, aiBusy, aiInput, setAiInput, onSend }: {
   t: ReturnType<typeof useT>; msgs: ChatMsg[]; aiBusy: boolean; aiInput: string
