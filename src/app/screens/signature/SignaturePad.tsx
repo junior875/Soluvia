@@ -3,12 +3,13 @@
 // caneta e toque via Pointer Events; devolve null quando o traço está vazio.
 // Expõe clear() via ref para o botão "Limpar" do modal.
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
+import { SIGNATURE_INK, trimToInk } from '../../../lib/signatureImage'
 
 export interface SignaturePadHandle { clear: () => void; load: (dataUrl: string) => void }
 
 // Tinta fixa (não segue o tema): a rubrica precisa ficar ESCURA para aparecer
 // no documento assinado (PDF/DOCX geralmente com fundo claro).
-const INK = '#12324e'
+const INK = SIGNATURE_INK
 
 interface Props {
   onChange: (dataUrl: string | null) => void
@@ -52,44 +53,10 @@ const SignaturePad = forwardRef<SignaturePadHandle, Props>(function SignaturePad
     onChange(null)
   }
 
-  /** Exporta SÓ o retângulo que tem tinta.
-   *
-   *  Exportar o canvas inteiro era a maior causa de "a assinatura foi parar muito
-   *  para baixo": o pad tem ~944x300 px quase todos transparentes e a linha-guia
-   *  fica lá embaixo, então todo mundo assina no terço inferior. O backend desenha
-   *  a imagem com preserveAspectRatio + anchor centrado, ou seja, centraliza o PNG
-   *  INTEIRO na caixa marcada — e a tinta, que mora embaixo dele, cai ~15pt abaixo
-   *  do centro ocupando 12pt de uma caixa de 67pt. Recortando na origem, a rubrica
-   *  preenche a caixa e fica exatamente onde foi marcada.
-   */
+  /** Exporta SÓ o retângulo que tem tinta (ver o porquê em lib/signatureImage). */
   const exportTrimmed = (): string | null => {
     const cv = canvasRef.current
-    const ctx = cv?.getContext('2d')
-    if (!cv || !ctx) return null
-    // getImageData ignora o ctx.scale(ratio) — trabalha em pixels de dispositivo.
-    const { data, width: W, height: H } = ctx.getImageData(0, 0, cv.width, cv.height)
-    let x0 = W, y0 = H, x1 = -1, y1 = -1
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        if (data[(y * W + x) * 4 + 3] > 8) {   // alpha > 8 → tem tinta
-          if (x < x0) x0 = x
-          if (x > x1) x1 = x
-          if (y < y0) y0 = y
-          if (y > y1) y1 = y
-        }
-      }
-    }
-    if (x1 < 0) return null                    // pad vazio
-    const pad = 6                              // respiro p/ não cortar a espessura do traço
-    x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad)
-    x1 = Math.min(W - 1, x1 + pad); y1 = Math.min(H - 1, y1 + pad)
-    const out = document.createElement('canvas')
-    out.width = x1 - x0 + 1
-    out.height = y1 - y0 + 1
-    const octx = out.getContext('2d')
-    if (!octx) return null
-    octx.drawImage(cv, x0, y0, out.width, out.height, 0, 0, out.width, out.height)
-    return out.toDataURL('image/png')
+    return cv ? trimToInk(cv) : null
   }
 
   // Pré-preenche o pad com uma rubrica salva (reusa os dados do signatário).

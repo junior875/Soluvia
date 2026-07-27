@@ -3,15 +3,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../../../lib/api'
 import type { ApiError, SigGeo, Signature, SignRequest } from '../../../lib/types'
+import { useCaps } from '../../capabilities'
 import { Modal, Button, Field, Input } from '../../ui'
 import { Icon } from '../../icons'
 import { useT } from '../../strings'
-import SignaturePad, { type SignaturePadHandle } from './SignaturePad'
+import RubricField, { type RubricFieldHandle } from './RubricField'
 import GeolocationConsentModal from './GeolocationConsentModal'
+import { sigProfileKey } from '../../../lib/storageKeys'
 
-// Perfil do signatário salvo NESTE dispositivo (localStorage) para reuso.
-// NUNCA guarda localização — geo exige consentimento a cada assinatura.
-const PROFILE_KEY = 'soluvia.sig.profile'
+// Perfil do signatário salvo NESTE dispositivo (localStorage), POR USUÁRIO.
+// Guarda só a imagem da rubrica — nunca o CPF, nunca a localização — e é apagado
+// no logout (lib/api.ts). A chave era global e o CPF era restaurado: em máquina
+// compartilhada, a próxima pessoa abria o modal com o CPF de quem assinou antes
+// já preenchido, e ele ia parar no evidence_hash dela.
 
 interface Props {
   open: boolean
@@ -34,36 +38,50 @@ function maskCpf(v: string): string {
 
 export default function SignModal({ open, documentId, fieldId, onClose, onSigned }: Props) {
   const t = useT()
-  const padRef = useRef<SignaturePadHandle>(null)
+  const rubricRef = useRef<RubricFieldHandle>(null)
   const [image, setImage] = useState<string | null>(null)
   const [cpf, setCpf] = useState('')
   const [geo, setGeo] = useState<SigGeo>({ consent: false })
   const [geoOpen, setGeoOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
-  const [remember, setRemember] = useState(true)
+  // Opt-IN: o que se persiste agora é o nome completo renderizado de forma
+  // legível, não mais um rabisco. Ligado por padrão era demais.
+  const [remember, setRemember] = useState(false)
   const [sigType, setSigType] = useState<'rubric' | 'seal'>('rubric')
+  const user = useCaps().ctx.user
+  const fullName = user.full_name
+  const profileKey = sigProfileKey(user.id)
 
-  // Ao abrir, pré-preenche com o perfil salvo (rubrica + CPF; nunca geo).
+  // Ao abrir, restaura a rubrica DESTE usuário. O CPF nunca é restaurado.
   useEffect(() => {
     if (!open) return
     try {
-      const raw = localStorage.getItem(PROFILE_KEY)
+      const raw = localStorage.getItem(profileKey)
       if (!raw) return
-      const p = JSON.parse(raw) as { cpf?: string; image?: string }
-      if (p.cpf) setCpf(p.cpf)
-      if (p.image) { setImage(p.image); setTimeout(() => padRef.current?.load(p.image!), 80) }
+      const p = JSON.parse(raw) as { image?: string }
+      if (p.image) { setImage(p.image); setTimeout(() => rubricRef.current?.load(p.image!), 80) }
     } catch { /* perfil ausente/corrompido */ }
-  }, [open])
+  }, [open, profileKey])
 
   const reset = () => {
-    padRef.current?.clear()
+    rubricRef.current?.clear()
     setImage(null); setCpf(''); setGeo({ consent: false }); setErr(null)
+    setSigType('rubric')   // reabre sempre no modo em que o RubricField existe
   }
 
-  const close = () => { reset(); onClose() }
+  const close = () => {
+    // Fechar sem assinar também tem que respeitar o "não guardar neste aparelho".
+    if (!remember) { try { localStorage.removeItem(profileKey) } catch { /* storage indisponível */ } }
+    reset(); onClose()
+  }
 
   async function submit() {
+    // Rubrica sem imagem = documento assinado com a caixa marcada EM BRANCO:
+    // o carimbo (artifacts._stamp_one) não entra em nenhum ramo com rubric_png
+    // nulo, e a assinatura ainda assim entra na cadeia. Como a rubrica gerada só
+    // existe depois do debounce + carga das fontes, essa janela é real.
+    if (sigType === 'rubric' && !image) { setErr(t.sig.rubricRequired); return }
     setErr(null); setBusy(true)
     try {
       const body: SignRequest = {
@@ -77,8 +95,8 @@ export default function SignModal({ open, documentId, fieldId, onClose, onSigned
       const sig = await api.post<Signature>(`/signature/documents/${documentId}/sign`, body)
       // Salva/limpa o perfil do signatário (rubrica + CPF), NUNCA a localização.
       try {
-        if (remember) localStorage.setItem(PROFILE_KEY, JSON.stringify({ cpf: cpf.trim(), image }))
-        else localStorage.removeItem(PROFILE_KEY)
+        if (remember && image) localStorage.setItem(profileKey, JSON.stringify({ image }))
+        else localStorage.removeItem(profileKey)
       } catch { /* storage indisponível */ }
       reset()
       onSigned(sig)
@@ -105,7 +123,15 @@ export default function SignModal({ open, documentId, fieldId, onClose, onSigned
                 <button
                   key={tp}
                   type="button"
-                  onClick={() => setSigType(tp)}
+                  onClick={() => {
+                    if (tp === sigType) return
+                    // Trocar de tipo desmonta e remonta o RubricField com o pad
+                    // limpo; sem zerar aqui, `image` guardaria o PNG anterior e a
+                    // pessoa assinaria com o que não está mais na tela.
+                    setSigType(tp)
+                    rubricRef.current?.clear()
+                    setImage(null)
+                  }}
                   className="app-btn"
                   style={{
                     flex: 1, minWidth: 0, cursor: 'pointer', padding: '12px 12px', borderRadius: 12,
@@ -124,18 +150,7 @@ export default function SignModal({ open, documentId, fieldId, onClose, onSigned
 
           {/* Rubrica (só p/ type=rubric) */}
           {sigType === 'rubric' ? (
-            <Field label={t.sig.rubric}>
-              <p style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: -2, marginBottom: 8 }}>{t.sig.rubricHint}</p>
-              <SignaturePad ref={padRef} onChange={setImage} />
-              <button
-                type="button"
-                onClick={() => padRef.current?.clear()}
-                className="app-btn"
-                style={{ marginTop: 8, background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', padding: 0 }}
-              >
-                {t.sig.clear}
-              </button>
-            </Field>
+            <RubricField ref={rubricRef} defaultName={fullName} onChange={setImage} />
           ) : (
             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>
               <span style={{ width: 34, height: 34, minWidth: 34, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accent-soft)', color: 'var(--accent)' }}>
@@ -195,7 +210,13 @@ export default function SignModal({ open, documentId, fieldId, onClose, onSigned
             <div style={{ background: 'rgba(217,83,79,.12)', border: '1px solid rgba(217,83,79,.4)', color: '#e08585', borderRadius: 12, padding: '11px 14px', fontSize: 13.5 }}>{err}</div>
           )}
 
-          <Button onClick={() => void submit()} loading={busy} leftIcon="signature" style={{ padding: '14px 24px', fontSize: 15.5 }}>
+          <Button
+            onClick={() => void submit()}
+            loading={busy}
+            disabled={sigType === 'rubric' && !image}
+            leftIcon="signature"
+            style={{ padding: '14px 24px', fontSize: 15.5 }}
+          >
             {busy ? t.sig.signing : t.sig.confirmSign}
           </Button>
         </div>

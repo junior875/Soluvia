@@ -4,6 +4,7 @@
 // - mantém o access token em memória; o refresh fica em cookie httpOnly
 // - ao trocar de tenant, atualiza o token armazenado
 
+import { SIG_PROFILE_PREFIX } from './storageKeys'
 import type {
   ApiError,
   CheckoutStartRequest,
@@ -335,12 +336,23 @@ export async function switchTenant(tenantId: string): Promise<TokenResponse> {
   return data
 }
 
+/** Rubricas guardadas no aparelho não podem sobreviver ao fim da sessão: é uma
+ *  imagem legível do nome completo de quem assinou. */
+function clearSignatureProfiles(): void {
+  try {
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith(SIG_PROFILE_PREFIX))
+      .forEach((k) => localStorage.removeItem(k))
+  } catch { /* modo privado / storage indisponível */ }
+}
+
 export async function logout(): Promise<void> {
   try {
     await api.post('/auth/logout')
   } finally {
     setAccessToken(null)
     setCurrentTenantId(null)
+    clearSignatureProfiles()
   }
 }
 
@@ -349,6 +361,7 @@ export async function deleteAccount(): Promise<void> {
   await api.delete('/me/account')
   setAccessToken(null)
   setCurrentTenantId(null)
+  clearSignatureProfiles()
 }
 
 /** Restaura o access token a partir do cookie de refresh (após um reload).

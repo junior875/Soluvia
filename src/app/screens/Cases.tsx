@@ -19,7 +19,7 @@ const SEVS = ['low', 'medium', 'high', 'critical'] as const
 const ta: CSSProperties = { width: '100%', minHeight: 72, resize: 'vertical', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 12px', color: 'var(--heading)', fontFamily: 'inherit', fontSize: 14, boxSizing: 'border-box' }
 
 export default function Cases() {
-  const { can } = useCaps()
+  const { can, ctx } = useCaps()
   const t = useT()
   const { lang } = useTranslation()
   const sevL = (s: string) => (t.cases.sev as Record<string, string>)[s] ?? s
@@ -373,7 +373,7 @@ export default function Cases() {
         )}
       </Modal>
 
-      <ParecerSignModal open={signOpen} busy={busy} onClose={() => setSignOpen(false)} onConfirm={(sig) => doSubmitParecer(sig)} />
+      <ParecerSignModal open={signOpen} busy={busy} onClose={() => setSignOpen(false)} onConfirm={(sig) => doSubmitParecer(sig)} defaultName={ctx.user.full_name} />
 
       {toast && createPortal(
         <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: 'var(--heading)', color: 'var(--surface)', padding: '12px 22px', borderRadius: 100, fontWeight: 700, fontSize: 14, boxShadow: '0 12px 30px rgba(0,0,0,.3)', zIndex: 10002, maxWidth: '90vw', textAlign: 'center' }}>{toast}</div>,

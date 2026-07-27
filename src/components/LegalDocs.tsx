@@ -251,6 +251,7 @@ const PRIVACY: Record<Lang, Section[]> = {
     ] },
     { h: '8. Cookies e armazenamento local', p: [
       'Usamos cookie estritamente necessário para manter sua sessão (refresh token httpOnly) e armazenamento local para suas preferências (tema, idioma, tamanho de fonte). Não usamos cookies de rastreamento de terceiros para publicidade.',
+      'No módulo de Assinatura Digital, se você marcar "salvar minha rubrica neste dispositivo", a imagem da sua rubrica fica guardada no armazenamento local do navegador, separada por usuário, apenas para reuso na próxima assinatura. Ela é apagada ao sair da conta e você pode desmarcar a opção a qualquer momento. Seu CPF e sua localização nunca são guardados no dispositivo.',
     ] },
     { h: '9. Encarregado (DPO) e contato', p: [
       'Encarregado pelo Tratamento de Dados (DPO): dpo@soluqtion.com. Você também pode peticionar à Autoridade Nacional de Proteção de Dados (ANPD).',
@@ -292,6 +293,7 @@ const PRIVACY: Record<Lang, Section[]> = {
     ] },
     { h: '8. Cookies and local storage', p: [
       'We use a strictly necessary cookie to keep your session (httpOnly refresh token) and local storage for your preferences (theme, language, font size). We do not use third-party tracking cookies for advertising.',
+      'In the Digital Signature module, if you tick "save my signature on this device", the signature image is kept in the browser local storage, separated per user, solely to reuse it next time. It is erased when you sign out and you can untick the option at any time. Your national ID number and your location are never stored on the device.',
     ] },
     { h: '9. Data Protection Officer (DPO) and contact', p: [
       'Data Protection Officer (DPO): dpo@soluqtion.com. You may also petition the National Data Protection Authority (ANPD).',
@@ -333,6 +335,7 @@ const PRIVACY: Record<Lang, Section[]> = {
     ] },
     { h: '8. Cookies y almacenamiento local', p: [
       'Usamos una cookie estrictamente necesaria para mantener tu sesión (refresh token httpOnly) y almacenamiento local para tus preferencias (tema, idioma, tamaño de fuente). No usamos cookies de rastreo de terceros para publicidad.',
+      'En el módulo de Firma Digital, si marcas "guardar mi rúbrica en este dispositivo", la imagen de tu rúbrica queda en el almacenamiento local del navegador, separada por usuario, solo para reutilizarla la próxima vez. Se borra al cerrar sesión y puedes desmarcar la opción cuando quieras. Tu documento de identidad y tu ubicación nunca se guardan en el dispositivo.',
     ] },
     { h: '9. Encargado (DPO) y contacto', p: [
       'Encargado del Tratamiento de Datos (DPO): dpo@soluqtion.com. También puedes presentar una petición ante la Autoridad Nacional de Protección de Datos (ANPD).',

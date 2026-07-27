@@ -6,7 +6,7 @@ import type { SigGeo } from '../../../lib/types'
 import { Modal, Button, Field, Input } from '../../ui'
 import { Icon } from '../../icons'
 import { useT } from '../../strings'
-import SignaturePad, { type SignaturePadHandle } from './SignaturePad'
+import RubricField, { type RubricFieldHandle } from './RubricField'
 import GeolocationConsentModal from './GeolocationConsentModal'
 
 interface Props {
@@ -19,6 +19,9 @@ interface Props {
   title?: string
   kicker?: string
   cta?: string
+  /** Pré-preenche a rubrica gerada. Vem por prop porque este modal também roda
+   *  na página pública, fora do CapabilityProvider (lá começa vazio). */
+  defaultName?: string
 }
 
 function maskCpf(v: string): string {
@@ -31,9 +34,9 @@ function maskCpf(v: string): string {
   return out
 }
 
-export default function ParecerSignModal({ open, busy, onClose, onConfirm, title, kicker, cta }: Props) {
+export default function ParecerSignModal({ open, busy, onClose, onConfirm, title, kicker, cta, defaultName }: Props) {
   const t = useT()
-  const padRef = useRef<SignaturePadHandle>(null)
+  const rubricRef = useRef<RubricFieldHandle>(null)
   const [image, setImage] = useState<string | null>(null)
   const [cpf, setCpf] = useState('')
   const [geo, setGeo] = useState<SigGeo>({ consent: false })
@@ -43,7 +46,9 @@ export default function ParecerSignModal({ open, busy, onClose, onConfirm, title
   useEffect(() => { if (open) { setErr(null) } }, [open])
 
   const submit = () => {
-    if (!image) { setErr(t.cases.inv.needRubric); return }
+    // Mensagem neutra: agora a rubrica também pode ser gerada do nome, então
+    // "desenhe sua rubrica" deixou de descrever as duas formas.
+    if (!image) { setErr(t.sig.rubricRequired); return }
     setErr(null)
     onConfirm({ signature_image: image, geo, cpf: cpf.trim() || null })
   }
@@ -54,15 +59,8 @@ export default function ParecerSignModal({ open, busy, onClose, onConfirm, title
     <>
       <Modal open={open} onClose={onClose} title={title ?? t.sig.signTitle} kicker={kicker ?? t.cases.inv.give} maxWidth={480}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Rubrica */}
-          <Field label={t.sig.rubric}>
-            <p style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: -2, marginBottom: 8 }}>{t.sig.rubricHint}</p>
-            <SignaturePad ref={padRef} onChange={setImage} />
-            <button type="button" onClick={() => padRef.current?.clear()} className="app-btn"
-              style={{ marginTop: 8, background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', padding: 0 }}>
-              {t.sig.clear}
-            </button>
-          </Field>
+          {/* Rubrica: desenhada à mão ou gerada a partir do nome. */}
+          <RubricField ref={rubricRef} defaultName={defaultName} onChange={setImage} />
 
           {/* Localização (consentimento) */}
           <Field label={t.sig.geoTitle}>
