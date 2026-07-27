@@ -10,7 +10,7 @@ import PrefSwitcher from './PrefSwitcher'
 import ParecerSignModal from '../app/screens/signature/ParecerSignModal'
 
 interface FF { key: string; type: string; label: string; help: string; required: boolean; options: string[]; sensitive: boolean }
-interface PublicForm { tenant_slug: string; tenant_name: string; channel_name: string; title: string; intro: string; identification: string; fields: FF[]; published: boolean; lang?: string; available_langs?: string[] }
+interface PublicForm { tenant_slug: string; tenant_name: string; channel_name: string; module?: string; title: string; intro: string; identification: string; fields: FF[]; published: boolean; lang?: string; available_langs?: string[] }
 interface Receipt { protocol: string; access_hash: string }
 
 const L = {
@@ -19,19 +19,44 @@ const L = {
   es: { loading: 'Cargando…', unavailable: 'Canal no disponible', unavailableBody: 'Este canal aún no tiene un formulario publicado, o el enlace no es válido.', identifyLegend: '¿Cómo quieres denunciar?', anon: 'Anónimo', anonHint: 'No pediremos nada que te identifique.', identify: 'Identificarme', email: 'Tu correo', emailHint: 'Solo para darte seguimiento de tu denuncia.', anonForced: 'Este canal es 100% anónimo.', idRequired: 'Este canal exige identificación.', send: 'Enviar denuncia', sending: 'Enviando…', required: 'Completa los campos obligatorios.', doneTitle: 'Denuncia registrada', doneBody: 'Guarda el protocolo y el código — es la única forma de dar seguimiento (incluso anónimo).', protocol: 'Protocolo', code: 'Código de acceso', copy: 'Copiar', copied: '¡Copiado!', track: 'Da seguimiento luego en', another: 'Enviar otra denuncia', secure: 'Entorno seguro y confidencial', yes: 'Sí', no: 'No', choose: 'Selecciona', signTitle: 'Firma tu denuncia', signKicker: 'Identificación', signCta: 'Firmar y enviar', signNote: 'Al identificarte, firmas digitalmente la denuncia (firma + ubicación opcional).' },
 }
 
+
+// No SAC quem escreve é CONSUMIDOR: "relato"/"denúncia" não cabe. Só as palavras
+// que mudam — o resto do dicionário acima é reaproveitado.
+const SAC_WORDS = {
+  pt: { identifyLegend: 'Seus dados de contato', send: 'Enviar demanda', doneTitle: 'Demanda registrada',
+        another: 'Enviar outra demanda', signTitle: 'Assine sua demanda',
+        emailHint: 'Usaremos só para responder sua demanda.',
+        idRequired: 'Este canal exige identificação para podermos responder.',
+        signNote: 'Ao se identificar, você assina digitalmente a demanda (rubrica + localização opcional).' },
+  en: { identifyLegend: 'Your contact details', send: 'Send request', doneTitle: 'Request received',
+        another: 'Send another request', signTitle: 'Sign your request',
+        emailHint: 'Only used to reply to your request.',
+        idRequired: 'This channel requires identification so we can reply.',
+        signNote: 'By identifying yourself, you digitally sign the request (signature + optional location).' },
+  es: { identifyLegend: 'Tus datos de contacto', send: 'Enviar demanda', doneTitle: 'Demanda registrada',
+        another: 'Enviar otra demanda', signTitle: 'Firma tu demanda',
+        emailHint: 'Solo para responder tu demanda.',
+        idRequired: 'Este canal exige identificación para poder responderte.',
+        signNote: 'Al identificarte, firmas digitalmente la demanda (firma + ubicación opcional).' },
+} as const
+
 export function isPublicReportPath(): boolean {
   return /^\/c\/[^/]+\/[^/]+/.test(window.location.pathname)
 }
 
 export default function PublicReport() {
   const { lang } = useTranslation()
-  const tr = L[lang] ?? L.pt
+  const base = L[lang] ?? L.pt
   const [slug, token] = useMemo(() => {
     const m = window.location.pathname.match(/^\/c\/([^/]+)\/([^/]+)/)
     return m ? [m[1], m[2]] : ['', '']
   }, [])
 
   const [form, setForm] = useState<PublicForm | null | 'error'>(null)
+  // Vocabulário do módulo: no SAC troca "relato/denúncia" por "demanda".
+  const tr = (form && form !== 'error' && form.module === 'sac')
+    ? { ...base, ...(SAC_WORDS[lang] ?? SAC_WORDS.pt) }
+    : base
   const [answers, setAnswers] = useState<Record<string, unknown>>({})
   const [identifyMode, setIdentifyMode] = useState<'anon' | 'id'>('anon')
   const [email, setEmail] = useState('')

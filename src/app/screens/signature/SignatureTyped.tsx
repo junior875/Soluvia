@@ -39,7 +39,14 @@ export default function SignatureTyped({ defaultName, onChange }: Props) {
   // voltava sozinha e a pessoa assinaria com o que não está na tela).
   const seq = useRef(0)
   const mounted = useRef(true)
-  useEffect(() => () => { mounted.current = false }, [])
+  // Marca montado NA MONTAGEM, não só desmontado na saída: em <StrictMode> o
+  // React monta → desmonta → monta em desenvolvimento, e um cleanup que só zera
+  // deixava a flag falsa para sempre — a rubrica gerada nunca chegava ao
+  // formulário e "Assinar" acusava rubrica faltando.
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
 
   useEffect(() => {
     const my = ++seq.current

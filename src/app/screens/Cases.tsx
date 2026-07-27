@@ -134,9 +134,13 @@ export default function Cases({ module = 'etica' }: CasesProps) {
 
   /** Selo do prazo do Decreto 11.034/2022 (7 dias corridos). Só no SAC e só
    *  enquanto a demanda está aberta — depois de encerrada não faz sentido. */
+  /** Data do backend pode vir SEM fuso (driver que devolve datetime naive). O JS
+   *  leria como hora LOCAL e, em UTC-3, o prazo aparecia um dia MAIOR do que é. */
+  const parseUtc = (s: string) => new Date(/(Z|[+-]\d{2}:?\d{2})$/.test(s) ? s : `${s}Z`)
+
   const dueChip = (c: CaseOut) => {
     if (!isSac || !c.response_due_at || c.status === 'closed') return null
-    const ms = new Date(c.response_due_at).getTime() - Date.now()
+    const ms = parseUtc(c.response_due_at).getTime() - Date.now()
     const dias = Math.ceil(ms / 86_400_000)
     // A paleta de Chip não tem vermelho; 'accent' (laranja) é o tom de alerta do
     // app — o mesmo usado em gravidade alta/crítica. Atrasado ganha ênfase extra.

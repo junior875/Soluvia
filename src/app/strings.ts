@@ -93,6 +93,7 @@ const pt = {
     modulesTitle: 'Seus módulos',
     mod: {
       etica: { name: 'Canal de Denúncias', desc: 'Receba e trate relatos com sigilo e trilha completa.' },
+      sac: { name: 'SAC · Atendimento ao Consumidor', desc: 'Demandas de consumidores com prazo de 7 dias corridos.' },
       assinatura: { name: 'Assinatura Digital', desc: 'Assine documentos e etapas com validade e evidência.' },
       nr1: { name: 'NR-1 · Riscos psicossociais', desc: 'Pesquisas e indicadores de saúde mental no trabalho.' },
       privacidade: { name: 'Privacidade (LGPD)', desc: 'Requisições de titulares e conformidade.' },
@@ -506,6 +507,7 @@ const pt = {
   },
   modules: {
     etica: 'Ética & Denúncias',
+    sac: 'SAC · Atendimento ao Consumidor',
     privacidade: 'Privacidade (LGPD)',
     incidentes: 'Incidentes',
     nr1: 'NR-1 Psicossocial',
@@ -605,6 +607,7 @@ const en: AppStrings = {
     modulesTitle: 'Your modules',
     mod: {
       etica: { name: 'Whistleblowing Channel', desc: 'Receive and handle reports confidentially, with a full trail.' },
+      sac: { name: 'Consumer Service', desc: 'Consumer requests answered within 7 calendar days.' },
       assinatura: { name: 'Digital Signature', desc: 'Sign documents and case stages with legal validity and evidence.' },
       nr1: { name: 'NR-1 · Psychosocial risk', desc: 'Surveys and indicators for mental health at work.' },
       privacidade: { name: 'Privacy (LGPD)', desc: 'Data-subject requests and compliance.' },
@@ -1018,6 +1021,7 @@ const en: AppStrings = {
   },
   modules: {
     etica: 'Ethics & Reports',
+    sac: 'Consumer Service',
     privacidade: 'Privacy (LGPD)',
     incidentes: 'Incidents',
     nr1: 'NR-1 Psychosocial',
@@ -1115,6 +1119,7 @@ const es: AppStrings = {
     modulesTitle: 'Tus módulos',
     mod: {
       etica: { name: 'Canal de Denuncias', desc: 'Recibe y gestiona reportes con confidencialidad y trazabilidad.' },
+      sac: { name: 'SAC · Atención al Consumidor', desc: 'Demandas de consumidores con plazo de 7 días corridos.' },
       assinatura: { name: 'Firma Digital', desc: 'Firma documentos y etapas con validez y evidencia.' },
       nr1: { name: 'NR-1 · Riesgo psicosocial', desc: 'Encuestas e indicadores de salud mental en el trabajo.' },
       privacidade: { name: 'Privacidad (LGPD)', desc: 'Solicitudes de titulares y cumplimiento.' },
@@ -1528,6 +1533,7 @@ const es: AppStrings = {
   },
   modules: {
     etica: 'Ética y Denuncias',
+    sac: 'SAC · Atención al Consumidor',
     privacidade: 'Privacidad (LGPD)',
     incidentes: 'Incidentes',
     nr1: 'NR-1 Psicosocial',

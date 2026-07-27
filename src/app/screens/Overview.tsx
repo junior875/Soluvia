@@ -11,8 +11,9 @@ import { Icon, type IconName } from '../icons'
 // `logo` (opcional): a marca do módulo aparece no lugar do ícone genérico.
 const MODULE_CARDS: { module: string; screen: string; icon: IconName; perm: string; logo?: string }[] = [
   { module: 'etica', screen: 'cases', icon: 'cases', perm: 'etica.view_cases', logo: '/canal-denuncias-icon.png' },
-  { module: 'assinatura', screen: 'signature', icon: 'signature', perm: 'assinatura.view' },
-  { module: 'nr1', screen: 'nr1', icon: 'nr1', perm: 'nr1.view_aggregated' },
+  { module: 'sac', screen: 'sac', icon: 'cases', perm: 'sac.view_demands', logo: '/sac-icon.svg' },
+  { module: 'assinatura', screen: 'signature', icon: 'signature', perm: 'assinatura.view', logo: '/assinatura-icon.svg' },
+  // NR-1 fora dos cards enquanto o módulo não existe como produto (idem na nav).
   { module: 'privacidade', screen: 'cases', icon: 'lock', perm: 'privacidade.view_requests' },
   { module: 'incidentes', screen: 'cases', icon: 'shield', perm: 'incidentes.view' },
 ]
