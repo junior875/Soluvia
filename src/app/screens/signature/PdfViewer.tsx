@@ -54,6 +54,7 @@ export default function PdfViewer({ documentId, canManage, initialFields, onPend
   const fittedRef = useRef(false)
 
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [numPages, setNumPages] = useState(1)
   const [page, setPage] = useState(1)
   const [scale, setScale] = useState(1.1)
@@ -87,7 +88,12 @@ export default function PdfViewer({ documentId, canManage, initialFields, onPend
           credentials: 'include',
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         })
-        if (!resp.ok) throw new Error('fetch')
+        if (!resp.ok) {
+          // Mostra o motivo que o servidor deu (ex.: arquivo perdido por falta de
+          // volume persistente) em vez do genérico "não foi possível renderizar".
+          const detail = await resp.json().then((b) => b?.detail).catch(() => null)
+          throw new Error(typeof detail === 'string' ? detail : 'fetch')
+        }
         const buf = await resp.arrayBuffer()
         if (cancelled) return
         const task = getDocument({ data: buf })
@@ -98,8 +104,11 @@ export default function PdfViewer({ documentId, canManage, initialFields, onPend
         setNumPages(pdf.numPages)
         setPage(1)
         setStatus('ready')
-      } catch {
-        if (!cancelled) setStatus('error')
+      } catch (e) {
+        if (cancelled) return
+        const msg = (e as Error).message
+        setLoadError(msg && msg !== 'fetch' ? msg : null)
+        setStatus('error')
       }
     })()
     return () => {
@@ -332,7 +341,13 @@ export default function PdfViewer({ documentId, canManage, initialFields, onPend
     return <Card style={{ minHeight: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>{t.sig.loadingPdf}</Card>
   }
   if (status === 'error') {
-    return <Card style={{ minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>{t.sig.pdfFail}</Card>
+    return (
+      <Card style={{ minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 24 }}>
+        <p style={{ color: loadError ? 'var(--heading)' : 'var(--text-muted)', fontSize: 14, lineHeight: 1.65, maxWidth: 460, margin: 0 }}>
+          {loadError ?? t.sig.pdfFail}
+        </p>
+      </Card>
+    )
   }
 
   const dragRect = act?.kind === 'create' ? {
