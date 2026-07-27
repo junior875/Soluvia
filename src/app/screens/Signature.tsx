@@ -170,11 +170,18 @@ function DocumentDetail({ doc, tab, setTab, canManage, canSign, evKey, onOpenSig
 }) {
   const t = useT()
   const pdf = isPdf(doc.mime)
+  // Campos posicionados mas ainda não persistidos. Assinar nesse estado faz o
+  // backend ver a lista vazia e carimbar no pé da ÚLTIMA página.
+  const [fieldsPending, setFieldsPending] = useState(false)
+  useEffect(() => { setFieldsPending(false) }, [doc.id])
 
   // Abas disponíveis conforme tipo/permissão. DOCX pula a de preparar.
   const tabs = useMemo(() => {
     const list: { id: Tab; label: string; icon: 'signature' | 'audit' }[] = []
-    if (pdf && canManage) list.push({ id: 'prepare', label: t.sig.prepare, icon: 'signature' })
+    // A aba aparece para todo PDF. Quem não gerencia vê o documento e os campos em
+    // modo leitura — antes a aba simplesmente sumia e dava a impressão de que a
+    // plataforma não deixava posicionar a assinatura.
+    if (pdf) list.push({ id: 'prepare', label: t.sig.prepare, icon: 'signature' })
     if (canSign) list.push({ id: 'sign', label: t.sig.sign, icon: 'signature' })
     list.push({ id: 'evidence', label: t.sig.evidence, icon: 'audit' })
     return list
@@ -212,7 +219,8 @@ function DocumentDetail({ doc, tab, setTab, canManage, canSign, evKey, onOpenSig
               documentId={doc.id}
               canManage={canManage}
               initialFields={doc.fields}
-              onFieldsSaved={onFieldsSaved}
+              onPendingChange={setFieldsPending}
+              onFieldsSaved={(d) => { setFieldsPending(false); onFieldsSaved(d) }}
               onToast={onToast}
             />
           </Suspense>
@@ -222,12 +230,25 @@ function DocumentDetail({ doc, tab, setTab, canManage, canSign, evKey, onOpenSig
           pdf ? (
             <Card>
               <SectionLabel>{t.sig.sign}</SectionLabel>
-              <p style={{ color: 'var(--text-muted)', fontSize: 14.5, lineHeight: 1.65, marginBottom: 18 }}>
-                {doc.fields.length > 0
-                  ? `${doc.fields.length} ${t.sig.fieldsCount}.`
-                  : t.sig.addFieldHint}
-              </p>
-              <SignCta canSign={canSign} onOpenSign={onOpenSign} label={t.sig.confirmSign} />
+              {doc.fields.length > 0 ? (
+                <p style={{ color: 'var(--text-muted)', fontSize: 14.5, lineHeight: 1.65, marginBottom: 18 }}>
+                  {doc.fields.length} {t.sig.fieldsCount}.
+                </p>
+              ) : (
+                // Sem campo salvo o backend carimba no rodapé da última página.
+                // Antes isso acontecia calado e parecia que a assinatura "fugia" do lugar.
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: 'var(--accent-soft)', border: '1px solid var(--accent-border)', borderRadius: 12, padding: '13px 15px', marginBottom: 18 }}>
+                  <span style={{ color: 'var(--accent)', flexShrink: 0, marginTop: 1 }}><Icon name="signature" size={17} /></span>
+                  <p style={{ color: 'var(--heading)', fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>{t.sig.noFieldsWarn}</p>
+                </div>
+              )}
+              {fieldsPending && (
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: 'rgba(217,83,79,.12)', border: '1px solid rgba(217,83,79,.4)', borderRadius: 12, padding: '13px 15px', marginBottom: 18 }}>
+                  <span style={{ color: '#d9534f', flexShrink: 0, marginTop: 1 }}><Icon name="signature" size={17} /></span>
+                  <p style={{ color: 'var(--heading)', fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>{t.sig.unsavedFields}</p>
+                </div>
+              )}
+              <SignCta canSign={canSign && !fieldsPending} onOpenSign={onOpenSign} label={t.sig.confirmSign} />
             </Card>
           ) : (
             // DOCX: sem viewer, explica o bloco de assinatura anexado.
