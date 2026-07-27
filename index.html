@@ -6,9 +6,13 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/favicon.png" />
     <meta name="description" content="Soluvia — Plataforma completa para gestão de riscos psicossociais e conformidade com a NR1." />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <!-- Sem fontes de CDN: a Poppins é auto-hospedada via @fontsource e importada
+         em src/main.tsx. Não reintroduza <link>/preconnect p/ CDN de fontes
+         (Google Fonts & cia.) — vazaria IP e User-Agent do visitante, inclusive o
+         do denunciante anônimo em /c/:tenant/:canal, p/ um terceiro. A CSP do
+         Caddyfile bloqueia isso em produção.
+         (Nomes de domínio ficam fora deste comentário de propósito: o build é
+          auditado com grep por eles no dist/.) -->
     <title>Soluvia</title>
   </head>
   <body>

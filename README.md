@@ -86,7 +86,7 @@ Após `npm run build`, suba a pasta **`dist/`** em qualquer host estático
 
 ```
 frontend/
-├─ index.html              # HTML raiz (carrega a fonte Poppins)
+├─ index.html              # HTML raiz (sem CDN: fontes vêm de @fontsource)
 ├─ package.json
 ├─ tsconfig.json
 ├─ vite.config.ts
@@ -143,4 +143,8 @@ e use `var(--minha-cor)` no estilo inline do componente.
 ## Paleta
 
 - Navy `#0e2c46` · Laranja `#f2921e` / `#e07b12` · Azul `#2f6fb0`
-- Tipografia: **Poppins**
+- Tipografia: **Poppins** — auto-hospedada via `@fontsource/poppins`, importada peso
+  a peso (`latin-300…900`) em `src/main.tsx`. **Nunca** carregue fonte de CDN: o canal
+  de relato promete anonimato e um `<link>` p/ terceiro entregaria IP e User-Agent do
+  denunciante antes de ele digitar qualquer coisa. A CSP do `Caddyfile` (`font-src
+  'self'`) trava a regressão. Novo peso/família ⇒ novo import `@fontsource`.
