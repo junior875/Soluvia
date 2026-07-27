@@ -550,6 +550,7 @@ function AIChat({ t, msgs, aiBusy, aiInput, setAiInput, onSend, agentModule }: {
   /** Módulo do canal — diz qual especialista está atendendo. */
   agentModule: string
 }) {
+  const isSac = agentModule === 'sac'
   const scrollRef = useRef<HTMLDivElement>(null)
   const [wi, setWi] = useState(0)
   // Rola SÓ o container do chat (não a página). scrollIntoView rolava todos os
@@ -577,11 +578,18 @@ function AIChat({ t, msgs, aiBusy, aiInput, setAiInput, onSend, agentModule }: {
       </div>
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '10px 2px' }}>
         {msgs.length === 0 ? (
-          <div style={{ margin: 'auto', textAlign: 'center', maxWidth: 380 }}>
-            <div style={{ width: 46, height: 46, borderRadius: 14, background: 'var(--accent-soft)', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}><Icon name="audit" size={22} /></div>
-            <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.6 }}>{t.fb.ai.intro}</p>
+          <div style={{ margin: 'auto', textAlign: 'center', maxWidth: 400 }}>
+            {/* Boas-vindas do MÓDULO: com o especialista de SAC ativo, falar de
+                NR-1 e Lei 14.457 (ouvidoria) confundia — é outra lei, outro
+                público. A marca do módulo entra no lugar do ícone genérico. */}
+            <img
+              src={isSac ? '/sac-icon.svg' : '/canal-denuncias-icon.png'}
+              alt="" className="module-logo"
+              style={{ width: 52, height: 52, objectFit: 'contain', marginBottom: 12 }}
+            />
+            <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.6 }}>{isSac ? t.fb.ai.introSac : t.fb.ai.intro}</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 16 }}>
-              {t.fb.ai.starters.map((s) => (
+              {(isSac ? t.fb.ai.startersSac : t.fb.ai.starters).map((s) => (
                 <button key={s} onClick={() => onSend(s)} className="app-btn" style={{ cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text)', borderRadius: 100, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>{s}</button>
               ))}
             </div>
