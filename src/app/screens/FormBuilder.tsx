@@ -27,7 +27,8 @@ interface FormData {
 }
 type Lang = 'pt' | 'en' | 'es'
 interface ChatMsg { role: 'you' | 'assistant'; content: string }
-interface AIReply { message: string; form: { title: string; intro: string; identification: string; fields: Omit<FF, 'conditional'>[] } }
+interface ChatSummary { chat_id: string; title: string; messages: number; updated_at: number | null }
+interface AIReply { chat_id: string; message: string; form: { title: string; intro: string; identification: string; fields: Omit<FF, 'conditional'>[] } }
 
 const TYPES: FieldType[] = ['short_text', 'long_text', 'single_choice', 'multi_choice', 'dropdown', 'date', 'yes_no', 'section', 'info']
 const LANGS: { v: Lang; label: string }[] = [{ v: 'pt', label: 'PT' }, { v: 'en', label: 'EN' }, { v: 'es', label: 'ES' }]
@@ -83,6 +84,9 @@ export default function FormBuilder() {
   // Qual especialista atende este canal (vem do módulo). Só para MOSTRAR na tela:
   // quem manda é o backend, que decide pelo canal.
   const [agentModule, setAgentModule] = useState<string>('etica')
+  // Conversas deste formulário (as desta pessoa). `chatId` é a aberta.
+  const [chats, setChats] = useState<ChatSummary[]>([])
+  const [chatId, setChatId] = useState<string | null>(null)
   const [lang, setLang] = useState<Lang>('pt')
   // Form MOSTRADO na pré-visualização — no idioma base é o `form` ao vivo; num
   // idioma traduzido é a versão localizada (buscada), sem afetar a edição da base.
@@ -135,9 +139,10 @@ export default function FormBuilder() {
     // Reabre a conversa anterior com o agente. O histórico sempre esteve salvo
     // (é o que dá memória a ele), mas a tela zerava o chat e parecia perdido.
     // Não gasta token: é leitura da memória.
-    api.get<{ module: string; messages: { role: string; content: string }[] }>(`/channels/${channelId}/form/ai/history`)
+    void reloadChats(channelId)
+    api.get<{ module: string; chat_id: string | null; messages: { role: string; content: string }[] }>(`/channels/${channelId}/form/ai/history`)
       .then((h) => {
-        setAgentModule(h.module)
+        setAgentModule(h.module); setChatId(h.chat_id)
         setMsgs(h.messages.map((m) => ({
           role: m.role === 'assistant' ? 'assistant' : 'you', content: m.content,
         })))
@@ -250,13 +255,40 @@ export default function FormBuilder() {
     } finally { setTranslating(false) }
   }
 
+  const reloadChats = (cid: string) =>
+    api.get<{ chats: ChatSummary[] }>(`/channels/${cid}/form/ai/chats`)
+      .then((r) => setChats(r.chats)).catch(() => setChats([]))
+
+  /** Abre uma conversa antiga: troca as mensagens da tela pelas dela. */
+  async function openChat(id: string) {
+    if (!channelId || id === chatId) return
+    setMsgs([]); setChatId(id)
+    try {
+      const h = await api.get<{ messages: { role: string; content: string }[] }>(
+        `/channels/${channelId}/form/ai/history?chat_id=${encodeURIComponent(id)}`)
+      setMsgs(h.messages.map((m) => ({ role: m.role === 'assistant' ? 'assistant' : 'you', content: m.content })))
+    } catch { /* conversa some se foi apagada noutra aba */ }
+  }
+
+  /** Começa do zero: sem chat_id, o backend cria uma conversa nova no 1º envio. */
+  function newChat() { setChatId(null); setMsgs([]) }
+
+  async function deleteChat(id: string) {
+    if (!channelId) return
+    try { await api.delete(`/channels/${channelId}/form/ai/chats/${encodeURIComponent(id)}`) } catch { /* já apagada */ }
+    if (id === chatId) newChat()
+    void reloadChats(channelId)
+  }
+
   async function sendAI(text?: string) {
     const message = (text ?? aiInput).trim()
     if (!message || !channelId || aiBusy) return
     setAiInput(''); setMsgs((m) => [...m, { role: 'you', content: message }]); setAiBusy(true)
     try {
-      const r = await api.post<AIReply>(`/channels/${channelId}/form/ai`, { message, lang })
+      const r = await api.post<AIReply>(`/channels/${channelId}/form/ai`, { message, lang, chat_id: chatId })
+      setChatId(r.chat_id)
       setMsgs((m) => [...m, { role: 'assistant', content: r.message }])
+      void reloadChats(channelId)   // título/ordem da lista mudam a cada turno
       setForm((f) => f ? { ...f, title: r.form.title, intro: r.form.intro, identification: r.form.identification, fields: r.form.fields.map((x) => ({ ...x, conditional: null })) } : f)
     } catch (e) {
       setMsgs((m) => [...m, { role: 'assistant', content: (e as ApiError).detail ?? 'Falha ao falar com o assistente.' }])
@@ -420,6 +452,7 @@ export default function FormBuilder() {
             <AIChat
               t={t} msgs={msgs} aiBusy={aiBusy} aiInput={aiInput} setAiInput={setAiInput}
               onSend={sendAI} agentModule={agentModule}
+              chats={chats} chatId={chatId} onOpenChat={openChat} onNewChat={newChat} onDeleteChat={deleteChat}
             />
           )}
 
@@ -544,11 +577,13 @@ const miniBtn: CSSProperties = { cursor: 'pointer', border: '1px solid var(--bor
 const memberRow: CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, width: '100%', cursor: 'pointer', padding: '10px 12px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'var(--surface-2)', fontFamily: 'inherit' }
 const checkbox: CSSProperties = { width: 20, height: 20, flexShrink: 0, borderRadius: 6, border: '2px solid var(--border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }
 
-function AIChat({ t, msgs, aiBusy, aiInput, setAiInput, onSend, agentModule }: {
+function AIChat({ t, msgs, aiBusy, aiInput, setAiInput, onSend, agentModule, chats, chatId, onOpenChat, onNewChat, onDeleteChat }: {
   t: ReturnType<typeof useT>; msgs: ChatMsg[]; aiBusy: boolean; aiInput: string
   setAiInput: (v: string) => void; onSend: (text?: string) => void
   /** Módulo do canal — diz qual especialista está atendendo. */
   agentModule: string
+  chats: ChatSummary[]; chatId: string | null
+  onOpenChat: (id: string) => void; onNewChat: () => void; onDeleteChat: (id: string) => void
 }) {
   const isSac = agentModule === 'sac'
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -576,6 +611,42 @@ function AIChat({ t, msgs, aiBusy, aiInput, setAiInput, onSend, agentModule }: {
           {agentModule === 'sac' ? t.fb.ai.agentSac : t.fb.ai.agentEtica}
         </span>
       </div>
+      {/* Conversas deste formulário: dá para voltar numa antiga sem perder a
+          atual. O formulário salvo é um só — o que muda é o fio da conversa. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 2 }}>
+        <button
+          type="button" onClick={onNewChat} className="app-btn"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, cursor: 'pointer', border: '1px dashed var(--accent-border)', background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 100, padding: '6px 13px', fontSize: 12.5, fontWeight: 800, whiteSpace: 'nowrap' }}
+        >
+          <Icon name="plus" size={13} /> {t.fb.ai.newChat}
+        </button>
+        {chats.length > 0 && (
+          <div className="app-scroll" style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 3 }}>
+            {chats.map((c) => {
+              const on = c.chat_id === chatId
+              return (
+                <span key={c.chat_id} style={{ position: 'relative', flexShrink: 0 }}>
+                  <button
+                    type="button" onClick={() => onOpenChat(c.chat_id)} title={c.title}
+                    className="app-btn"
+                    style={{ maxWidth: 190, cursor: 'pointer', borderRadius: 100, padding: '6px 26px 6px 13px', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`, background: on ? 'var(--accent-soft)' : 'var(--surface-2)', color: on ? 'var(--accent)' : 'var(--text-muted)' }}
+                  >
+                    {c.title}
+                  </button>
+                  <button
+                    type="button" onClick={() => onDeleteChat(c.chat_id)}
+                    aria-label={t.fb.ai.deleteChat} title={t.fb.ai.deleteChat}
+                    style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', width: 17, height: 17, borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                  >
+                    <Icon name="close" size={11} />
+                  </button>
+                </span>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '10px 2px' }}>
         {msgs.length === 0 ? (
           <div style={{ margin: 'auto', textAlign: 'center', maxWidth: 400 }}>
