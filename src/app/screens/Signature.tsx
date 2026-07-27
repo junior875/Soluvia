@@ -10,6 +10,7 @@ import { api } from '../../lib/api'
 import type { SigDocument, Signature as SignatureType } from '../../lib/types'
 import { useCaps } from '../capabilities'
 import { useT } from '../strings'
+import { useTranslation } from '../../i18n/LanguageProvider'
 import { Button, Card, EmptyState, PageHeader, SectionLabel, Skeleton } from '../ui'
 import { Icon } from '../icons'
 import DocumentUploader from './signature/DocumentUploader'
@@ -24,6 +25,7 @@ type Tab = 'prepare' | 'sign' | 'evidence'
 
 export default function Signature() {
   const t = useT()
+  const { lang } = useTranslation()
   const caps = useCaps()
   const canManage = caps.can('assinatura.manage')
   const canSign = caps.can('assinatura.sign')
@@ -118,6 +120,16 @@ export default function Signature() {
   // ══════════════ LISTA ══════════════
   return (
     <div className="app-screen">
+      {/* Marca do módulo, no idioma da tela — mesma família do Canal de
+          Denúncias e do SAC. */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}>
+        <img
+          src={lang === 'en' ? '/assinatura-en.svg' : lang === 'es' ? '/assinatura-es.svg' : '/assinatura.svg'}
+          alt={t.sig.title}
+          className="module-logo"
+          style={{ height: 'clamp(150px, 26vw, 260px)', width: 'auto', maxWidth: '92%', objectFit: 'contain' }}
+        />
+      </div>
       <PageHeader title={t.sig.title} subtitle={t.sig.subtitle} />
 
       {canManage && (

@@ -29,6 +29,11 @@ export default function Cases({ module = 'etica' }: CasesProps) {
   // Textos do módulo: no SAC quem escreve é CONSUMIDOR, não denunciante.
   const tx = isSac ? t.sac : t.cases
   const { lang } = useTranslation()
+  // Logotipo do módulo, no idioma da tela. O de denúncias só tem PT e EN; o do
+  // SAC tem os três. Sem isso o SAC exibia a marca do Canal de Denúncias.
+  const moduleLogo = isSac
+    ? (lang === 'en' ? '/sac-en.svg' : lang === 'es' ? '/sac-es.svg' : '/sac.svg')
+    : (lang === 'en' ? '/canal-denuncias-en.png' : '/canal-denuncias.png')
   const sevL = (s: string) => (t.cases.sev as Record<string, string>)[s] ?? s
   const statL = (s: string) => (t.cases.stat as Record<string, string>)[s] ?? s
   const [cases, setCases] = useState<CaseOut[] | null>(null)
@@ -168,7 +173,7 @@ export default function Cases({ module = 'etica' }: CasesProps) {
     <div className="app-screen">
       {isEtica && (
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
-          <img src={lang === 'en' ? '/canal-denuncias-en.png' : '/canal-denuncias.png'} alt={lang === 'en' ? 'Whistleblowing Channel' : 'Canal de Denúncias'} className="module-logo" style={{ height: 'clamp(150px, 26vw, 260px)', width: 'auto', maxWidth: '92%', objectFit: 'contain' }} />
+          <img src={moduleLogo} alt={tx.title} className="module-logo" style={{ height: 'clamp(150px, 26vw, 260px)', width: 'auto', maxWidth: '92%', objectFit: 'contain' }} />
         </div>
       )}
       <PageHeader

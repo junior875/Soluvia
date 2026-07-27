@@ -80,6 +80,9 @@ export default function FormBuilder() {
   const [toast, setToast] = useState<string | null>(null)
   const [publicUrl, setPublicUrl] = useState<string | null>(null)
   const [mode, setMode] = useState<'manual' | 'ai'>('manual')
+  // Qual especialista atende este canal (vem do módulo). Só para MOSTRAR na tela:
+  // quem manda é o backend, que decide pelo canal.
+  const [agentModule, setAgentModule] = useState<string>('etica')
   const [lang, setLang] = useState<Lang>('pt')
   // Form MOSTRADO na pré-visualização — no idioma base é o `form` ao vivo; num
   // idioma traduzido é a versão localizada (buscada), sem afetar a edição da base.
@@ -99,7 +102,11 @@ export default function FormBuilder() {
   useEffect(() => {
     api.get<ChannelOut[]>('/channels')
       .then((cs) => {
-        const et = cs.filter((c) => c.module === 'etica')
+        // TODO(nunca mais): isto filtrava `module === 'etica'` e escondia os
+        // canais de SAC — não havia como montar o formulário de um SAC. O tipo
+        // do formulário É o módulo do canal, então listamos todo canal que a
+        // pessoa pode editar; o backend confere a permissão por canal.
+        const et = cs.filter((c) => c.module === 'etica' || c.module === 'sac')
         setChannels(et); if (et.length) setChannelId(et[0].id)
         // Carrega a meta de cada form (título/status) p/ montar o rail de formulários.
         void Promise.all(et.map((c) =>
@@ -125,6 +132,17 @@ export default function FormBuilder() {
     setForm(null); setMsgs([])
     api.get<FormData>(`/channels/${channelId}/form`).then((f) => { setForm(f); setLang((f.base_lang as Lang) || 'pt') }).catch(() => {})
     api.get<{ public_url: string }>(`/channels/${channelId}/public-link`).then((r) => setPublicUrl(r.public_url)).catch(() => {})
+    // Reabre a conversa anterior com o agente. O histórico sempre esteve salvo
+    // (é o que dá memória a ele), mas a tela zerava o chat e parecia perdido.
+    // Não gasta token: é leitura da memória.
+    api.get<{ module: string; messages: { role: string; content: string }[] }>(`/channels/${channelId}/form/ai/history`)
+      .then((h) => {
+        setAgentModule(h.module)
+        setMsgs(h.messages.map((m) => ({
+          role: m.role === 'assistant' ? 'assistant' : 'you', content: m.content,
+        })))
+      })
+      .catch(() => {})
   }, [channelId])
 
   // Pré-visualização segue o "Idioma do formulário": no idioma BASE mostra o form ao
@@ -294,8 +312,17 @@ export default function FormBuilder() {
                 }}
               >
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                  <Icon name="audit" size={16} style={{ color: active ? 'var(--accent)' : 'var(--text-muted)', flexShrink: 0 }} />
+                  {/* A marca do módulo diz de que TIPO é este formulário — é o
+                      módulo do canal que decide, inclusive qual agente atende. */}
+                  <img
+                    src={c.module === 'sac' ? '/sac-icon.svg' : '/canal-denuncias-icon.png'}
+                    alt="" className="module-logo"
+                    style={{ width: 18, height: 18, minWidth: 18, objectFit: 'contain' }}
+                  />
                   <span style={{ color: 'var(--heading)', fontWeight: 800, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
+                </span>
+                <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+                  {c.module === 'sac' ? t.fb.kindSac : t.fb.kindEtica}
                 </span>
                 <span style={{ color: 'var(--text-muted)', fontSize: 12.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta?.title || t.fb.untitled}</span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 700, color: meta?.published ? 'var(--green,#2bb673)' : 'var(--text-muted)' }}>
@@ -392,7 +419,7 @@ export default function FormBuilder() {
           ) : (
             <AIChat
               t={t} msgs={msgs} aiBusy={aiBusy} aiInput={aiInput} setAiInput={setAiInput}
-              onSend={sendAI}
+              onSend={sendAI} agentModule={agentModule}
             />
           )}
 
@@ -517,9 +544,11 @@ const miniBtn: CSSProperties = { cursor: 'pointer', border: '1px solid var(--bor
 const memberRow: CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, width: '100%', cursor: 'pointer', padding: '10px 12px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'var(--surface-2)', fontFamily: 'inherit' }
 const checkbox: CSSProperties = { width: 20, height: 20, flexShrink: 0, borderRadius: 6, border: '2px solid var(--border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }
 
-function AIChat({ t, msgs, aiBusy, aiInput, setAiInput, onSend }: {
+function AIChat({ t, msgs, aiBusy, aiInput, setAiInput, onSend, agentModule }: {
   t: ReturnType<typeof useT>; msgs: ChatMsg[]; aiBusy: boolean; aiInput: string
   setAiInput: (v: string) => void; onSend: (text?: string) => void
+  /** Módulo do canal — diz qual especialista está atendendo. */
+  agentModule: string
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [wi, setWi] = useState(0)
@@ -537,7 +566,15 @@ function AIChat({ t, msgs, aiBusy, aiInput, setAiInput, onSend }: {
   }, [aiBusy, t.fb.ai.waiting.length])
   return (
     <Card style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 260px)', minHeight: 460 }}>
-      <SectionLabel>{t.fb.ai.title}</SectionLabel>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <SectionLabel>{t.fb.ai.title}</SectionLabel>
+        {/* Deixa explícito QUEM está atendendo — antes não havia como saber que
+            o agente muda conforme o módulo do canal. */}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 11px', borderRadius: 100, background: 'var(--accent-soft)', border: '1px solid var(--accent-border)', color: 'var(--accent)', fontSize: 11.5, fontWeight: 800, whiteSpace: 'nowrap' }}>
+          <img src={agentModule === 'sac' ? '/sac-icon.svg' : '/canal-denuncias-icon.png'} alt="" className="module-logo" style={{ width: 14, height: 14, objectFit: 'contain' }} />
+          {agentModule === 'sac' ? t.fb.ai.agentSac : t.fb.ai.agentEtica}
+        </span>
+      </div>
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '10px 2px' }}>
         {msgs.length === 0 ? (
           <div style={{ margin: 'auto', textAlign: 'center', maxWidth: 380 }}>

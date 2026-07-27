@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Assinatura Digital">
+  <!-- Ícone da barra lateral: rubrica sobre a linha de assinatura + selo laranja.
+       Traços grossos de propósito — precisa ler a 20px. -->
+  <path d="M32 150c22-46 38-70 50-70 14 0 12 34 2 62-12 31-30 52-17 59 14 8 40-28 59-62 14-26 26-40 34-37 9 4 3 28 12 37 8 8 22 5 37-9"
+        fill="none" stroke="#1b3a5c" stroke-width="19" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M28 214h164" stroke="#1b3a5c" stroke-width="17" stroke-linecap="round" />
+  <circle cx="200" cy="204" r="34" fill="#f2921e" />
+  <path d="M185 204l11 12 22-25" fill="none" stroke="#fff" stroke-width="11"
+        stroke-linecap="round" stroke-linejoin="round" />
+</svg>

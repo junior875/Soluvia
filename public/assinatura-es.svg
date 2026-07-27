@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1053 700" width="1053" height="700" role="img" aria-label="Firma Digital">
+  <!-- Logotipo do módulo Assinatura Digital (es). Mesma família do Canal de
+       Denúncias e do SAC: anel laranja + meia-lua prateada, glifo navy no miolo,
+       nome por extenso em duas linhas. Variantes en/es ao lado. -->
+  <defs>
+    <linearGradient id="sigRing" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7a83c" />
+      <stop offset="1" stop-color="#e07c0b" />
+    </linearGradient>
+  </defs>
+
+  <circle cx="526" cy="182" r="128" fill="none" stroke="url(#sigRing)" stroke-width="27" />
+  <path d="M526 40a142 142 0 1 0 0 284" fill="none" stroke="#c9d3de" stroke-width="15"
+        stroke-linecap="round" opacity=".95" />
+
+  <!-- Glifo: rubrica manuscrita sobre a linha de assinatura + selo de conferido -->
+  <g transform="translate(526 182)">
+    <path d="M-62 26c14-30 24-46 32-46 9 0 8 22 1 40-8 20-19 34-11 38 9 5 26-18 38-40 9-17 17-26 22-24 6 3 2 18 8 24 5 5 14 3 24-6"
+          fill="none" stroke="#1b3a5c" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M-66 74h132" stroke="#1b3a5c" stroke-width="11" stroke-linecap="round" />
+    <circle cx="60" cy="70" r="22" fill="#f2921e" />
+    <path d="M50 70l7 8 14-16" fill="none" stroke="#fff" stroke-width="7"
+          stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+
+  <text x="526" y="404" text-anchor="middle" fill="#e07c0b"
+        font-family="Poppins, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        font-size="42" font-weight="700" letter-spacing="10">VALIDEZ JURÍDICA</text>
+
+  <text x="526" y="512" text-anchor="middle" fill="#1b3a5c" stroke="#eef3f9" stroke-width="8" paint-order="stroke" stroke-linejoin="round"
+        font-family="Poppins, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        font-size="94" font-weight="700">Firma</text>
+
+  <text x="526" y="624" text-anchor="middle" fill="#1b3a5c" stroke="#eef3f9" stroke-width="8" paint-order="stroke" stroke-linejoin="round"
+        font-family="Poppins, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        font-size="108" font-weight="800" letter-spacing="1">Digital</text>
+
+  <rect x="330" y="652" width="140" height="7" rx="3.5" fill="#e07c0b" />
+  <rect x="583" y="652" width="140" height="7" rx="3.5" fill="#e07c0b" />
+</svg>

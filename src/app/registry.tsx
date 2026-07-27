@@ -5,7 +5,6 @@ import type { IconName } from './icons'
 import type { AppStrings } from './strings'
 import Overview from './screens/Overview'
 import Cases from './screens/Cases'
-import NR1 from './screens/NR1'
 import Signature from './screens/Signature'
 import People from './screens/People'
 import Roles from './screens/Roles'
@@ -50,12 +49,11 @@ export const SCREENS: ScreenDef[] = [
     Component: SACScreen,
     requires: { module: 'sac', anyOf: ['sac.view_demands'] },
   },
+  // NR-1 fora da navegação por enquanto: o módulo não existe como produto hoje.
+  // A tela e o backend continuam de pé — para reativar, basta devolver esta
+  // entrada (o filtro por plano/permissão já cuida do resto).
   {
-    id: 'nr1', navKey: 'nr1', icon: 'nr1', group: 'modules', Component: NR1,
-    requires: { module: 'nr1', anyOf: ['nr1.view_aggregated'] },
-  },
-  {
-    id: 'signature', navKey: 'signature', icon: 'signature', group: 'modules', Component: Signature,
+    id: 'signature', navKey: 'signature', icon: 'signature', logo: '/assinatura-icon.svg', group: 'modules', Component: Signature,
     requires: { module: 'assinatura', anyOf: ['assinatura.view'] },
   },
   {
@@ -72,11 +70,11 @@ export const SCREENS: ScreenDef[] = [
   },
   {
     id: 'formbuilder', navKey: 'formbuilder', icon: 'audit', group: 'config', Component: FormBuilder,
-    requires: { module: 'etica', anyOf: ['etica.build_form'] },
+    requires: { anyOf: ['etica.build_form', 'sac.build_form'] },
   },
   {
     id: 'flowbuilder', navKey: 'flow', icon: 'flow', group: 'config', Component: FlowBuilder,
-    requires: { module: 'etica', anyOf: ['etica.build_flow'] },
+    requires: { anyOf: ['etica.build_flow', 'sac.build_flow'] },
   },
   {
     id: 'billing', navKey: 'billing', icon: 'billing', group: 'admin', Component: Billing,
