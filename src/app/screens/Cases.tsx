@@ -18,9 +18,16 @@ const SEVS = ['low', 'medium', 'high', 'critical'] as const
 
 const ta: CSSProperties = { width: '100%', minHeight: 72, resize: 'vertical', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 12px', color: 'var(--heading)', fontFamily: 'inherit', fontSize: 14, boxSizing: 'border-box' }
 
-export default function Cases() {
+/** A mesma tela serve Canal de Denúncias e SAC: muda o vocabulário (relato de
+ *  denúncia x demanda de consumidor), o logotipo e o prazo do decreto. */
+export interface CasesProps { module?: 'etica' | 'sac' }
+
+export default function Cases({ module = 'etica' }: CasesProps) {
   const { can, ctx } = useCaps()
   const t = useT()
+  const isSac = module === 'sac'
+  // Textos do módulo: no SAC quem escreve é CONSUMIDOR, não denunciante.
+  const tx = isSac ? t.sac : t.cases
   const { lang } = useTranslation()
   const sevL = (s: string) => (t.cases.sev as Record<string, string>)[s] ?? s
   const statL = (s: string) => (t.cases.stat as Record<string, string>)[s] ?? s
@@ -113,9 +120,25 @@ export default function Cases() {
     if (!term) return true
     return c.title.toLowerCase().includes(term) || c.protocol.toLowerCase().includes(term)
   }
-  const filtered = (cases ?? []).filter(matches)
+  // Cada tela mostra só o que é do seu módulo. Casos antigos, criados antes do
+  // SAC existir, não trazem `module` — valem como ética.
+  const ofModule = (cases ?? []).filter((c) => (c.module ?? 'etica') === module)
+  const filtered = ofModule.filter(matches)
   const activeCases = filtered.filter((c) => c.status !== 'closed')
   const finishedCases = filtered.filter((c) => c.status === 'closed')
+
+  /** Selo do prazo do Decreto 11.034/2022 (7 dias corridos). Só no SAC e só
+   *  enquanto a demanda está aberta — depois de encerrada não faz sentido. */
+  const dueChip = (c: CaseOut) => {
+    if (!isSac || !c.response_due_at || c.status === 'closed') return null
+    const ms = new Date(c.response_due_at).getTime() - Date.now()
+    const dias = Math.ceil(ms / 86_400_000)
+    // A paleta de Chip não tem vermelho; 'accent' (laranja) é o tom de alerta do
+    // app — o mesmo usado em gravidade alta/crítica. Atrasado ganha ênfase extra.
+    if (dias < 0) return <Chip tone="accent"><strong>{t.sac.due.late}</strong></Chip>
+    if (dias === 0) return <Chip tone="accent">{t.sac.due.today}</Chip>
+    return <Chip tone={dias <= 2 ? 'accent' : 'green'}>{t.sac.due.inDays.replace('{n}', String(dias))}</Chip>
+  }
 
   const caseCard = (c: CaseOut) => (
     <Card key={c.id} hover onClick={() => void openCase(c.id)}>
@@ -125,6 +148,7 @@ export default function Cases() {
           <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontFamily: 'monospace' }}>{c.protocol}</div>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {dueChip(c)}
           <Chip tone={SEV_TONE[c.severity as keyof typeof SEV_TONE] ?? 'muted'}>{sevL(c.severity)}</Chip>
           <Chip tone={STATUS_TONE[c.status as keyof typeof STATUS_TONE] ?? 'muted'}>{statL(c.status)}</Chip>
           <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{new Date(c.created_at).toLocaleDateString()}</span>
@@ -148,9 +172,9 @@ export default function Cases() {
         </div>
       )}
       <PageHeader
-        title={t.cases.title}
-        subtitle={t.cases.subtitle}
-        action={canManageChannels && <Button leftIcon="channels" onClick={() => goScreen('channels')}>{t.cases.createChannel}</Button>}
+        title={tx.title}
+        subtitle={tx.subtitle}
+        action={canManageChannels && <Button leftIcon="channels" onClick={() => goScreen('channels')}>{tx.createChannel}</Button>}
       />
       {cases === null ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{[0, 1, 2].map((i) => <Skeleton key={i} h={72} r={16} />)}</div>

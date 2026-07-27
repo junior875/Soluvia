@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1053 700" width="1053" height="700" role="img" aria-label="SAC — Consumer Service">
+  <!-- Logotipo do módulo SAC (en). Mesmo par de cores do Canal de Denúncias:
+       navy da marca + laranja no acento. Versões en/es em sac-en.svg e sac-es.svg. -->
+  <g transform="translate(526 40)">
+    <g transform="translate(-128 0) scale(1)">
+      <g fill="none" stroke="#12324e" stroke-width="18" stroke-linecap="round">
+        <path d="M52 148v-16a76 76 0 0 1 152 0v16" />
+      </g>
+      <rect x="30" y="140" width="42" height="72" rx="21" fill="#12324e" />
+      <rect x="184" y="140" width="42" height="72" rx="21" fill="#12324e" />
+      <path d="M205 212v6a26 26 0 0 1-26 26h-22" fill="none" stroke="#12324e"
+            stroke-width="16" stroke-linecap="round" />
+      <circle cx="139" cy="244" r="18" fill="#f2921e" />
+    </g>
+  </g>
+
+  <text x="526" y="480" text-anchor="middle" fill="#12324e"
+        font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        font-size="188" font-weight="800" letter-spacing="6">SAC</text>
+
+  <rect x="406" y="516" width="240" height="6" rx="3" fill="#f2921e" />
+
+  <text x="526" y="596" text-anchor="middle" fill="#44566a"
+        font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        font-size="52" font-weight="600" letter-spacing="1">Consumer Service</text>
+</svg>

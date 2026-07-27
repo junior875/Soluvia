@@ -183,6 +183,10 @@ export interface CaseOut {
   title: string
   is_anonymous: boolean
   current_stage_id: string | null
+  /** Prazo de resposta ao consumidor (SAC). Nulo em ouvidoria/ética. */
+  response_due_at?: string | null
+  /** Módulo do canal de origem: 'etica' | 'sac'. Ausente em casos antigos. */
+  module?: string | null
   created_at: string
   updated_at: string
 }

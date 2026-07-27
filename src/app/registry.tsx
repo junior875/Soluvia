@@ -34,11 +34,21 @@ export interface ScreenDef {
   Component: ComponentType
 }
 
+/** O registro monta telas sem props; o SAC é a tela de Casos em outro modo. */
+const SACScreen = () => <Cases module="sac" />
+
 export const SCREENS: ScreenDef[] = [
   { id: 'overview', navKey: 'overview', icon: 'overview', group: 'main', Component: Overview },
   {
     id: 'cases', navKey: 'cases', icon: 'cases', logo: '/canal-denuncias-icon.png', group: 'modules', Component: Cases,
     requires: { anyOf: ['etica.view_cases', 'privacidade.view_requests', 'incidentes.view'] },
+  },
+  {
+    // Mesma tela de Casos, em modo SAC: vocabulário de consumidor e o selo do
+    // prazo de 7 dias corridos do Decreto 11.034/2022.
+    id: 'sac', navKey: 'sac', icon: 'cases', logo: '/sac-icon.svg', group: 'modules',
+    Component: SACScreen,
+    requires: { module: 'sac', anyOf: ['sac.view_demands'] },
   },
   {
     id: 'nr1', navKey: 'nr1', icon: 'nr1', group: 'modules', Component: NR1,

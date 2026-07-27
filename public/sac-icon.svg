@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="SAC">
+  <!-- Marca do módulo SAC: headset (símbolo universal de atendimento) na navy da
+       Soluvia, com o ponto de fala em laranja. Desenhado para continuar legível
+       a 20px na barra lateral: traços grossos, sem detalhe fino. -->
+  <g fill="none" stroke="#12324e" stroke-width="18" stroke-linecap="round">
+    <!-- Arco do headset -->
+    <path d="M52 148v-16a76 76 0 0 1 152 0v16" />
+  </g>
+  <!-- Conchas -->
+  <rect x="30" y="140" width="42" height="72" rx="21" fill="#12324e" />
+  <rect x="184" y="140" width="42" height="72" rx="21" fill="#12324e" />
+  <!-- Haste do microfone + ponto de fala (acento da marca) -->
+  <path d="M205 212v6a26 26 0 0 1-26 26h-22" fill="none" stroke="#12324e"
+        stroke-width="16" stroke-linecap="round" />
+  <circle cx="139" cy="244" r="18" fill="#f2921e" />
+</svg>

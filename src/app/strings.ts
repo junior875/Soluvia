@@ -40,6 +40,7 @@ const pt = {
     admin: 'Administração',
     overview: 'Visão geral',
     cases: 'Canal de Denúncias',
+    sac: 'SAC',
     nr1: 'NR-1',
     signature: 'Assinatura Digital',
     people: 'Pessoas',
@@ -386,6 +387,12 @@ const pt = {
       'tenant.provisioned': 'provisionou a empresa', 'tenant.profile_updated': 'atualizou os dados da empresa',
     },
   },
+  sac: {
+    title: 'SAC — Atendimento ao Consumidor',
+    subtitle: 'Demandas de consumidores, com prazo de resposta de 7 dias corridos (Decreto 11.034/2022).',
+    createChannel: 'Criar um canal de SAC',
+    due: { late: 'Atrasado', today: 'Vence hoje', inDays: 'Faltam {n} d' },
+  },
   cases: {
     title: 'Casos',
     subtitle: 'Relatos no seu escopo de acesso.',
@@ -544,6 +551,7 @@ const en: AppStrings = {
     admin: 'Administration',
     overview: 'Overview',
     cases: 'Whistleblowing Channel',
+    sac: 'Consumer Service',
     nr1: 'NR-1',
     signature: 'Digital Signature',
     people: 'People',
@@ -890,6 +898,12 @@ const en: AppStrings = {
       'tenant.provisioned': 'provisioned the company', 'tenant.profile_updated': "updated the company's details",
     },
   },
+  sac: {
+    title: 'Consumer Service',
+    subtitle: 'Consumer requests, answered within 7 calendar days (Brazilian Decree 11,034/2022).',
+    createChannel: 'Create a consumer service channel',
+    due: { late: 'Overdue', today: 'Due today', inDays: '{n} d left' },
+  },
   cases: {
     title: 'Cases',
     subtitle: 'Reports within your access scope.',
@@ -1046,6 +1060,7 @@ const es: AppStrings = {
     admin: 'Administración',
     overview: 'Resumen',
     cases: 'Canal de Denuncias',
+    sac: 'SAC',
     nr1: 'NR-1',
     signature: 'Firma Digital',
     people: 'Personas',
@@ -1391,6 +1406,12 @@ const es: AppStrings = {
       'lgpd.request': 'hizo una solicitud de privacidad', 'tenant.self_signup': 'registró la empresa',
       'tenant.provisioned': 'aprovisionó la empresa', 'tenant.profile_updated': 'actualizó los datos de la empresa',
     },
+  },
+  sac: {
+    title: 'SAC — Atención al Consumidor',
+    subtitle: 'Demandas de consumidores, con plazo de respuesta de 7 días corridos (Decreto 11.034/2022).',
+    createChannel: 'Crear un canal de SAC',
+    due: { late: 'Atrasado', today: 'Vence hoy', inDays: 'Faltan {n} d' },
   },
   cases: {
     title: 'Casos',
