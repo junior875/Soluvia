@@ -12,10 +12,48 @@ import '@fontsource/dancing-script/latin-400.css'
 import '@fontsource/homemade-apple/latin-400.css'
 import '@fontsource/caveat/latin-400.css'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { SIGNATURE_STYLES, renderTypedSignature, type SignatureStyle } from '../../../lib/signatureImage'
 import { Field, Input } from '../../ui'
 import { useT } from '../../strings'
+
+/** Escala uniforme para o texto CABER na caixa — encolher, nunca cortar.
+ *
+ *  A prévia antes era `overflow: hidden` e "Juliana Ferreira Campos" virava
+ *  "Juliana Ferreira Can…": a pessoa via um nome truncado e assinava com outro,
+ *  porque o PNG gerado leva o nome inteiro. Medir + escalar é o que o PDF já faz
+ *  ao encaixar a rubrica no campo, então a tela passa a mostrar a mesma coisa.
+ *
+ *  `scrollWidth` é largura de LAYOUT: não sofre o `transform`, e por isso a
+ *  medição não realimenta a si mesma. O elemento medido precisa ser
+ *  `inline-block` (em inline puro o scrollWidth não vale). */
+function useFitScale<B extends HTMLElement, S extends HTMLElement>(
+  padX: number,
+  deps: React.DependencyList,
+) {
+  const boxRef = useRef<B | null>(null)
+  const spanRef = useRef<S | null>(null)
+  const [fit, setFit] = useState(1)
+  useLayoutEffect(() => {
+    const box = boxRef.current
+    const span = spanRef.current
+    if (!box || !span) return
+    const measure = () => {
+      const avail = box.clientWidth - padX
+      const natural = span.scrollWidth
+      if (avail <= 0 || !natural) return
+      setFit(Math.min(1, avail / natural))
+    }
+    measure()
+    // A largura útil muda com a janela e com o modal; o texto reflui quando a
+    // webfont finalmente chega (daí `ready` entrar nas dependências de fora).
+    const ro = new ResizeObserver(measure)
+    ro.observe(box)
+    return () => ro.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps)
+  return { boxRef, spanRef, fit }
+}
 
 interface Props {
   /** Nome do usuário logado — pré-preenche o campo. */
@@ -68,6 +106,7 @@ export default function SignatureTyped({ defaultName, onChange }: Props) {
   }, [])
 
   const preview = name.trim() || t.sig.typedPlaceholder
+  const fitPreview = useFitScale<HTMLDivElement, HTMLSpanElement>(32, [preview, styleId, ready])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -86,6 +125,7 @@ export default function SignatureTyped({ defaultName, onChange }: Props) {
           PNG gerado — se quebrasse em duas linhas aqui, a pessoa veria uma coisa
           e o PDF receberia outra. */}
       <div
+        ref={fitPreview.boxRef}
         style={{
           background: '#f6f8fc', border: '1px dashed #c4cede', borderRadius: 12,
           minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -93,15 +133,17 @@ export default function SignatureTyped({ defaultName, onChange }: Props) {
         }}
       >
         <span
+          ref={fitPreview.spanRef}
           style={{
             fontFamily: `"${style.family}", cursive`,
             fontSize: `clamp(20px, ${Math.round(52 * style.scale)}px, 56px)`,
             color: '#12324e', lineHeight: 1.6, whiteSpace: 'nowrap',
-            maxWidth: '100%', overflow: 'hidden',
+            display: 'inline-block',
+            transform: `scale(${fitPreview.fit})`, transformOrigin: 'center center',
             // Nunca some por completo: em rede lenta a área ficava em branco e
             // parecia tela quebrada. Fica esmaecida até a fonte chegar.
             opacity: ready ? (name.trim() ? 1 : 0.35) : 0.25,
-            transition: 'opacity .25s ease',
+            transition: 'opacity .25s ease, transform .12s ease',
           }}
         >
           {preview}
@@ -138,12 +180,16 @@ function StyleChip({ style, label, text, selected, onSelect }: {
   selected: boolean
   onSelect: () => void
 }) {
+  // O chip é uma mini-prévia: se ele corta e a prévia grande não, o mesmo nome
+  // aparece de dois jeitos na mesma tela. Encolhe igual.
+  const fit = useFitScale<HTMLButtonElement, HTMLSpanElement>(16, [text, style.id])
   return (
     <button
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
       className="app-btn"
+      ref={fit.boxRef}
       style={{
         cursor: 'pointer', padding: '10px 8px 8px', borderRadius: 12, background: '#f6f8fc',
         border: `1.5px solid ${selected ? 'var(--accent)' : '#c4cede'}`,
@@ -152,11 +198,12 @@ function StyleChip({ style, label, text, selected, onSelect }: {
       }}
     >
       <span
+        ref={fit.spanRef}
         style={{
           fontFamily: `"${style.family}", cursive`,
           fontSize: Math.round(26 * style.scale), color: '#12324e',
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          maxWidth: '100%', lineHeight: 1.6,
+          whiteSpace: 'nowrap', display: 'inline-block', lineHeight: 1.6,
+          transform: `scale(${fit.fit})`, transformOrigin: 'center center',
         }}
       >
         {text}

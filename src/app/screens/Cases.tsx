@@ -26,8 +26,9 @@ export default function Cases({ module = 'etica' }: CasesProps) {
   const { can, ctx } = useCaps()
   const t = useT()
   const isSac = module === 'sac'
-  // Textos do módulo: no SAC quem escreve é CONSUMIDOR, não denunciante.
-  const tx = isSac ? t.sac : t.cases
+  // Textos do módulo: no SAC quem escreve é CONSUMIDOR, não denunciante. `t.sac`
+  // traz só as chaves que mudam; o resto continua vindo de `t.cases`.
+  const tx = isSac ? { ...t.cases, ...t.sac } : t.cases
   const { lang } = useTranslation()
   // Logotipo do módulo, no idioma da tela. O de denúncias só tem PT e EN; o do
   // SAC tem os três. Sem isso o SAC exibia a marca do Canal de Denúncias.
@@ -78,7 +79,7 @@ export default function Cases({ module = 'etica' }: CasesProps) {
     try {
       const d = await api.get<CaseDetail>(`/cases/${id}`)
       setDetail(d); setSeverity(d.severity)
-    } catch (e) { flash((e as ApiError).detail ?? t.cases.failOpen); setOpen(false) }
+    } catch (e) { flash((e as ApiError).detail ?? tx.failOpen); setOpen(false) }
   }
   async function act(fn: () => Promise<unknown>) {
     setBusy(true)
@@ -188,28 +189,28 @@ export default function Cases({ module = 'etica' }: CasesProps) {
       {cases === null ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{[0, 1, 2].map((i) => <Skeleton key={i} h={72} r={16} />)}</div>
       ) : cases.length === 0 ? (
-        <Card><EmptyState icon="cases" title={t.cases.empty} /></Card>
+        <Card><EmptyState icon="cases" title={tx.empty} /></Card>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t.cases.searchPh} />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tx.searchPh} />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {groupHeader(t.cases.active, activeCases.length, 'accent')}
+            {groupHeader(tx.active, activeCases.length, 'accent')}
             {activeCases.length === 0
-              ? <Card><EmptyState icon="cases" title={q.trim() ? t.cases.noMatch : t.cases.noActive} /></Card>
+              ? <Card><EmptyState icon="cases" title={q.trim() ? t.cases.noMatch : tx.noActive} /></Card>
               : activeCases.map(caseCard)}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {groupHeader(t.cases.finished, finishedCases.length, 'green')}
+            {groupHeader(tx.finished, finishedCases.length, 'green')}
             {finishedCases.length === 0
-              ? <Card><EmptyState icon="cases" title={q.trim() ? t.cases.noMatch : t.cases.noFinished} /></Card>
+              ? <Card><EmptyState icon="cases" title={q.trim() ? t.cases.noMatch : tx.noFinished} /></Card>
               : finishedCases.map(caseCard)}
           </div>
         </div>
       )}
 
-      <Modal open={open} onClose={() => setOpen(false)} kicker={t.cases.title} title={detail ? detail.protocol : t.cases.loading} maxWidth={720}>
+      <Modal open={open} onClose={() => setOpen(false)} kicker={tx.title} title={detail ? detail.protocol : t.cases.loading} maxWidth={720}>
         {!detail ? <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}><Skeleton h={20} /><Skeleton h={90} r={12} /><Skeleton h={60} r={12} /></div> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -221,7 +222,7 @@ export default function Cases({ module = 'etica' }: CasesProps) {
 
             {/* Relato */}
             <div>
-              <SectionLabel>{t.cases.relato}</SectionLabel>
+              <SectionLabel>{tx.relato}</SectionLabel>
               <div style={{ display: 'grid', gap: 10, background: 'var(--surface-2)', borderRadius: 14, padding: 14 }}>
                 {answersView ?? <p style={{ color: 'var(--heading)', fontSize: 14.5, whiteSpace: 'pre-wrap' }}>{detail.events.find((e) => e.type === 'created')?.content ?? '—'}</p>}
               </div>
@@ -230,7 +231,7 @@ export default function Cases({ module = 'etica' }: CasesProps) {
             {/* Assinatura digital do denunciante identificado */}
             {detail.reporter_signature && (
               <div>
-                <SectionLabel>{t.cases.rsigTitle}</SectionLabel>
+                <SectionLabel>{tx.rsigTitle}</SectionLabel>
                 <div style={{ display: 'flex', gap: 14, alignItems: 'center', background: 'var(--surface-2)', border: '1px solid var(--accent-border)', borderRadius: 14, padding: 14, flexWrap: 'wrap' }}>
                   <img src={detail.reporter_signature.image} alt="rubrica" style={{ height: 64, width: 'auto', maxWidth: 200, background: '#f6f8fc', border: '1px solid var(--border)', borderRadius: 10, padding: 4, objectFit: 'contain' }} />
                   <div style={{ display: 'grid', gap: 3, fontSize: 12.5, color: 'var(--text-muted)', minWidth: 0 }}>
@@ -251,12 +252,12 @@ export default function Cases({ module = 'etica' }: CasesProps) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {detail.events.map((e) => {
                   const fromReporter = e.type === 'message' && e.actor_membership_id === null
-                  const label = e.type === 'note' ? t.cases.ev.note
-                    : e.type === 'created' ? t.cases.ev.opening
-                    : e.type === 'closed' ? t.cases.ev.closing
-                    : e.type === 'stage_change' || e.type === 'status_change' ? t.cases.ev.stage
-                    : fromReporter ? t.cases.ev.fromReporter
-                    : e.visible_to_reporter ? t.cases.ev.toReporter
+                  const label = e.type === 'note' ? tx.ev.note
+                    : e.type === 'created' ? tx.ev.opening
+                    : e.type === 'closed' ? tx.ev.closing
+                    : e.type === 'stage_change' || e.type === 'status_change' ? tx.ev.stage
+                    : fromReporter ? tx.ev.fromReporter
+                    : e.visible_to_reporter ? tx.ev.toReporter
                     : e.type
                   const tone = e.type === 'note' ? 'muted'
                     : fromReporter ? 'accent'
@@ -377,26 +378,26 @@ export default function Cases({ module = 'etica' }: CasesProps) {
                   )}
                   {canRespond && (
                     <div>
-                      <SectionLabel>{t.cases.respondL}</SectionLabel>
-                      <textarea style={ta} value={reply} onChange={(e) => setReply(e.target.value)} placeholder={t.cases.replyPh} />
+                      <SectionLabel>{tx.respondL}</SectionLabel>
+                      <textarea style={ta} value={reply} onChange={(e) => setReply(e.target.value)} placeholder={tx.replyPh} />
                       <Button loading={busy} disabled={!reply.trim()} onClick={sendReply} style={{ marginTop: 8 }}>{t.cases.sendReply}</Button>
                     </div>
                   )}
                   {!flowActive && canAnnotate && (
                     <div>
                       <SectionLabel>{t.cases.noteL}</SectionLabel>
-                      <textarea style={ta} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t.cases.notePh} />
+                      <textarea style={ta} value={note} onChange={(e) => setNote(e.target.value)} placeholder={tx.notePh} />
                       <Button variant="ghost" loading={busy} disabled={!note.trim()} onClick={addNote} style={{ marginTop: 8 }}>{t.cases.addNote}</Button>
                     </div>
                   )}
                   {!flowActive && canClose && (
                     <div>
-                      <SectionLabel>{t.cases.closeL}</SectionLabel>
-                      <textarea style={ta} value={resolution} onChange={(e) => setResolution(e.target.value)} placeholder={t.cases.closePh} />
+                      <SectionLabel>{tx.closeL}</SectionLabel>
+                      <textarea style={ta} value={resolution} onChange={(e) => setResolution(e.target.value)} placeholder={tx.closePh} />
                       <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0', color: 'var(--text-muted)', fontSize: 13 }}>
-                        <input type="checkbox" checked={resVisible} onChange={(e) => setResVisible(e.target.checked)} /> {t.cases.showOutcome}
+                        <input type="checkbox" checked={resVisible} onChange={(e) => setResVisible(e.target.checked)} /> {tx.showOutcome}
                       </label>
-                      <button className="app-btn" disabled={busy || !resolution.trim()} onClick={closeCase} style={{ cursor: 'pointer', borderRadius: 100, padding: '11px 20px', fontWeight: 700, fontFamily: 'inherit', background: '#d9534f', color: '#fff', border: 'none', opacity: busy || !resolution.trim() ? 0.6 : 1 }}>{t.cases.closeL}</button>
+                      <button className="app-btn" disabled={busy || !resolution.trim()} onClick={closeCase} style={{ cursor: 'pointer', borderRadius: 100, padding: '11px 20px', fontWeight: 700, fontFamily: 'inherit', background: '#d9534f', color: '#fff', border: 'none', opacity: busy || !resolution.trim() ? 0.6 : 1 }}>{tx.closeL}</button>
                     </div>
                   )}
                 </div>
