@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom'
 import { api, downloadAuthedFile } from '../../lib/api'
 import type { ApiError, CaseDetail, CaseOut, SigGeo } from '../../lib/types'
 import { useCaps } from '../capabilities'
+import { modPerm } from '../modulePerms'
 import { goScreen } from '../nav'
 import { useT } from '../strings'
 import { useTranslation } from '../../i18n/LanguageProvider'
@@ -64,12 +65,17 @@ export default function Cases({ module = 'etica' }: CasesProps) {
     finally { setPdfBusy(false) }
   }
 
-  const isEtica = can('etica.view_cases')
+  // As permissões seguem o MÓDULO da tela. Fixar `etica.*` aqui fazia o
+  // atendente de SAC abrir a demanda dele e não ver botão nenhum — nem triagem,
+  // nem resposta, nem encerramento —, porque ele não tem (nem deve ter) uma
+  // única permissão de denúncia.
+  const p = (action: string) => can(modPerm(module, action))
+  const canView = p('view')
   const canManageChannels = can('admin.manage_roles')
-  const canTriage = can('etica.triage')
-  const canRespond = can('etica.respond')
-  const canClose = can('etica.close')
-  const canAnnotate = can('etica.annotate') || canRespond
+  const canTriage = p('triage')
+  const canRespond = p('respond')
+  const canClose = p('close')
+  const canAnnotate = p('annotate') || canRespond
 
   const load = () => api.get<CaseOut[]>('/cases').then(setCases).catch(() => setCases([]))
   useEffect(() => { void load() }, [])
@@ -176,7 +182,7 @@ export default function Cases({ module = 'etica' }: CasesProps) {
 
   return (
     <div className="app-screen">
-      {isEtica && (
+      {canView && (
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
           <img src={moduleLogo} alt={tx.title} className="module-logo" style={{ height: 'clamp(150px, 26vw, 260px)', width: 'auto', maxWidth: '92%', objectFit: 'contain' }} />
         </div>
@@ -188,7 +194,7 @@ export default function Cases({ module = 'etica' }: CasesProps) {
       />
       {cases === null ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{[0, 1, 2].map((i) => <Skeleton key={i} h={72} r={16} />)}</div>
-      ) : cases.length === 0 ? (
+      ) : ofModule.length === 0 ? (
         <Card><EmptyState icon="cases" title={tx.empty} /></Card>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>

@@ -52,6 +52,18 @@ const pt = {
     audit: 'Auditoria',
     settings: 'Configurações',
   },
+  // SOBRESCREVE t.flow quando o canal escolhido é de SAC: a cadeia é de uma
+  // DEMANDA de consumidor, não de um relato de denúncia. Só as chaves que
+  // mudam — o resto vem de t.flow. NÃO declare `sev` aqui: o merge é raso e
+  // substituiria o objeto inteiro.
+  flowSac: {
+    subtitle: 'Monte a cadeia que uma demanda de consumidor segue depois de aberta — as etapas do atendimento, quem responde e o prazo.',
+    stages: 'Etapas do atendimento (configuráveis)',
+    emptyStagesBody: 'Adicione as sub-etapas do atendimento — cada uma com responsável, observadores e prazo.',
+    railInvestigation: 'Apuração',
+    egName: 'Atendimento',
+    stageNamePh: 'Ex.: Análise do pedido',
+  },
   flow: {
     title: 'Construtor de Fluxo',
     subtitle: 'Monte a cadeia que um relato segue após ser enviado — as etapas da investigação, quem responde e o prazo.',
@@ -61,7 +73,7 @@ const pt = {
     stages: 'Etapas da investigação (configuráveis)',
     emptyStages: 'Nenhuma etapa ainda', emptyStagesBody: 'Adicione as sub-etapas da investigação — cada uma com responsável, observadores e prazo.',
     addStage: 'Adicionar etapa', untitled: 'Etapa sem nome',
-    noChannel: 'Nenhum canal de Ética', noChannelBody: 'Crie um canal do módulo de Ética em Canais para configurar o fluxo dele.',
+    noChannel: 'Nenhum canal para configurar', noChannelBody: 'Crie um canal em Canais para montar o fluxo dele.',
     operator: 'Responsável (opera)', noRole: 'Sem responsável definido', sla: 'Prazo (dias)', watchers: 'Observadores (acompanham)',
     operatorPerson: 'Pessoa (opcional)', anyOfRole: 'Qualquer um do papel',
     doesWhat: 'O que essa pessoa faz', cfgDecision: 'Decisão', cfgRating: 'Nota', cfgUrgency: 'Urgência',
@@ -581,6 +593,14 @@ const en: AppStrings = {
     audit: 'Audit',
     settings: 'Settings',
   },
+  flowSac: {
+    subtitle: 'Design the chain a consumer demand follows after it is opened — the service stages, who handles them and the deadline.',
+    stages: 'Service stages (configurable)',
+    emptyStagesBody: 'Add the service sub-stages — each with an owner, watchers and a deadline.',
+    railInvestigation: 'Handling',
+    egName: 'Service',
+    stageNamePh: 'e.g. Request analysis',
+  },
   flow: {
     title: 'Flow Builder',
     subtitle: 'Design the chain a report follows after submission — the investigation stages, who handles them and the deadline.',
@@ -590,7 +610,7 @@ const en: AppStrings = {
     stages: 'Investigation stages (configurable)',
     emptyStages: 'No stages yet', emptyStagesBody: 'Add the investigation sub-stages — each with an owner, watchers and a deadline.',
     addStage: 'Add stage', untitled: 'Untitled stage',
-    noChannel: 'No Ethics channel', noChannelBody: 'Create an Ethics-module channel under Channels to configure its flow.',
+    noChannel: 'No channel to configure', noChannelBody: 'Create a channel under Channels to build its flow.',
     operator: 'Owner (handles it)', noRole: 'No owner set', sla: 'Deadline (days)', watchers: 'Watchers (follow along)',
     operatorPerson: 'Person (optional)', anyOfRole: 'Anyone with the role',
     doesWhat: 'What this person does', cfgDecision: 'Decision', cfgRating: 'Rating', cfgUrgency: 'Urgency',
@@ -1106,6 +1126,14 @@ const es: AppStrings = {
     audit: 'Auditoría',
     settings: 'Configuración',
   },
+  flowSac: {
+    subtitle: 'Diseña la cadena que sigue una demanda de consumidor tras abrirse — las etapas de la atención, quién responde y el plazo.',
+    stages: 'Etapas de la atención (configurables)',
+    emptyStagesBody: 'Agrega las subetapas de la atención — cada una con responsable, observadores y plazo.',
+    railInvestigation: 'Averiguación',
+    egName: 'Atención',
+    stageNamePh: 'Ej.: Análisis del pedido',
+  },
   flow: {
     title: 'Constructor de Flujo',
     subtitle: 'Diseña la cadena que sigue un reporte tras enviarse — las etapas de la investigación, quién responde y el plazo.',
@@ -1115,7 +1143,7 @@ const es: AppStrings = {
     stages: 'Etapas de la investigación (configurables)',
     emptyStages: 'Aún no hay etapas', emptyStagesBody: 'Agrega las subetapas de la investigación — cada una con responsable, observadores y plazo.',
     addStage: 'Agregar etapa', untitled: 'Etapa sin nombre',
-    noChannel: 'Sin canal de Ética', noChannelBody: 'Crea un canal del módulo de Ética en Canales para configurar su flujo.',
+    noChannel: 'Sin canal para configurar', noChannelBody: 'Crea un canal en Canales para armar su flujo.',
     operator: 'Responsable (opera)', noRole: 'Sin responsable', sla: 'Plazo (días)', watchers: 'Observadores (siguen)',
     operatorPerson: 'Persona (opcional)', anyOfRole: 'Cualquiera del rol',
     doesWhat: 'Qué hace esta persona', cfgDecision: 'Decisión', cfgRating: 'Nota', cfgUrgency: 'Urgencia',

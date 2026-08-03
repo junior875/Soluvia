@@ -3,7 +3,8 @@
 // … → Resposta → Encerrado). A etapa 3 (Investigação) é configurável: uma
 // sequência de sub-etapas, cada uma com operador (papel), observadores, SLA e
 // uma condição opcional (ex.: só entra se a gravidade for ≥ Alta).
-// Salva em PUT /channels/{id}/flow. Textos triplo idioma via t.flow.
+// Salva em PUT /channels/{id}/flow. Textos triplo idioma via t.flow (+ t.flowSac
+// quando o canal escolhido é de SAC).
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../../lib/api'
@@ -21,13 +22,13 @@ const uid = () => Math.random().toString(36).slice(2, 9)
 export default function FlowBuilder() {
   const { can } = useCaps()
   const t = useT()
-  const canEdit = can('etica.build_flow')
 
   const [channels, setChannels] = useState<ChannelOut[] | null>(null)
   const [roles, setRoles] = useState<RoleOut[]>([])
   const [members, setMembers] = useState<MemberRow[]>([])
   const [channelId, setChannelId] = useState<string>('')
-  const [flowName, setFlowName] = useState('Investigação')
+  // Placeholder até o canal carregar; o efeito de baixo troca pelo nome real.
+  const [flowName, setFlowName] = useState('')
   const [mode, setMode] = useState<'sequential' | 'parallel'>('sequential')
   const [closerMembershipId, setCloserMembershipId] = useState<string | null>(null)
   const [closerRoleId, setCloserRoleId] = useState<string | null>(null)
@@ -37,8 +38,31 @@ export default function FlowBuilder() {
   const [toast, setToast] = useState<string | null>(null)
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2600) }
 
-  // Só canais do módulo de Ética têm fluxo de investigação.
-  const ethicsChannels = useMemo(() => (channels ?? []).filter((c) => c.module === 'etica'), [channels])
+  // Canal de denúncia E canal de SAC têm apuração: os dois entram aqui. Isto
+  // filtrava `module === 'etica'` e escondia todo canal de SAC — não havia como
+  // montar o fluxo de um atendimento.
+  //
+  // A lista mostra só o que ESTA pessoa configura. Sem o filtro de permissão, o
+  // atendente de SAC abria a tela num canal de denúncias que ele não pode
+  // editar — ficava tudo cinza sem explicação, e o nome do canal de denúncias
+  // vazava para quem não é da ouvidoria. Quem confere de verdade é o backend,
+  // por canal (PUT /channels/{id}/flow resolve `{módulo}.build_flow`).
+  const flowChannels = useMemo(
+    () => (channels ?? []).filter(
+      (c) => (c.module === 'etica' || c.module === 'sac') && can(`${c.module}.build_flow`),
+    ),
+    [channels, can],
+  )
+  const channel = useMemo(() => flowChannels.find((c) => c.id === channelId) ?? null, [flowChannels, channelId])
+  const isSac = channel?.module === 'sac'
+  // Textos do módulo do canal ESCOLHIDO: no SAC a cadeia é de uma demanda de
+  // consumidor, não de um relato de denúncia. `t.flowSac` só traz o que muda.
+  // (Cuidado: o merge é raso — não declarar `sev` lá, senão o objeto inteiro
+  // seria substituído e a gravidade voltaria a aparecer como "low"/"high".)
+  const tf = isSac ? { ...t.flow, ...t.flowSac } : t.flow
+  // Sem canal escolhido não há permissão a checar — e o Skeleton (channels ===
+  // null) cobre o carregamento, então isto nunca pisca em read-only.
+  const canEdit = !!channel && can(`${channel.module}.build_flow`)
   const roleName = (id: string | null) => roles.find((r) => r.id === id)?.name ?? '—'
   const sevLabel = (s: string) => (t.flow.sev as Record<string, string>)[s] ?? s
 
@@ -48,9 +72,14 @@ export default function FlowBuilder() {
     void api.get<MemberRow[]>('/memberships').then((ms) => setMembers(ms.filter((m) => m.status === 'active'))).catch(() => {})
   }, [])
 
+  // Escolhe o primeiro canal — e RE-escolhe se o que estava selecionado sumiu da
+  // lista. Só olhar `!channelId` deixava uma seleção fantasma: o <Select> exibia
+  // o primeiro canal (o DOM cai nele quando o `value` não casa com opção
+  // nenhuma) enquanto a tela inteira continuava carregada com o canal antigo.
   useEffect(() => {
-    if (!channelId && ethicsChannels.length) setChannelId(ethicsChannels[0].id)
-  }, [ethicsChannels, channelId])
+    if (!flowChannels.length) return
+    if (!flowChannels.some((c) => c.id === channelId)) setChannelId(flowChannels[0].id)
+  }, [flowChannels, channelId])
 
   // Carrega o fluxo do canal (404 = ainda não configurado → vazio).
   useEffect(() => {
@@ -58,7 +87,7 @@ export default function FlowBuilder() {
     setStages(null)
     api.get<FlowOut>(`/channels/${channelId}/flow`)
       .then((f) => {
-        setFlowName(f.name || 'Investigação')
+        setFlowName(f.name || tf.egName)
         setMode(f.mode === 'parallel' ? 'parallel' : 'sequential')
         setCloserMembershipId(f.closer_membership_id ?? null)
         setCloserRoleId(f.closer_role_id ?? null)
@@ -72,7 +101,11 @@ export default function FlowBuilder() {
           is_conditional: s.is_conditional, condition: s.condition,
         })))
       })
-      .catch(() => { setFlowName('Investigação'); setMode('sequential'); setCloserMembershipId(null); setCloserRoleId(null); setCloserRequireSignature(false); setStages([]) })
+      .catch(() => { setFlowName(tf.egName); setMode('sequential'); setCloserMembershipId(null); setCloserRoleId(null); setCloserRequireSignature(false); setStages([]) })
+    // `tf` de propósito fora das dependências: ele só muda junto com o canal, e
+    // relistar aqui refaria o GET a cada troca de idioma, jogando fora o que a
+    // pessoa tivesse acabado de editar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channelId])
 
   const patch = (key: string, p: Partial<Draft>) =>
@@ -104,7 +137,7 @@ export default function FlowBuilder() {
     setBusy(true)
     try {
       const payload = {
-        name: flowName.trim() || 'Investigação',
+        name: flowName.trim() || tf.egName,
         mode,
         closer_membership_id: closerMembershipId,
         closer_role_id: closerRoleId,
@@ -139,11 +172,11 @@ export default function FlowBuilder() {
     <div className="app-screen">
       <PageHeader
         title={t.flow.title}
-        subtitle={t.flow.subtitle}
+        subtitle={tf.subtitle}
         action={canEdit && channelId && <Button leftIcon="check" onClick={() => void save()} loading={busy}>{t.flow.save}</Button>}
       />
 
-      {ethicsChannels.length === 0 ? (
+      {flowChannels.length === 0 ? (
         <Card><EmptyState icon="flow" title={t.flow.noChannel} body={t.flow.noChannelBody} /></Card>
       ) : (
         <>
@@ -152,13 +185,15 @@ export default function FlowBuilder() {
               <div style={{ flex: 1, minWidth: 220 }}>
                 <Field label={t.flow.channel}>
                   <Select value={channelId} onChange={(e) => setChannelId(e.target.value)}>
-                    {ethicsChannels.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {flowChannels.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name} · {c.module === 'sac' ? t.fb.kindSac : t.fb.kindEtica}</option>
+                    ))}
                   </Select>
                 </Field>
               </div>
               <div style={{ flex: 1, minWidth: 220 }}>
                 <Field label={t.flow.flowName}>
-                  <Input value={flowName} onChange={(e) => setFlowName(e.target.value)} disabled={!canEdit} placeholder={t.flow.egName} />
+                  <Input value={flowName} onChange={(e) => setFlowName(e.target.value)} disabled={!canEdit} placeholder={tf.egName} />
                 </Field>
               </div>
             </div>
@@ -205,7 +240,7 @@ export default function FlowBuilder() {
             <Arrow />
             <RailPill label={t.flow.railTriage} tone="blue" />
             <Arrow />
-            <RailPill label={`${t.flow.railInvestigation} (${stages?.length ?? 0})`} tone="accent" strong />
+            <RailPill label={`${tf.railInvestigation} (${stages?.length ?? 0})`} tone="accent" strong />
             <Arrow />
             <RailPill label={t.flow.railResponded} tone="blue" />
             <Arrow />
@@ -213,11 +248,11 @@ export default function FlowBuilder() {
           </div>
 
           {/* Sub-etapas configuráveis da investigação */}
-          <SectionLabel>{t.flow.stages}</SectionLabel>
+          <SectionLabel>{tf.stages}</SectionLabel>
           {stages === null ? (
             <Skeleton h={160} r={16} />
           ) : stages.length === 0 ? (
-            <Card><EmptyState icon="flow" title={t.flow.emptyStages} body={t.flow.emptyStagesBody}
+            <Card><EmptyState icon="flow" title={t.flow.emptyStages} body={tf.emptyStagesBody}
               action={canEdit && <Button leftIcon="plus" onClick={addStage}>{t.flow.addStage}</Button>} /></Card>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -225,7 +260,7 @@ export default function FlowBuilder() {
                 <Card key={s.key}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                     <span style={{ width: 30, height: 30, minWidth: 30, borderRadius: 9, background: 'var(--accent-soft)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14 }}>{i + 1}</span>
-                    <Input value={s.name} onChange={(e) => patch(s.key, { name: e.target.value })} disabled={!canEdit} placeholder={t.flow.stageNamePh} style={{ flex: 1 }} />
+                    <Input value={s.name} onChange={(e) => patch(s.key, { name: e.target.value })} disabled={!canEdit} placeholder={tf.stageNamePh} style={{ flex: 1 }} />
                     {canEdit && (
                       <div style={{ display: 'flex', gap: 4 }}>
                         <IconBtn icon="chevron" title="↑" flip disabled={i === 0} onClick={() => move(i, -1)} />
