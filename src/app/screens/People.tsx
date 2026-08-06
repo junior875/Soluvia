@@ -226,6 +226,23 @@ export default function People() {
       copyText(r.invite_url, id)
     } catch { /* sem convite pendente */ }
   }
+  // Reenvia o convite: código NOVO por e-mail e prazo renovado. O link segue o
+  // mesmo, então quem já o repassou por outro canal não precisa repassar de novo.
+  const [resendId, setResendId] = useState<string | null>(null)
+  const [resendMsg, setResendMsg] = useState<string | null>(null)
+  async function resendInvite(id: string) {
+    setResendId(id); setResendMsg(null)
+    try {
+      await api.post(`/memberships/${id}/resend-invite`, {})
+      setResendMsg(t.people.resendOk)
+    } catch (e) {
+      // O 429 do cooldown já vem com o texto pronto ("Aguarde Ns…").
+      setResendMsg((e as ApiError).detail ?? t.people.resendFail)
+    } finally {
+      setResendId(null)
+      setTimeout(() => setResendMsg(null), 4000)
+    }
+  }
   const closeInvite = () => { setOpen(false); setInviteLink(null); setError(null) }
 
   const load = () => api.get<MemberRow[]>('/memberships').then(setMembers).catch(() => setMembers([]))
@@ -260,8 +277,13 @@ export default function People() {
 
   const statusLabel = (s: string) => (t.people as Record<string, string>)[s] ?? s
 
+  const resendBanner = resendMsg ? (
+    <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 14px', fontSize: 13.5, color: 'var(--text)', marginBottom: 14 }}>{resendMsg}</div>
+  ) : null
+
   return (
     <div className="app-screen">
+      {resendBanner}
       <PageHeader
         title={t.people.title}
         subtitle={t.people.subtitle}
@@ -292,6 +314,11 @@ export default function People() {
                 {canManage && m.status === 'invited' && (
                   <button onClick={() => void copyMemberInvite(m.id)} className="app-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '5px 12px', borderRadius: 100, fontSize: 12.5, fontWeight: 700, background: 'var(--accent-soft)', color: 'var(--accent)', border: '1px solid var(--accent-border)' }}>
                     {copiedId === m.id ? t.common.copied : t.people.copyInvite}
+                  </button>
+                )}
+                {canManage && m.status === 'invited' && (
+                  <button onClick={() => void resendInvite(m.id)} disabled={resendId === m.id} className="app-btn" title={t.people.resendHint} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: resendId === m.id ? 'default' : 'pointer', padding: '5px 12px', borderRadius: 100, fontSize: 12.5, fontWeight: 700, background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)', opacity: resendId === m.id ? 0.6 : 1 }}>
+                    {resendId === m.id ? t.people.resending : t.people.resend}
                   </button>
                 )}
                 {canManage && (
