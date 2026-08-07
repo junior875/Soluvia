@@ -335,10 +335,17 @@ export default function People() {
       <Modal open={open} onClose={closeInvite} title={t.people.inviteTitle} kicker={t.people.title} maxWidth={440}>
         {inviteLink === null ? (
           <form onSubmit={invite} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {error && <div style={{ background: 'rgba(220,38,38,.12)', border: '1px solid rgba(220,38,38,.4)', color: '#fca5a5', borderRadius: 12, padding: '10px 12px', fontSize: 13.5 }}>{error}</div>}
+            {error && <div style={{ background: 'rgba(220,38,38,.12)', border: '1px solid rgba(220,38,38,.4)', color: '#fca5a5', borderRadius: 12, padding: '10px 12px', fontSize: 13.5, lineHeight: 1.5 }}>{error}</div>}
             <Field label={t.login.email}>
               <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t.people.emailPh} autoFocus />
             </Field>
+            {/* A regra ANTES do erro. Descobrir que o endereço já existe só
+                depois de preencher nome e papel e apertar enviar é aprender a
+                regra do jeito caro — e a mensagem de recusa, sozinha, chega
+                tarde demais para evitar a tentativa. */}
+            <p style={{ marginTop: -6, color: 'var(--text-muted)', fontSize: 12.5, lineHeight: 1.5 }}>
+              {t.people.oneEmailRule}
+            </p>
             <Field label={t.people.namePh}>
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.people.namePh} />
             </Field>
