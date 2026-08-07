@@ -80,6 +80,26 @@ export default function Cases({ module = 'etica' }: CasesProps) {
   const load = () => api.get<CaseOut[]>('/cases').then(setCases).catch(() => setCases([]))
   useEffect(() => { void load() }, [])
 
+  // Abre direto o caso que o e-mail de cobrança aponta (#painel/<tela>?protocolo=…).
+  // Sem isto o link entregaria a pessoa numa lista para ela procurar à mão o
+  // protocolo que estava escrito no próprio e-mail que a trouxe até aqui.
+  //
+  // Roda só depois que a lista chega, porque o link traz o PROTOCOLO (o que a
+  // pessoa lê) e a rota de detalhe pede o id. E limpa a query em seguida: sem
+  // isso o caso reabriria sozinho a cada vez que a tela voltasse a montar.
+  useEffect(() => {
+    if (!cases?.length) return
+    const query = window.location.hash.split('?')[1]
+    const protocolo = query ? new URLSearchParams(query).get('protocolo') : null
+    if (!protocolo) return
+    const alvo = cases.find((c) => c.protocol === protocolo)
+    window.history.replaceState(null, '', window.location.hash.split('?')[0])
+    if (alvo) void openCase(alvo.id)
+    else flash(tx.notFoundProtocol)
+    // Só na chegada da lista: reagir a `openCase` reabriria o modal a cada render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cases])
+
   async function openCase(id: string) {
     setOpen(true); setDetail(null); setReply(''); setNote(''); setResolution('')
     try {

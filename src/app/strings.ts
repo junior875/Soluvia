@@ -423,6 +423,7 @@ const pt = {
     notePh: 'Nota interna (nunca vai ao consumidor)…',
     closePh: 'Desfecho da demanda…',
     failOpen: 'Falha ao abrir a demanda.',
+    notFoundProtocol: 'Demanda não encontrada neste módulo.',
     ev: { note: 'nota interna', opening: 'abertura', closing: 'encerramento', stage: 'etapa',
           fromReporter: 'do consumidor', toReporter: 'ao consumidor' },
   },
@@ -446,6 +447,7 @@ const pt = {
     signStageL: 'Assinatura da etapa', signStage: 'Assinar esta etapa', stageSigned: 'Etapa assinada e encadeada à trilha do caso · link de verificação copiado',
     replyPh: 'Mensagem visível ao denunciante (pelo protocolo)…', notePh: 'Nota confidencial (nunca vai ao denunciante)…', closePh: 'Parecer / desfecho do caso…',
     ev: { note: 'nota interna', opening: 'abertura', closing: 'encerramento', stage: 'etapa', fromReporter: 'do denunciante', toReporter: 'ao denunciante' },
+    notFoundProtocol: 'Caso não encontrado neste módulo.',
     fail: 'Falha na ação.', failOpen: 'Falha ao abrir o caso.', loading: 'Carregando…', downloadPdf: 'Baixar PDF', createChannel: 'Criar um canal de denúncia',
     inv: {
       title: 'Investigação', release: 'Liberar fluxo',
@@ -962,6 +964,7 @@ const en: AppStrings = {
     notePh: 'Internal note (never sent to the consumer)…',
     closePh: 'Request outcome…',
     failOpen: 'Could not open the request.',
+    notFoundProtocol: 'Request not found in this module.',
     ev: { note: 'internal note', opening: 'opening', closing: 'closing', stage: 'stage',
           fromReporter: 'from the consumer', toReporter: 'to the consumer' },
   },
@@ -985,6 +988,7 @@ const en: AppStrings = {
     signStageL: 'Stage signature', signStage: 'Sign this stage', stageSigned: 'Stage signed and chained to the case trail · verification link copied',
     replyPh: 'Message visible to the reporter (via protocol)…', notePh: 'Confidential note (never sent to the reporter)…', closePh: 'Resolution / case outcome…',
     ev: { note: 'internal note', opening: 'opened', closing: 'closure', stage: 'stage', fromReporter: 'from reporter', toReporter: 'to reporter' },
+    notFoundProtocol: 'Case not found in this module.',
     fail: 'Action failed.', failOpen: 'Failed to open the case.', loading: 'Loading…', downloadPdf: 'Download PDF', createChannel: 'Create a whistleblowing channel',
     inv: {
       title: 'Investigation', release: 'Release flow',
@@ -1499,6 +1503,7 @@ const es: AppStrings = {
     notePh: 'Nota interna (nunca va al consumidor)…',
     closePh: 'Desenlace de la demanda…',
     failOpen: 'No fue posible abrir la demanda.',
+    notFoundProtocol: 'Solicitud no encontrada en este módulo.',
     ev: { note: 'nota interna', opening: 'apertura', closing: 'cierre', stage: 'etapa',
           fromReporter: 'del consumidor', toReporter: 'al consumidor' },
   },
@@ -1522,6 +1527,7 @@ const es: AppStrings = {
     signStageL: 'Firma de la etapa', signStage: 'Firmar esta etapa', stageSigned: 'Etapa firmada y encadenada al historial del caso · enlace de verificación copiado',
     replyPh: 'Mensaje visible al denunciante (por el protocolo)…', notePh: 'Nota confidencial (nunca va al denunciante)…', closePh: 'Dictamen / desenlace del caso…',
     ev: { note: 'nota interna', opening: 'apertura', closing: 'cierre', stage: 'etapa', fromReporter: 'del denunciante', toReporter: 'al denunciante' },
+    notFoundProtocol: 'Caso no encontrado en este módulo.',
     fail: 'Falló la acción.', failOpen: 'No se pudo abrir el caso.', loading: 'Cargando…', downloadPdf: 'Descargar PDF', createChannel: 'Crear un canal de denuncias',
     inv: {
       title: 'Investigación', release: 'Liberar flujo',

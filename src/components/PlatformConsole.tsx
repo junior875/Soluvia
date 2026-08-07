@@ -20,6 +20,7 @@ const L = {
     cAdmin: 'Admin da empresa', cAdminName: 'Nome do admin', cEmail: 'E-mail', cPassword: 'Senha (mín. 8)',
     create: 'Criar empresa', companyCreated: 'Empresa criada.', addUser: 'Adicionar usuário', uName: 'Nome',
     uRole: 'Papel', add: 'Adicionar', userAdded: 'Usuário adicionado.', autoSlug: '(gerado do nome)',
+    resend: 'Reenviar convite', resending: 'Enviando…', resendOk: 'Convite reenviado por e-mail.',
   },
   en: {
     kicker: 'Soluqtion Console', subtitle: 'Full platform view', logout: 'Sign out',
@@ -33,6 +34,7 @@ const L = {
     cAdmin: 'Company admin', cAdminName: 'Admin name', cEmail: 'Email', cPassword: 'Password (min. 8)',
     create: 'Create company', companyCreated: 'Company created.', addUser: 'Add user', uName: 'Name',
     uRole: 'Role', add: 'Add', userAdded: 'User added.', autoSlug: '(from the name)',
+    resend: 'Resend invite', resending: 'Sending…', resendOk: 'Invitation re-sent by email.',
   },
   es: {
     kicker: 'Consola Soluqtion', subtitle: 'Vista total de la plataforma', logout: 'Salir',
@@ -46,6 +48,7 @@ const L = {
     cAdmin: 'Admin de la empresa', cAdminName: 'Nombre del admin', cEmail: 'Correo', cPassword: 'Contraseña (mín. 8)',
     create: 'Crear empresa', companyCreated: 'Empresa creada.', addUser: 'Agregar usuario', uName: 'Nombre',
     uRole: 'Rol', add: 'Agregar', userAdded: 'Usuario agregado.', autoSlug: '(generado del nombre)',
+    resend: 'Reenviar invitación', resending: 'Enviando…', resendOk: 'Invitación reenviada por correo.',
   },
 }
 
@@ -68,6 +71,9 @@ export default function PlatformConsole() {
   const [detail, setDetail] = useState<PlatformTenantDetail | null>(null)
   const [limitEdit, setLimitEdit] = useState('')
   const [busy, setBusy] = useState(false)
+  // Qual convite está sendo reenviado. Por linha, e não um booleano global:
+  // travar a lista inteira faria os outros botões piscarem sem motivo.
+  const [resendId, setResendId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [plans, setPlans] = useState<PlanOut[]>([])
   const [showNew, setShowNew] = useState(false)
@@ -109,6 +115,20 @@ export default function PlatformConsole() {
       })
       setDetail(d); setMf(emptyMember); load(); flash(tr.userAdded)
     } catch (e) { flash((e as ApiError).detail ?? 'Erro') } finally { setBusy(false) }
+  }
+
+  // Reenvio do convite a partir do console: o e-mail do cliente não chegou (caiu
+  // em spam, veio com uma letra errada, o servidor dele segurou) e o superadmin
+  // precisa resolver sem entrar na empresa com uma conta de lá.
+  async function resendInvite(membershipId: string) {
+    if (!detail) return
+    setResendId(membershipId)
+    try {
+      const d = await api.post<PlatformTenantDetail>(
+        `/platform/tenants/${detail.id}/members/${membershipId}/resend-invite`, {},
+      )
+      setDetail(d); flash(tr.resendOk)
+    } catch (e) { flash((e as ApiError).detail ?? 'Erro') } finally { setResendId(null) }
   }
 
   async function openDetail(id: string) {
@@ -251,7 +271,18 @@ export default function PlatformConsole() {
               {detail.members.map((m) => (
                 <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, background: 'var(--surface-2)', borderRadius: 10, padding: '9px 12px', flexWrap: 'wrap' }}>
                   <div><span style={{ color: 'var(--heading)', fontWeight: 600 }}>{m.name || m.email}</span> <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{m.email}</span></div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{m.roles.join(', ') || '—'} · {m.status}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{m.roles.join(', ') || '—'} · {m.status}</span>
+                    {m.status === 'invited' && (
+                      <button
+                        onClick={() => void resendInvite(m.id)}
+                        disabled={resendId === m.id}
+                        style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 100, padding: '4px 11px', fontSize: 12, fontWeight: 700, cursor: resendId === m.id ? 'default' : 'pointer', opacity: resendId === m.id ? 0.6 : 1 }}
+                      >
+                        {resendId === m.id ? tr.resending : tr.resend}
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
