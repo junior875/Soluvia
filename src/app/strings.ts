@@ -425,6 +425,7 @@ const pt = {
     closePh: 'Desfecho da demanda…',
     failOpen: 'Falha ao abrir a demanda.',
     notFoundProtocol: 'Demanda não encontrada neste módulo.',
+    evidenceTitle: 'Anexos enviados', evidenceEmpty: 'Nenhum anexo.', evidenceView: 'Ver', evidenceDownload: 'Baixar', evidenceNoPreview: 'Sem visualização para este formato.', evidenceNoPerm: 'Você não tem permissão para ver os anexos deste canal.',
     ev: { note: 'nota interna', opening: 'abertura', closing: 'encerramento', stage: 'etapa',
           fromReporter: 'do consumidor', toReporter: 'ao consumidor' },
   },
@@ -449,6 +450,7 @@ const pt = {
     replyPh: 'Mensagem visível ao denunciante (pelo protocolo)…', notePh: 'Nota confidencial (nunca vai ao denunciante)…', closePh: 'Parecer / desfecho do caso…',
     ev: { note: 'nota interna', opening: 'abertura', closing: 'encerramento', stage: 'etapa', fromReporter: 'do denunciante', toReporter: 'ao denunciante' },
     notFoundProtocol: 'Caso não encontrado neste módulo.',
+    evidenceTitle: 'Provas anexadas', evidenceEmpty: 'Nenhuma prova anexada.', evidenceView: 'Ver', evidenceDownload: 'Baixar', evidenceNoPreview: 'Sem visualização para este formato.', evidenceNoPerm: 'Você não tem permissão para ver as provas deste canal.',
     fail: 'Falha na ação.', failOpen: 'Falha ao abrir o caso.', loading: 'Carregando…', downloadPdf: 'Baixar PDF', createChannel: 'Criar um canal de denúncia',
     inv: {
       title: 'Investigação', release: 'Liberar fluxo',
@@ -967,6 +969,7 @@ const en: AppStrings = {
     closePh: 'Request outcome…',
     failOpen: 'Could not open the request.',
     notFoundProtocol: 'Request not found in this module.',
+    evidenceTitle: 'Attachments', evidenceEmpty: 'No attachments.', evidenceView: 'View', evidenceDownload: 'Download', evidenceNoPreview: 'No preview for this format.', evidenceNoPerm: 'You do not have permission to view attachments in this channel.',
     ev: { note: 'internal note', opening: 'opening', closing: 'closing', stage: 'stage',
           fromReporter: 'from the consumer', toReporter: 'to the consumer' },
   },
@@ -991,6 +994,7 @@ const en: AppStrings = {
     replyPh: 'Message visible to the reporter (via protocol)…', notePh: 'Confidential note (never sent to the reporter)…', closePh: 'Resolution / case outcome…',
     ev: { note: 'internal note', opening: 'opened', closing: 'closure', stage: 'stage', fromReporter: 'from reporter', toReporter: 'to reporter' },
     notFoundProtocol: 'Case not found in this module.',
+    evidenceTitle: 'Evidence', evidenceEmpty: 'No evidence attached.', evidenceView: 'View', evidenceDownload: 'Download', evidenceNoPreview: 'No preview for this format.', evidenceNoPerm: 'You do not have permission to view evidence in this channel.',
     fail: 'Action failed.', failOpen: 'Failed to open the case.', loading: 'Loading…', downloadPdf: 'Download PDF', createChannel: 'Create a whistleblowing channel',
     inv: {
       title: 'Investigation', release: 'Release flow',
@@ -1507,6 +1511,7 @@ const es: AppStrings = {
     closePh: 'Desenlace de la demanda…',
     failOpen: 'No fue posible abrir la demanda.',
     notFoundProtocol: 'Solicitud no encontrada en este módulo.',
+    evidenceTitle: 'Adjuntos enviados', evidenceEmpty: 'Sin adjuntos.', evidenceView: 'Ver', evidenceDownload: 'Descargar', evidenceNoPreview: 'Sin vista previa para este formato.', evidenceNoPerm: 'No tienes permiso para ver los adjuntos de este canal.',
     ev: { note: 'nota interna', opening: 'apertura', closing: 'cierre', stage: 'etapa',
           fromReporter: 'del consumidor', toReporter: 'al consumidor' },
   },
@@ -1531,6 +1536,7 @@ const es: AppStrings = {
     replyPh: 'Mensaje visible al denunciante (por el protocolo)…', notePh: 'Nota confidencial (nunca va al denunciante)…', closePh: 'Dictamen / desenlace del caso…',
     ev: { note: 'nota interna', opening: 'apertura', closing: 'cierre', stage: 'etapa', fromReporter: 'del denunciante', toReporter: 'al denunciante' },
     notFoundProtocol: 'Caso no encontrado en este módulo.',
+    evidenceTitle: 'Pruebas adjuntas', evidenceEmpty: 'Sin pruebas adjuntas.', evidenceView: 'Ver', evidenceDownload: 'Descargar', evidenceNoPreview: 'Sin vista previa para este formato.', evidenceNoPerm: 'No tienes permiso para ver las pruebas de este canal.',
     fail: 'Falló la acción.', failOpen: 'No se pudo abrir el caso.', loading: 'Cargando…', downloadPdf: 'Descargar PDF', createChannel: 'Crear un canal de denuncias',
     inv: {
       title: 'Investigación', release: 'Liberar flujo',

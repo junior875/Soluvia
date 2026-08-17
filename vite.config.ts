@@ -2,8 +2,31 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
+/**
+ * A CSP do index.html é a de PRODUÇÃO: `connect-src 'self'`, porque lá o front
+ * e a API vivem na mesma origem (o Caddy/estático repassa /api).
+ *
+ * Em desenvolvimento nem sempre é assim — quem define `VITE_API_URL` aponta
+ * para outra porta, e aí a mesma diretiva bloqueia TODA chamada à API e a tela
+ * fica em "canal indisponível" sem dizer por quê. Este plugin acrescenta as
+ * origens locais à diretiva, e só no servidor de dev: o arquivo que o build
+ * gera não passa por aqui.
+ */
+function cspDeDesenvolvimento() {
+  return {
+    name: 'csp-dev',
+    apply: 'serve' as const,
+    transformIndexHtml(html: string) {
+      return html.replace(
+        "connect-src 'self' https://*.digitaloceanspaces.com",
+        "connect-src 'self' https://*.digitaloceanspaces.com http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*",
+      )
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), cspDeDesenvolvimento()],
   server: {
     host: true,          // escuta em todas as interfaces (localhost E 127.0.0.1)
     port: 5991,          // porta fixa e incomum (não colide com nada)

@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { BASE_URL } from '../lib/api'
 import type { SigGeo } from '../lib/types'
 import { useTranslation } from '../i18n/LanguageProvider'
+import { EvidenceUploader } from './EvidenceUploader'
 import PrefSwitcher from './PrefSwitcher'
 import ParecerSignModal from '../app/screens/signature/ParecerSignModal'
 
@@ -14,9 +15,9 @@ interface PublicForm { tenant_slug: string; tenant_name: string; channel_name: s
 interface Receipt { protocol: string; access_hash: string }
 
 const L = {
-  pt: { loading: 'Carregando…', unavailable: 'Canal indisponível', unavailableBody: 'Este canal ainda não tem um formulário publicado, ou o link é inválido.', identifyLegend: 'Como você quer relatar?', anon: 'Anônimo', anonHint: 'Não pediremos nada que te identifique.', identify: 'Identificar-me', email: 'Seu e-mail', emailHint: 'Usaremos só para dar retorno do seu relato.', anonForced: 'Este canal é 100% anônimo.', idRequired: 'Este canal exige identificação.', send: 'Enviar relato', sending: 'Enviando…', required: 'Preencha os campos obrigatórios.', doneTitle: 'Relato registrado', doneBody: 'Guarde o protocolo e o código abaixo — é a única forma de acompanhar (inclusive de forma anônima).', protocol: 'Protocolo', code: 'Código de acesso', copy: 'Copiar', copied: 'Copiado!', track: 'Acompanhar depois em', another: 'Enviar outro relato', secure: 'Ambiente seguro e confidencial', yes: 'Sim', no: 'Não', choose: 'Selecione', signTitle: 'Assine seu relato', signKicker: 'Identificação', signCta: 'Assinar e enviar', signNote: 'Ao se identificar, você assina digitalmente o relato (rubrica + localização opcional).' },
-  en: { loading: 'Loading…', unavailable: 'Channel unavailable', unavailableBody: 'This channel has no published form yet, or the link is invalid.', identifyLegend: 'How do you want to report?', anon: 'Anonymous', anonHint: 'We will not ask anything that identifies you.', identify: 'Identify myself', email: 'Your email', emailHint: 'Only used to get back to you about your report.', anonForced: 'This channel is 100% anonymous.', idRequired: 'This channel requires identification.', send: 'Send report', sending: 'Sending…', required: 'Please fill the required fields.', doneTitle: 'Report received', doneBody: 'Keep the protocol and code below — it is the only way to follow up (even anonymously).', protocol: 'Protocol', code: 'Access code', copy: 'Copy', copied: 'Copied!', track: 'Follow up later at', another: 'Send another report', secure: 'Secure & confidential', yes: 'Yes', no: 'No', choose: 'Select', signTitle: 'Sign your report', signKicker: 'Identification', signCta: 'Sign & send', signNote: 'By identifying yourself, you digitally sign the report (signature + optional location).' },
-  es: { loading: 'Cargando…', unavailable: 'Canal no disponible', unavailableBody: 'Este canal aún no tiene un formulario publicado, o el enlace no es válido.', identifyLegend: '¿Cómo quieres denunciar?', anon: 'Anónimo', anonHint: 'No pediremos nada que te identifique.', identify: 'Identificarme', email: 'Tu correo', emailHint: 'Solo para darte seguimiento de tu denuncia.', anonForced: 'Este canal es 100% anónimo.', idRequired: 'Este canal exige identificación.', send: 'Enviar denuncia', sending: 'Enviando…', required: 'Completa los campos obligatorios.', doneTitle: 'Denuncia registrada', doneBody: 'Guarda el protocolo y el código — es la única forma de dar seguimiento (incluso anónimo).', protocol: 'Protocolo', code: 'Código de acceso', copy: 'Copiar', copied: '¡Copiado!', track: 'Da seguimiento luego en', another: 'Enviar otra denuncia', secure: 'Entorno seguro y confidencial', yes: 'Sí', no: 'No', choose: 'Selecciona', signTitle: 'Firma tu denuncia', signKicker: 'Identificación', signCta: 'Firmar y enviar', signNote: 'Al identificarte, firmas digitalmente la denuncia (firma + ubicación opcional).' },
+  pt: { loading: 'Carregando…', unavailable: 'Canal indisponível', unavailableBody: 'Este canal ainda não tem um formulário publicado, ou o link é inválido.', identifyLegend: 'Como você quer relatar?', anon: 'Anônimo', anonHint: 'Não pediremos nada que te identifique.', identify: 'Identificar-me', email: 'Seu e-mail', emailHint: 'Usaremos só para dar retorno do seu relato.', anonForced: 'Este canal é 100% anônimo.', idRequired: 'Este canal exige identificação.', send: 'Enviar relato', sending: 'Enviando…', required: 'Preencha os campos obrigatórios.', doneTitle: 'Relato registrado', doneBody: 'Guarde o protocolo e o código abaixo — é a única forma de acompanhar (inclusive de forma anônima).', protocol: 'Protocolo', code: 'Código de acesso', copy: 'Copiar', copied: 'Copiado!', track: 'Acompanhar depois em', another: 'Enviar outro relato', secure: 'Ambiente seguro e confidencial', yes: 'Sim', no: 'Não', choose: 'Selecione', signTitle: 'Assine seu relato', signKicker: 'Identificação', signCta: 'Assinar e enviar', signNote: 'Ao se identificar, você assina digitalmente o relato (rubrica + localização opcional).', evidenceTitle: 'Provas (opcional)', evidenceHelp: 'Fotos, vídeos, áudios ou documentos que ajudem a comprovar o que você está relatando. Até 20 arquivos, 512 MB cada.', evidenceChoose: 'Escolher arquivos', evidenceDrop: 'ou arraste e solte aqui', evidenceRemove: 'Remover', evidenceSending: 'Enviando…', evidenceFailed: 'Não foi possível enviar este arquivo.', evidenceLimit: 'Limite de arquivos atingido.' },
+  en: { loading: 'Loading…', unavailable: 'Channel unavailable', unavailableBody: 'This channel has no published form yet, or the link is invalid.', identifyLegend: 'How do you want to report?', anon: 'Anonymous', anonHint: 'We will not ask anything that identifies you.', identify: 'Identify myself', email: 'Your email', emailHint: 'Only used to get back to you about your report.', anonForced: 'This channel is 100% anonymous.', idRequired: 'This channel requires identification.', send: 'Send report', sending: 'Sending…', required: 'Please fill the required fields.', doneTitle: 'Report received', doneBody: 'Keep the protocol and code below — it is the only way to follow up (even anonymously).', protocol: 'Protocol', code: 'Access code', copy: 'Copy', copied: 'Copied!', track: 'Follow up later at', another: 'Send another report', secure: 'Secure & confidential', yes: 'Yes', no: 'No', choose: 'Select', signTitle: 'Sign your report', signKicker: 'Identification', signCta: 'Sign & send', signNote: 'By identifying yourself, you digitally sign the report (signature + optional location).', evidenceTitle: 'Evidence (optional)', evidenceHelp: 'Photos, videos, audio or documents that support what you are reporting. Up to 20 files, 512 MB each.', evidenceChoose: 'Choose files', evidenceDrop: 'or drag and drop here', evidenceRemove: 'Remove', evidenceSending: 'Uploading…', evidenceFailed: 'This file could not be uploaded.', evidenceLimit: 'File limit reached.' },
+  es: { loading: 'Cargando…', unavailable: 'Canal no disponible', unavailableBody: 'Este canal aún no tiene un formulario publicado, o el enlace no es válido.', identifyLegend: '¿Cómo quieres denunciar?', anon: 'Anónimo', anonHint: 'No pediremos nada que te identifique.', identify: 'Identificarme', email: 'Tu correo', emailHint: 'Solo para darte seguimiento de tu denuncia.', anonForced: 'Este canal es 100% anónimo.', idRequired: 'Este canal exige identificación.', send: 'Enviar denuncia', sending: 'Enviando…', required: 'Completa los campos obligatorios.', doneTitle: 'Denuncia registrada', doneBody: 'Guarda el protocolo y el código — es la única forma de dar seguimiento (incluso anónimo).', protocol: 'Protocolo', code: 'Código de acceso', copy: 'Copiar', copied: '¡Copiado!', track: 'Da seguimiento luego en', another: 'Enviar otra denuncia', secure: 'Entorno seguro y confidencial', yes: 'Sí', no: 'No', choose: 'Selecciona', signTitle: 'Firma tu denuncia', signKicker: 'Identificación', signCta: 'Firmar y enviar', signNote: 'Al identificarte, firmas digitalmente la denuncia (firma + ubicación opcional).', evidenceTitle: 'Pruebas (opcional)', evidenceHelp: 'Fotos, videos, audios o documentos que respalden lo que estás relatando. Hasta 20 archivos, 512 MB cada uno.', evidenceChoose: 'Elegir archivos', evidenceDrop: 'o arrastra y suelta aquí', evidenceRemove: 'Quitar', evidenceSending: 'Enviando…', evidenceFailed: 'No fue posible enviar este archivo.', evidenceLimit: 'Límite de archivos alcanzado.' },
 }
 
 
@@ -65,6 +66,9 @@ export default function PublicReport() {
   const [receipt, setReceipt] = useState<Receipt | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
   const [signOpen, setSignOpen] = useState(false)
+  // Ids das provas JÁ enviadas e confirmadas no storage. O relato só as adota
+  // no envio — antes disso elas existem soltas, sem dono.
+  const [attachmentIds, setAttachmentIds] = useState<string[]>([])
 
   useEffect(() => {
     // Busca o form no idioma escolhido; ao trocar de idioma, recarrega os rótulos.
@@ -116,6 +120,7 @@ export default function PublicReport() {
           signature_image: sig?.signature_image ?? null,
           geo: sig?.geo ?? null,
           cpf: sig?.cpf ?? null,
+          attachment_ids: attachmentIds,
         }),
       })
       if (!res.ok) throw new Error()
@@ -225,6 +230,28 @@ export default function PublicReport() {
               </div>
             )
           })}
+
+          {/* Provas — área fixa de todo formulário, e não um campo do Form
+              Builder: uma denúncia sem como anexar a foto é uma denúncia pela
+              metade, e isso não pode depender de quem montou o formulário ter
+              lembrado de incluir o campo. */}
+          <EvidenceUploader
+            baseUrl={BASE_URL}
+            slug={slug}
+            token={token}
+            maxArquivos={20}
+            textos={{
+              titulo: tr.evidenceTitle,
+              ajuda: tr.evidenceHelp,
+              escolher: tr.evidenceChoose,
+              solte: tr.evidenceDrop,
+              remover: tr.evidenceRemove,
+              enviando: tr.evidenceSending,
+              falhou: tr.evidenceFailed,
+              limite: tr.evidenceLimit,
+            }}
+            onChange={setAttachmentIds}
+          />
 
           {/* Identificação */}
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: 18 }}>

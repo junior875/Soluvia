@@ -8,6 +8,7 @@ import type { ApiError, CaseDetail, CaseOut, SigGeo } from '../../lib/types'
 import { useCaps } from '../capabilities'
 import { modPerm } from '../modulePerms'
 import { goScreen } from '../nav'
+import EvidencePanel from './EvidencePanel'
 import { useT } from '../strings'
 import { useTranslation } from '../../i18n/LanguageProvider'
 import { Button, Card, Chip, EmptyState, Input, Modal, PageHeader, SectionLabel, Select, Skeleton } from '../ui'
@@ -252,6 +253,30 @@ export default function Cases({ module = 'etica' }: CasesProps) {
               <div style={{ display: 'grid', gap: 10, background: 'var(--surface-2)', borderRadius: 14, padding: 14 }}>
                 {answersView ?? <p style={{ color: 'var(--heading)', fontSize: 14.5, whiteSpace: 'pre-wrap' }}>{detail.events.find((e) => e.type === 'created')?.content ?? '—'}</p>}
               </div>
+            </div>
+
+            {/* Provas anexadas pelo denunciante */}
+            <div>
+              <SectionLabel>{tx.evidenceTitle}</SectionLabel>
+              <EvidencePanel
+                caseId={detail.id}
+                canView={p('view_evidence')}
+                canDownload={p('download_evidence')}
+                onError={flash}
+                textos={{
+                  title: tx.evidenceTitle,
+                  empty: tx.evidenceEmpty,
+                  view: tx.evidenceView,
+                  download: tx.evidenceDownload,
+                  close: t.common.close ?? 'Fechar',
+                  failed: t.cases.fail,
+                  noPreview: tx.evidenceNoPreview,
+                  loading: t.cases.loading,
+                }}
+              />
+              {!p('view_evidence') && (
+                <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>{tx.evidenceNoPerm}</p>
+              )}
             </div>
 
             {/* Assinatura digital do denunciante identificado */}

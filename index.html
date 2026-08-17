@@ -30,7 +30,16 @@
          componente de serviço. Hoje o risco é baixo: o token de acesso vive só em
          memória e o cookie de refresh é SameSite=lax, então uma sessão logada não
          se materializa dentro de um iframe de outro site. -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self' blob:; img-src 'self' data: blob:; connect-src 'self'; media-src 'self' blob:; manifest-src 'self'" />
+    <!-- O storage de provas é um domínio DIFERENTE do site: o navegador manda o
+         arquivo direto para o Spaces e depois carrega a imagem/vídeo de lá.
+         Isso toca três diretivas, e esquecer qualquer uma quebra o recurso
+         inteiro em silêncio — o console acusa, a tela só não funciona:
+           · connect-src → o XHR que SOBE o arquivo
+           · img-src     → a foto no visualizador
+           · media-src   → o vídeo e o áudio no player
+         `form-action` continua 'self' de propósito: o upload é XHR, não submit
+         de formulário, e liberar destino de formulário abriria exfiltração. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self' blob:; img-src 'self' data: blob: https://*.digitaloceanspaces.com; connect-src 'self' https://*.digitaloceanspaces.com; media-src 'self' blob: https://*.digitaloceanspaces.com; manifest-src 'self'" />
 
     <!-- O denunciante não deve vazar a URL do canal (que contém o tenant) ao
          clicar num link externo — 'no-referrer' é o único que não manda nem a
