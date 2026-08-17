@@ -9,6 +9,8 @@ import { useCaps } from '../capabilities'
 import { modPerm } from '../modulePerms'
 import { goScreen } from '../nav'
 import EvidencePanel from './EvidencePanel'
+import { EvidenceUploader } from '../../components/EvidenceUploader'
+import { carregarTiposAceitos, megabytes, paraAccept, type TiposAceitos } from '../../lib/uploads'
 import { useT } from '../strings'
 import { useTranslation } from '../../i18n/LanguageProvider'
 import { Button, Card, Chip, EmptyState, Input, Modal, PageHeader, SectionLabel, Select, Skeleton } from '../ui'
@@ -53,6 +55,9 @@ export default function Cases({ module = 'etica' }: CasesProps) {
   const [pRating, setPRating] = useState<string>('')
   const [pUrgency, setPUrgency] = useState<string>('')
   const [pParecer, setPParecer] = useState('')
+  // Muda a cada anexo novo da equipe: remonta a galeria para ele aparecer.
+  const [evidenceNonce, setEvidenceNonce] = useState(0)
+  const [tiposAceitos, setTiposAceitos] = useState<TiposAceitos | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [pdfBusy, setPdfBusy] = useState(false)
@@ -80,6 +85,7 @@ export default function Cases({ module = 'etica' }: CasesProps) {
 
   const load = () => api.get<CaseOut[]>('/cases').then(setCases).catch(() => setCases([]))
   useEffect(() => { void load() }, [])
+  useEffect(() => { carregarTiposAceitos().then(setTiposAceitos).catch(() => setTiposAceitos(null)) }, [])
 
   // Abre direto o caso que o e-mail de cobrança aponta (#painel/<tela>?protocolo=…).
   // Sem isto o link entregaria a pessoa numa lista para ela procurar à mão o
@@ -259,9 +265,11 @@ export default function Cases({ module = 'etica' }: CasesProps) {
             <div>
               <SectionLabel>{tx.evidenceTitle}</SectionLabel>
               <EvidencePanel
+                key={evidenceNonce}
                 caseId={detail.id}
                 canView={p('view_evidence')}
                 canDownload={p('download_evidence')}
+                canAudit={can('admin.view_audit')}
                 onError={flash}
                 textos={{
                   title: tx.evidenceTitle,
@@ -272,10 +280,55 @@ export default function Cases({ module = 'etica' }: CasesProps) {
                   failed: t.cases.fail,
                   noPreview: tx.evidenceNoPreview,
                   loading: t.cases.loading,
+                  noCodecTitle: tx.noCodecTitle,
+                  noCodecBody: tx.noCodecBody,
+                  noCodecNoPerm: tx.noCodecNoPerm,
+                  accessLog: tx.accessLog,
+                  accessLogEmpty: tx.accessLogEmpty,
+                  accessView: tx.accessView,
+                  accessDownload: tx.accessDownload,
                 }}
               />
               {!p('view_evidence') && (
                 <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>{tx.evidenceNoPerm}</p>
+              )}
+
+              {/* Quem apura também junta prova: documento que ele recebeu por
+                  fora, foto do local, gravação. Exige `annotate` — acrescentar
+                  material ao dossiê não é a mesma permissão que ler o que já
+                  está lá. */}
+              {p('annotate') && (
+                <EvidenceUploader
+                  maxArquivos={tiposAceitos?.max_files ?? 20}
+                  accept={paraAccept(tiposAceitos)}
+                  pedirAutorizacao={(file) =>
+                    api.post(`/cases/${detail.id}/attachments/presign`, {
+                      filename: file.name,
+                      content_type: file.type,
+                    })
+                  }
+                  confirmar={async (id) => {
+                    const d = await api.post<{ attachment_id: string; filename: string; kind: 'image' | 'video' | 'document'; size_bytes: number }>(
+                      `/cases/${detail.id}/attachments/${id}/confirm`, {},
+                    )
+                    return { id: d.attachment_id, filename: d.filename, kind: d.kind, size: d.size_bytes }
+                  }}
+                  onChange={() => {}}
+                  onConcluido={() => setEvidenceNonce((n) => n + 1)}
+                  textos={{
+                    titulo: tx.evidenceAddTitle,
+                    ajuda: tiposAceitos
+                      ? `${tx.evidenceAddHelp} ${tx.evidenceAccepted}: ${tiposAceitos.extensions.join(', ')}. ` +
+                        `${tx.evidenceLimits.replace('{n}', String(tiposAceitos.max_files)).replace('{mb}', String(megabytes(tiposAceitos.max_bytes)))}`
+                      : tx.evidenceAddHelp,
+                    escolher: tx.evidenceChoose,
+                    solte: tx.evidenceDrop,
+                    remover: t.common.remove ?? 'Remover',
+                    enviando: t.cases.loading,
+                    falhou: t.cases.fail,
+                    limite: tx.evidenceLimitReached,
+                  }}
+                />
               )}
             </div>
 

@@ -81,20 +81,31 @@ function enviarComProgresso(
   })
 }
 
+export type Autorizacao = {
+  attachment_id: string
+  upload: { url: string; fields: Record<string, string>; method: string }
+}
+
 export function EvidenceUploader({
-  baseUrl,
-  slug,
-  token,
+  pedirAutorizacao,
+  confirmar,
   maxArquivos,
+  accept,
   textos,
   onChange,
+  onConcluido,
 }: {
-  baseUrl: string
-  slug: string
-  token: string
+  /** Pede ao servidor a autorização para ESTE arquivo. */
+  pedirAutorizacao: (file: File) => Promise<Autorizacao>
+  /** Avisa o servidor que o upload terminou; devolve o anexo já conferido. */
+  confirmar: (attachmentId: string) => Promise<ProvaEnviada>
   maxArquivos: number
+  /** Extensões para o seletor do sistema já filtrar (vem do servidor). */
+  accept?: string
   textos: UploaderTextos
   onChange: (ids: string[]) => void
+  /** Chamado quando um arquivo fica pronto — quem lista anexos precisa saber. */
+  onConcluido?: () => void
 }) {
   const [itens, setItens] = useState<Item[]>([])
   const [arrastando, setArrastando] = useState(false)
@@ -121,38 +132,13 @@ export function EvidenceUploader({
 
   async function subir(item: Item) {
     try {
-      const presign = await fetch(`${baseUrl}/public/${slug}/uploads/presign?token=${token}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: item.file.name, content_type: item.file.type }),
-      })
-      if (!presign.ok) {
-        const corpo = await presign.json().catch(() => null)
-        throw new Error(corpo?.detail ?? textos.falhou)
-      }
-      const dados = await presign.json()
-
+      const dados = await pedirAutorizacao(item.file)
       await enviarComProgresso(dados.upload, item.file, (pct) =>
         atualizar(item.localId, { progresso: pct }),
       )
-
-      const confirm = await fetch(
-        `${baseUrl}/public/${slug}/uploads/${dados.attachment_id}/confirm?token=${token}`,
-        { method: 'POST' },
-      )
-      if (!confirm.ok) throw new Error(textos.falhou)
-      const pronto = await confirm.json()
-
-      atualizar(item.localId, {
-        estado: 'pronto',
-        progresso: 100,
-        enviada: {
-          id: pronto.attachment_id,
-          filename: pronto.filename,
-          kind: pronto.kind,
-          size: pronto.size_bytes,
-        },
-      })
+      const pronto = await confirmar(dados.attachment_id)
+      atualizar(item.localId, { estado: 'pronto', progresso: 100, enviada: pronto })
+      onConcluido?.()
     } catch (e) {
       atualizar(item.localId, { estado: 'erro', erro: (e as Error).message || textos.falhou })
     }
@@ -225,6 +211,7 @@ export function EvidenceUploader({
           ref={inputRef}
           type="file"
           multiple
+          accept={accept}
           hidden
           onChange={(e) => { receber(e.target.files); e.target.value = '' }}
         />
