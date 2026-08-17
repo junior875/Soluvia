@@ -301,6 +301,9 @@ export default function Cases({ module = 'etica' }: CasesProps) {
                 <EvidenceUploader
                   maxArquivos={tiposAceitos?.max_files ?? 20}
                   accept={paraAccept(tiposAceitos)}
+                  formatos={tiposAceitos?.groups}
+                  verFormatos={tx.evidenceAccepted}
+                  rotulosFormato={{ image: tx.fmtImage, video: tx.fmtVideo, audio: tx.fmtAudio, document: tx.fmtDocument }}
                   pedirAutorizacao={(file) =>
                     api.post(`/cases/${detail.id}/attachments/presign`, {
                       filename: file.name,
@@ -318,8 +321,7 @@ export default function Cases({ module = 'etica' }: CasesProps) {
                   textos={{
                     titulo: tx.evidenceAddTitle,
                     ajuda: tiposAceitos
-                      ? `${tx.evidenceAddHelp} ${tx.evidenceAccepted}: ${tiposAceitos.extensions.join(', ')}. ` +
-                        `${tx.evidenceLimits.replace('{n}', String(tiposAceitos.max_files)).replace('{mb}', String(megabytes(tiposAceitos.max_bytes)))}`
+                      ? `${tx.evidenceAddHelp} ${tx.evidenceLimits.replace('{n}', String(tiposAceitos.max_files)).replace('{mb}', String(megabytes(tiposAceitos.max_bytes)))}`
                       : tx.evidenceAddHelp,
                     escolher: tx.evidenceChoose,
                     solte: tx.evidenceDrop,

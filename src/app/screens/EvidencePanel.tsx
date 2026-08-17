@@ -59,6 +59,28 @@ function humano(bytes: number): string {
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
 }
 
+/**
+ * "Chrome 150 · Windows" em vez de 120 caracteres de user-agent.
+ *
+ * O valor cru é informação de perícia e continua guardado no banco e no
+ * `title` — mas no cartão ele estourava a largura e empurrava o resto, e
+ * ninguém lê `AppleWebKit/537.36 (KHTML, like Gecko)` para saber quem baixou.
+ */
+function navegadorLegivel(ua: string | null): string {
+  if (!ua) return '—'
+  const sistema = /Windows/i.test(ua) ? 'Windows'
+    : /Android/i.test(ua) ? 'Android'
+    : /iPhone|iPad|iOS/i.test(ua) ? 'iOS'
+    : /Mac OS X/i.test(ua) ? 'macOS'
+    : /Linux/i.test(ua) ? 'Linux' : ''
+  // A ordem importa: Opera e Edge se anunciam COMO Chrome, então precisam ser
+  // testados antes dele, senão todo mundo vira Chrome.
+  const m = ua.match(/(OPR|Edg|Chrome|Firefox|Safari)\/(\d+)/)
+  const nomes: Record<string, string> = { OPR: 'Opera', Edg: 'Edge' }
+  const navegador = m ? `${nomes[m[1]] ?? m[1]} ${m[2]}` : 'Desconhecido'
+  return sistema ? `${navegador} · ${sistema}` : navegador
+}
+
 const ICONE: Record<string, string> = { image: '🖼️', video: '🎬', document: '📄' }
 
 export default function EvidencePanel({
@@ -196,7 +218,7 @@ export default function EvidencePanel({
             </div>
 
             {canAudit && aberto === p.id && (
-              <div style={{ flexBasis: '100%', borderTop: '1px solid var(--border)', marginTop: 10, paddingTop: 10 }}>
+              <div style={{ flexBasis: '100%', marginTop: 8 }}>
                 {(historico[p.id] ?? []).length === 0 ? (
                   <p style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>
                     {historico[p.id] ? textos.accessLogEmpty : textos.loading}
@@ -204,15 +226,38 @@ export default function EvidencePanel({
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {historico[p.id].map((a) => (
-                      <div key={a.id} style={{ display: 'flex', gap: 10, fontSize: 12, color: 'var(--text-muted)', flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 700, color: a.action === 'download' ? 'var(--accent)' : 'var(--text)' }}>
+                      <div
+                        key={a.id}
+                        title={a.user_agent ?? ''}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'auto 1fr auto',
+                          gap: '2px 10px',
+                          alignItems: 'baseline',
+                          fontSize: 12,
+                          color: 'var(--text-muted)',
+                          padding: '5px 0',
+                          borderTop: '1px solid var(--border)',
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontWeight: 800, fontSize: 10.5, letterSpacing: '.04em',
+                            textTransform: 'uppercase',
+                            color: a.action === 'download' ? 'var(--accent)' : 'var(--text-muted)',
+                          }}
+                        >
                           {a.action === 'download' ? textos.accessDownload : textos.accessView}
                         </span>
-                        <span style={{ color: 'var(--heading)' }}>{a.actor ?? '—'}</span>
-                        <span>{new Date(a.at).toLocaleString()}</span>
-                        <span style={{ fontFamily: 'monospace' }}>{a.ip ?? '—'}</span>
-                        <span style={{ flexBasis: '100%', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {a.user_agent ?? ''}
+                        <span style={{ color: 'var(--heading)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {a.actor ?? '—'}
+                        </span>
+                        <span style={{ whiteSpace: 'nowrap' }}>{new Date(a.at).toLocaleString()}</span>
+                        <span />
+                        <span style={{ gridColumn: '2 / -1', opacity: 0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ fontFamily: 'monospace' }}>{a.ip ?? '—'}</span>
+                          {' · '}
+                          {navegadorLegivel(a.user_agent)}
                         </span>
                       </div>
                     ))}

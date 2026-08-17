@@ -91,6 +91,9 @@ export function EvidenceUploader({
   confirmar,
   maxArquivos,
   accept,
+  formatos,
+  rotulosFormato,
+  verFormatos,
   textos,
   onChange,
   onConcluido,
@@ -102,6 +105,10 @@ export function EvidenceUploader({
   maxArquivos: number
   /** Extensões para o seletor do sistema já filtrar (vem do servidor). */
   accept?: string
+  /** Formatos por categoria, para a linha "ver formatos aceitos". */
+  formatos?: Record<string, string[]>
+  rotulosFormato?: Record<string, string>
+  verFormatos?: string
   textos: UploaderTextos
   onChange: (ids: string[]) => void
   /** Chamado quando um arquivo fica pronto — quem lista anexos precisa saber. */
@@ -109,6 +116,7 @@ export function EvidenceUploader({
 }) {
   const [itens, setItens] = useState<Item[]>([])
   const [arrastando, setArrastando] = useState(false)
+  const [mostrarFormatos, setMostrarFormatos] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const publicar = useCallback(
@@ -191,9 +199,35 @@ export function EvidenceUploader({
       <label style={{ display: 'block', color: 'var(--heading)', fontWeight: 600, fontSize: 14.5, marginBottom: 6 }}>
         {textos.titulo}
       </label>
-      <p style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: -3, marginBottom: 10, lineHeight: 1.5 }}>
+      <p style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: -3, marginBottom: 8, lineHeight: 1.5 }}>
         {textos.ajuda}
       </p>
+
+      {formatos && (
+        <div style={{ marginBottom: 10 }}>
+          <button
+            type="button"
+            onClick={() => setMostrarFormatos((v) => !v)}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent)', fontSize: 12.5, fontWeight: 600 }}
+          >
+            {mostrarFormatos ? '▴' : '▾'} {verFormatos ?? 'Formatos aceitos'}
+          </button>
+          {mostrarFormatos && (
+            <div style={{ marginTop: 7, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {Object.entries(formatos)
+                .filter(([, exts]) => exts.length > 0)
+                .map(([grupo, exts]) => (
+                  <div key={grupo} style={{ fontSize: 12, lineHeight: 1.5 }}>
+                    <span style={{ color: 'var(--heading)', fontWeight: 700 }}>
+                      {rotulosFormato?.[grupo] ?? grupo}:
+                    </span>{' '}
+                    <span style={{ color: 'var(--text-muted)' }}>{exts.join(' ')}</span>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div
         style={zona}
