@@ -6,6 +6,7 @@ import { api, listPlans, logout } from '../lib/api'
 import type { ApiError, PlanOut, PlatformOverview, PlatformTenantDetail, PlatformTenantRow } from '../lib/types'
 import { useTranslation } from '../i18n/LanguageProvider'
 import PrefSwitcher from './PrefSwitcher'
+import { Icon, type IconName } from '../app/icons'
 import PlatformHealth from './platform/PlatformHealth'
 import PlatformUsers from './platform/PlatformUsers'
 
@@ -23,7 +24,10 @@ const L = {
     create: 'Criar empresa', companyCreated: 'Empresa criada.', addUser: 'Adicionar usuário', uName: 'Nome',
     uRole: 'Papel', add: 'Adicionar', userAdded: 'Usuário adicionado.', autoSlug: '(gerado do nome)',
     resend: 'Reenviar convite', resending: 'Enviando…', resendOk: 'Convite reenviado por e-mail.',
-    tab_empresas: 'Empresas', tab_pessoas: 'Pessoas', tab_sistema: 'Sistema',
+    storageQuota: 'Armazenamento de provas', storageWarn: 'Ao atingir o teto, os canais de denúncia e SAC param de aceitar ANEXOS — o relato continua entrando, mas sem foto, vídeo ou documento.',
+    uNoneBody: 'Ajuste a busca ou crie uma pessoa nova.',
+    uNewUser: 'Nova pessoa', uCompany: 'Empresa', uName2: 'Nome', create2: 'Criar', uCancel: 'Cancelar',
+    navSection: 'Console', tab_empresas: 'Empresas', tab_pessoas: 'Pessoas', tab_sistema: 'Sistema',
     uSearchPh: 'Buscar pessoa por e-mail ou nome…', uHint: 'Mínimo de 2 caracteres. A busca cobre todas as empresas.',
     uNone: 'Ninguém encontrado.', uSearching: 'Buscando…', uNoCompany: 'Sem vínculo com empresa.',
     uVerifyEmail: 'Verificar e-mail', uVerified: 'e-mail verificado', uResetPassword: 'Definir senha',
@@ -48,7 +52,10 @@ const L = {
     create: 'Create company', companyCreated: 'Company created.', addUser: 'Add user', uName: 'Name',
     uRole: 'Role', add: 'Add', userAdded: 'User added.', autoSlug: '(from the name)',
     resend: 'Resend invite', resending: 'Sending…', resendOk: 'Invitation re-sent by email.',
-    tab_empresas: 'Companies', tab_pessoas: 'People', tab_sistema: 'System',
+    storageQuota: 'Evidence storage', storageWarn: 'Once the cap is reached, the whistleblowing and SAC channels stop accepting ATTACHMENTS — reports still come in, but with no photo, video or document.',
+    uNoneBody: 'Adjust the search or create a new person.',
+    uNewUser: 'New person', uCompany: 'Company', uName2: 'Name', create2: 'Create', uCancel: 'Cancel',
+    navSection: 'Console', tab_empresas: 'Companies', tab_pessoas: 'People', tab_sistema: 'System',
     uSearchPh: 'Search a person by email or name…', uHint: 'At least 2 characters. Covers every company.',
     uNone: 'Nobody found.', uSearching: 'Searching…', uNoCompany: 'No company link.',
     uVerifyEmail: 'Verify email', uVerified: 'email verified', uResetPassword: 'Set password',
@@ -73,7 +80,10 @@ const L = {
     create: 'Crear empresa', companyCreated: 'Empresa creada.', addUser: 'Agregar usuario', uName: 'Nombre',
     uRole: 'Rol', add: 'Agregar', userAdded: 'Usuario agregado.', autoSlug: '(generado del nombre)',
     resend: 'Reenviar invitación', resending: 'Enviando…', resendOk: 'Invitación reenviada por correo.',
-    tab_empresas: 'Empresas', tab_pessoas: 'Personas', tab_sistema: 'Sistema',
+    storageQuota: 'Almacenamiento de pruebas', storageWarn: 'Al alcanzar el tope, los canales de denuncias y SAC dejan de aceptar ADJUNTOS — los relatos siguen entrando, pero sin foto, video ni documento.',
+    uNoneBody: 'Ajusta la búsqueda o crea una persona nueva.',
+    uNewUser: 'Nueva persona', uCompany: 'Empresa', uName2: 'Nombre', create2: 'Crear', uCancel: 'Cancelar',
+    navSection: 'Consola', tab_empresas: 'Empresas', tab_pessoas: 'Personas', tab_sistema: 'Sistema',
     uSearchPh: 'Buscar persona por correo o nombre…', uHint: 'Mínimo 2 caracteres. Cubre todas las empresas.',
     uNone: 'No se encontró a nadie.', uSearching: 'Buscando…', uNoCompany: 'Sin vínculo con empresa.',
     uVerifyEmail: 'Verificar correo', uVerified: 'correo verificado', uResetPassword: 'Definir contraseña',
@@ -87,6 +97,15 @@ const L = {
   },
 }
 
+type AbaId = 'empresas' | 'pessoas' | 'sistema'
+
+/** As seções do console. Ícones do mesmo conjunto que a nav do painel usa. */
+const ABAS: { id: AbaId; icon: IconName }[] = [
+  { id: 'empresas', icon: 'overview' },
+  { id: 'pessoas', icon: 'people' },
+  { id: 'sistema', icon: 'settings' },
+]
+
 export function isPlatformPath(): boolean {
   return window.location.hash.toLowerCase().startsWith('#plataforma')
 }
@@ -94,6 +113,7 @@ export function isPlatformPath(): boolean {
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 20 }
 const fld: CSSProperties = { width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', color: 'var(--heading)', fontSize: 14, boxSizing: 'border-box', fontFamily: 'inherit' }
 const btnAccent: CSSProperties = { background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '10px 20px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }
+const mb = (bytes: number) => (bytes >= 1024 * 1024 * 1024 ? `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB` : `${Math.round(bytes / 1024 / 1024)} MB`)
 const num = (n: number, lang: string) => n.toLocaleString(lang === 'pt' ? 'pt-BR' : lang === 'es' ? 'es-ES' : 'en-US')
 
 export default function PlatformConsole() {
@@ -105,12 +125,14 @@ export default function PlatformConsole() {
   const [q, setQ] = useState('')
   const [detail, setDetail] = useState<PlatformTenantDetail | null>(null)
   const [limitEdit, setLimitEdit] = useState('')
+  const [storageEdit, setStorageEdit] = useState('')
   const [busy, setBusy] = useState(false)
   // Qual convite está sendo reenviado. Por linha, e não um booleano global:
   // travar a lista inteira faria os outros botões piscarem sem motivo.
   const [resendId, setResendId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
-  const [aba, setAba] = useState<'empresas' | 'pessoas' | 'sistema'>('empresas')
+  const [aba, setAba] = useState<AbaId>('empresas')
+  const [drawer, setDrawer] = useState(false)
   const [plans, setPlans] = useState<PlanOut[]>([])
   const [showNew, setShowNew] = useState(false)
   const emptyNew = { name: '', slug: '', plan_id: '', admin_name: '', admin_email: '', admin_password: '' }
@@ -139,7 +161,7 @@ export default function PlatformConsole() {
         name: nf.name.trim(), slug: nf.slug.trim() || null, plan_id: nf.plan_id || null,
         admin_name: nf.admin_name.trim(), admin_email: nf.admin_email.trim(), admin_password: nf.admin_password,
       })
-      setShowNew(false); setNf(emptyNew); load(); setDetail(d); setLimitEdit(String(d.ai_token_limit)); flash(tr.companyCreated)
+      setShowNew(false); setNf(emptyNew); load(); setDetail(d); setLimitEdit(String(d.ai_token_limit)); setStorageEdit(String(Math.round((d.storage_limit_bytes || 0) / 1024 / 1024))); flash(tr.companyCreated)
     } catch (e) { flash((e as ApiError).detail ?? 'Erro') } finally { setBusy(false) }
   }
   async function addMember() {
@@ -170,6 +192,19 @@ export default function PlatformConsole() {
   /** Troca o plano. Reduzir para um plano com menos vagas é permitido de
    *  propósito — recusar deixaria o comercial sem saída num downgrade legítimo,
    *  e o limite volta a valer no próximo convite, que é onde ele importa. */
+  async function salvarStorage() {
+    if (!detail) return
+    setBusy(true)
+    try {
+      // A tela fala em MB porque ninguém raciocina em bytes; o servidor guarda
+      // em bytes porque é o que o storage devolve ao somar.
+      const d = await api.post<PlatformTenantDetail>(`/platform/tenants/${detail.id}/storage-limit`, {
+        limit_bytes: Math.max(0, Math.round(Number(storageEdit || 0) * 1024 * 1024)),
+      })
+      setDetail(d); load(); flash(tr.saved)
+    } catch (e) { flash((e as ApiError).detail ?? 'Erro') } finally { setBusy(false) }
+  }
+
   async function trocarPlano(planId: string) {
     if (!detail || !planId) return
     setBusy(true)
@@ -183,12 +218,12 @@ export default function PlatformConsole() {
     setDetail(null)
     try {
       const d = await api.get<PlatformTenantDetail>(`/platform/tenants/${id}`)
-      setDetail(d); setLimitEdit(String(d.ai_token_limit))
+      setDetail(d); setLimitEdit(String(d.ai_token_limit)); setStorageEdit(String(Math.round((d.storage_limit_bytes || 0) / 1024 / 1024)))
     } catch (e) { flash((e as ApiError).detail ?? 'Erro') }
   }
   async function act(fn: () => Promise<PlatformTenantDetail>) {
     setBusy(true)
-    try { const d = await fn(); setDetail(d); setLimitEdit(String(d.ai_token_limit)); load(); flash(tr.saved) }
+    try { const d = await fn(); setDetail(d); setLimitEdit(String(d.ai_token_limit)); setStorageEdit(String(Math.round((d.storage_limit_bytes || 0) / 1024 / 1024))); load(); flash(tr.saved) }
     catch (e) { flash((e as ApiError).detail ?? 'Erro') } finally { setBusy(false) }
   }
   const saveLimit = () => act(() => api.post<PlatformTenantDetail>(`/platform/tenants/${detail!.id}/ai-limit`, { limit: Number(limitEdit) || 0 }))
@@ -214,56 +249,76 @@ export default function PlatformConsole() {
   )
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'var(--section-navy)', overflowY: 'auto', color: 'var(--text)' }} className="app-scroll">
-      <div style={{ maxWidth: 1160, margin: '0 auto', padding: '28px 24px 60px' }}>
-        {/* Topo */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 28 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ width: 42, height: 42, borderRadius: 12, background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 20 }}>S</span>
-            <div>
-              <div style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>{tr.kicker}</div>
-              <div style={{ color: 'rgba(255,255,255,.5)', fontSize: 13 }}>{tr.subtitle}</div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button onClick={() => setShowNew(true)} style={{ background: 'var(--accent)', border: 'none', color: '#fff', borderRadius: 100, padding: '9px 18px', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>+ {tr.newCompany}</button>
-            <PrefSwitcher compact />
-            <button onClick={() => void doLogout()} style={{ background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', borderRadius: 100, padding: '9px 18px', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>{tr.logout}</button>
+    <div className="app-bg" style={{ position: 'fixed', inset: 0, zIndex: 9998, display: 'flex', color: 'var(--text)' }}>
+      <div className={`app-sidebar-backdrop ${drawer ? 'open' : ''}`} onClick={() => setDrawer(false)} />
+
+      {/* Navegação lateral — a mesma do painel, para o console deixar de ser a
+          única tela do produto com as seções no topo. */}
+      <aside className={`app-sidebar ${drawer ? 'open' : ''}`} style={{ width: 260, minWidth: 260, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div style={{ padding: '16px 14px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ width: 38, height: 38, minWidth: 38, borderRadius: 11, background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 18 }}>S</span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: 'var(--heading)', fontWeight: 800, fontSize: 14.5, whiteSpace: 'nowrap' }}>{tr.kicker}</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 12, whiteSpace: 'nowrap' }}>{tr.subtitle}</div>
           </div>
         </div>
 
-        {/* Abas — o console deixou de ser só "empresas" */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-          {(['empresas', 'pessoas', 'sistema'] as const).map((k) => (
+        <nav className="app-scroll" style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', padding: '8px 13px 6px' }}>{tr.navSection}</p>
+          {ABAS.map(({ id, icon }) => (
             <button
-              key={k}
-              onClick={() => setAba(k)}
-              style={{
-                background: aba === k ? 'var(--accent)' : 'rgba(255,255,255,.08)',
-                color: '#fff',
-                border: aba === k ? 'none' : '1px solid rgba(255,255,255,.2)',
-                borderRadius: 100, padding: '8px 18px', fontWeight: 700, fontSize: 13.5,
-                cursor: 'pointer',
-              }}
+              key={id}
+              className={`app-nav-item ${aba === id ? 'active' : ''}`}
+              onClick={() => { setAba(id); setDrawer(false) }}
             >
-              {tr[`tab_${k}` as keyof typeof tr] as string}
+              <Icon name={icon} size={18} />
+              <span style={{ flex: 1 }}>{tr[`tab_${id}` as keyof typeof tr] as string}</span>
             </button>
           ))}
-        </div>
+        </nav>
 
+        <div style={{ padding: 14, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button onClick={() => setShowNew(true)} className="app-nav-item" style={{ color: 'var(--accent)', fontWeight: 700 }}>
+            <Icon name="plus" size={18} />
+            <span style={{ flex: 1 }}>{tr.newCompany}</span>
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <PrefSwitcher compact />
+            <button onClick={() => void doLogout()} className="app-btn" style={{ marginLeft: 'auto', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 100, padding: '8px 14px', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}>{tr.logout}</button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Conteúdo */}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100%' }}>
+        <header style={{ height: 64, minHeight: 64, borderBottom: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', alignItems: 'center', gap: 12, padding: '0 clamp(16px,3vw,28px)' }}>
+          <button className="app-btn app-burger" aria-label="Menu" onClick={() => setDrawer(true)} style={{ display: 'none', width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer' }}>
+            <Icon name="menu" />
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, color: 'var(--heading)', fontWeight: 800, minWidth: 0 }}>
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tr[`tab_${aba}` as keyof typeof tr] as string}</span>
+          </div>
+        </header>
+
+        <div className="app-scroll" style={{ flex: 1, overflowY: 'auto', padding: 'clamp(18px,3vw,28px)' }}>
         {aba === 'pessoas' && (
           <PlatformUsers
-            card={card}
             onToast={flash}
             textos={{
-              searchPh: tr.uSearchPh, hint: tr.uHint, none: tr.uNone, searching: tr.uSearching,
+              searchPh: tr.uSearchPh, hint: tr.uHint, none: tr.uNone,
               noCompany: tr.uNoCompany, verifyEmail: tr.uVerifyEmail, verified: tr.uVerified,
               resetPassword: tr.uResetPassword, newPassword: tr.uNewPassword,
               deactivate: tr.uDeactivate, activate: tr.uActivate, inactive: tr.uInactive,
               suspendLink: tr.uSuspendLink, reactivateLink: tr.uReactivateLink,
               removeLink: tr.uRemoveLink, confirm: tr.uConfirm, done: tr.saved,
               platformAdmin: tr.uPlatformAdmin,
+              noneBody: tr.uNoneBody,
+              newUser: tr.uNewUser, company: tr.uCompany, name: tr.uName2,
+              email: tr.cEmail, create: tr.create2,
+              cancel: tr.uCancel, created: tr.userAdded,
             }}
+            empresas={(rows ?? []).map((r) => ({ id: String(r.id), name: r.name }))}
           />
         )}
 
@@ -335,7 +390,8 @@ export default function PlatformConsole() {
           )}
         </div>
         </>}
-      </div>
+        </div>
+      </main>
 
       {/* Detalhe da empresa */}
       {detail && (
@@ -365,6 +421,32 @@ export default function PlatformConsole() {
                   {detail.users} {tr.usersCol.toLowerCase()}
                 </span>
               </div>
+
+              {/* Armazenamento — o ÚNICO controle de storage que cabe aqui.
+                  O bucket é infraestrutura, um só para a plataforma; o que se
+                  reparte por empresa é quanto dela cabe nele. */}
+              <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>{tr.storageQuota}</div>
+              <div style={{ color: 'var(--heading)', fontSize: 14, marginBottom: 6 }}>
+                {mb(detail.storage_used_bytes)} / {detail.storage_limit_bytes === 0 ? '∞' : mb(detail.storage_limit_bytes)}
+              </div>
+              {detail.storage_limit_bytes > 0 && (
+                <div style={{ height: 6, borderRadius: 100, background: 'var(--surface-2)', overflow: 'hidden', marginBottom: 8 }}>
+                  <div style={{ width: `${Math.min(100, (detail.storage_used_bytes / detail.storage_limit_bytes) * 100)}%`, height: '100%', background: detail.storage_used_bytes >= detail.storage_limit_bytes ? '#e11d48' : 'var(--accent)' }} />
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
+                <input
+                  type="number" min={0} value={storageEdit}
+                  onChange={(e) => setStorageEdit(e.target.value)}
+                  placeholder="MB"
+                  style={{ width: 160, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 12px', color: 'var(--heading)', fontSize: 14 }}
+                />
+                <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>MB · 0 = ∞</span>
+                <button disabled={busy} onClick={() => void salvarStorage()} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '9px 18px', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>{tr.save}</button>
+              </div>
+              <p style={{ background: 'rgba(242,146,30,.12)', border: '1px solid rgba(242,146,30,.35)', color: 'var(--accent)', borderRadius: 10, padding: '9px 11px', fontSize: 12, lineHeight: 1.5, marginBottom: 18 }}>
+                {tr.storageWarn}
+              </p>
 
               <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>{tr.aiQuota}</div>
               <div style={{ color: 'var(--heading)', fontSize: 14, marginBottom: 10 }}>{num(detail.ai_tokens_used, lang)} / {detail.ai_token_limit === 0 ? '∞' : num(detail.ai_token_limit, lang)}</div>

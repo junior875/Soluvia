@@ -32,6 +32,8 @@ export interface PlatformTenantRow {
   cases: number
   ai_token_limit: number
   ai_tokens_used: number
+  storage_limit_bytes: number
+  storage_used_bytes: number
   created_at: string
 }
 

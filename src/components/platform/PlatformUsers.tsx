@@ -1,22 +1,29 @@
 /**
  * Aba PESSOAS do console de suporte.
  *
- * O console inteiro girava em torno de EMPRESA, mas um chamado começa com uma
- * pessoa: "não consigo entrar", "não recebi o código". Sem busca por e-mail,
- * atender exigia abrir empresa por empresa procurando.
+ * Um chamado começa com uma pessoa — "não consigo entrar", "não recebi o
+ * código" — e o console só sabia falar de empresa. Aqui se acha alguém pelo
+ * e-mail em toda a plataforma e se resolve a conta dela.
  *
- * Duas decisões de conduta, porque quem opera aqui mexe em conta de cliente:
+ * **Usa o mesmo kit do painel** (`Card`, `Button`, `Chip`, `Field`, `Input`,
+ * `Avatar`, `EmptyState`, `Skeleton`). A primeira versão era estilo inline
+ * escrito à mão e por isso parecia outro produto: os botões tinham outro raio,
+ * os cartões outra sombra e os espaçamentos outra régua. Reusar o kit é o que
+ * faz a tela pertencer ao sistema — e faz o tema claro funcionar, porque as
+ * cores param de ser cravadas aqui.
  *
- * 1. **A busca não dispara sozinha a cada tecla.** Ela precisa de 2 caracteres e
- *    de uma pausa. Consultar a base inteira de usuários a cada letra digitada é
- *    barulho no servidor e no log de auditoria de quem lê depois.
- * 2. **As ações destrutivas pedem confirmação no próprio lugar**, sem modal —
- *    o botão vira "Confirmar?" e volta sozinho em 4 segundos. Modal para tudo
- *    treina a pessoa a clicar em OK sem ler.
+ * Duas decisões de conduta, porque quem opera mexe em conta de cliente:
+ *
+ * 1. A busca não dispara a cada tecla — espera uma pausa. Sem termo, mostra os
+ *    mais recentes: tela em branco ao abrir parece defeito, não "vazio".
+ * 2. Ação destrutiva confirma no próprio botão, que volta sozinho em 4s. Modal
+ *    para tudo treina a pessoa a clicar em OK sem ler; e um "Confirmar?"
+ *    esquecido na tela é um clique acidental esperando acontecer.
  */
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import type { ApiError } from '../../lib/types'
+import { Avatar, Button, Card, Chip, EmptyState, Field, Input, Select, Skeleton } from '../../app/ui'
 
 export type PlatformUserMembership = {
   membership_id: string
@@ -41,7 +48,7 @@ export type UsersTextos = {
   searchPh: string
   hint: string
   none: string
-  searching: string
+  noneBody: string
   noCompany: string
   verifyEmail: string
   verified: string
@@ -56,56 +63,69 @@ export type UsersTextos = {
   confirm: string
   done: string
   platformAdmin: string
+  newUser: string
+  company: string
+  name: string
+  email: string
+  create: string
+  cancel: string
+  created: string
 }
 
-const ESTADO: Record<string, { rotulo: string; cor: string }> = {
-  active: { rotulo: 'ativo', cor: 'var(--green,#2bb673)' },
-  invited: { rotulo: 'convidado', cor: 'var(--accent)' },
-  suspended: { rotulo: 'suspenso', cor: '#e08585' },
+/** Tom do Chip por estado do vínculo — os mesmos tons que o painel usa. */
+const TOM: Record<string, 'green' | 'accent' | 'muted'> = {
+  active: 'green',
+  invited: 'accent',
+  suspended: 'muted',
 }
 
 export default function PlatformUsers({
   textos,
   onToast,
-  card,
+  empresas,
 }: {
   textos: UsersTextos
   onToast: (msg: string) => void
-  card: CSSProperties
+  /** Para o seletor de empresa: pessoa sem vínculo não entra em lugar nenhum. */
+  empresas: { id: string; name: string }[]
 }) {
   const [termo, setTermo] = useState('')
   const [lista, setLista] = useState<PlatformUser[] | null>(null)
-  const [buscando, setBuscando] = useState(false)
   const [ocupado, setOcupado] = useState<string | null>(null)
   const [confirmando, setConfirmando] = useState<string | null>(null)
   const [senhaDe, setSenhaDe] = useState<string | null>(null)
   const [senha, setSenha] = useState('')
+  const vazio = { tenant_id: '', full_name: '', email: '', password: '' }
+  const [novo, setNovo] = useState(vazio)
+  const [criando, setCriando] = useState(false)
   const timer = useRef<number | undefined>(undefined)
 
-  // Busca com pausa: sem isto, cada tecla varreria a base inteira de usuários.
+  const buscar = useCallback(
+    (q: string) =>
+      api
+        .get<PlatformUser[]>(`/platform/users?q=${encodeURIComponent(q)}`)
+        .then(setLista)
+        .catch((e) => onToast((e as ApiError).detail ?? 'Erro')),
+    [onToast],
+  )
+
+  // Pausa antes de consultar: a cada tecla varreria a base inteira, e isso é
+  // barulho no servidor e no log de quem lê a auditoria depois.
   useEffect(() => {
     window.clearTimeout(timer.current)
-    if (termo.trim().length < 2) { setLista(null); return }
-    timer.current = window.setTimeout(() => {
-      setBuscando(true)
-      api
-        .get<PlatformUser[]>(`/platform/users?q=${encodeURIComponent(termo.trim())}`)
-        .then(setLista)
-        .catch((e) => onToast((e as ApiError).detail ?? 'Erro'))
-        .finally(() => setBuscando(false))
-    }, 400)
+    const q = termo.trim()
+    if (q.length === 1) return
+    setLista(null)
+    timer.current = window.setTimeout(() => void buscar(q), q ? 400 : 0)
     return () => window.clearTimeout(timer.current)
-  }, [termo, onToast])
+  }, [termo, buscar])
 
-  async function agir(chave: string, fn: () => Promise<unknown>, msg: string) {
+  async function agir(chave: string, fn: () => Promise<unknown>) {
     setOcupado(chave)
     try {
       await fn()
-      onToast(msg)
-      // Recarrega para a tela refletir o que acabou de mudar — o suporte
-      // costuma encadear duas ações na mesma pessoa.
-      const r = await api.get<PlatformUser[]>(`/platform/users?q=${encodeURIComponent(termo.trim())}`)
-      setLista(r)
+      onToast(textos.done)
+      await buscar(termo.trim())
     } catch (e) {
       onToast((e as ApiError).detail ?? 'Erro')
     } finally {
@@ -114,157 +134,171 @@ export default function PlatformUsers({
     }
   }
 
-  /** Botão que exige um segundo clique. Volta sozinho: um "Confirmar?" esquecido
-   *  na tela é um clique acidental esperando acontecer. */
+  async function criarPessoa() {
+    setOcupado('novo')
+    try {
+      await api.post(`/platform/tenants/${novo.tenant_id}/members`, {
+        full_name: novo.full_name.trim() || novo.email.trim(),
+        email: novo.email.trim(),
+        password: novo.password,
+        role_id: null,
+      })
+      onToast(textos.created)
+      setNovo(vazio)
+      setCriando(false)
+      setTermo('')
+      await buscar('')
+    } catch (e) {
+      onToast((e as ApiError).detail ?? 'Erro')
+    } finally {
+      setOcupado(null)
+    }
+  }
+
+  /** Exige um segundo clique, e volta sozinho. */
   function confirmar(chave: string, aoConfirmar: () => void) {
     if (confirmando === chave) { aoConfirmar(); return }
     setConfirmando(chave)
     window.setTimeout(() => setConfirmando((c) => (c === chave ? null : c)), 4000)
   }
 
-  const botao: CSSProperties = {
-    background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)',
-    borderRadius: 100, padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-  }
-  const perigo: CSSProperties = { ...botao, color: '#e08585', borderColor: 'rgba(224,133,133,.4)' }
+  const podeCriar = !!novo.tenant_id && !!novo.email.trim() && novo.password.length >= 8
 
   return (
-    <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-      <div style={{ padding: 16, borderBottom: '1px solid var(--border)' }}>
-        <input
-          value={termo}
-          onChange={(e) => setTermo(e.target.value)}
-          placeholder={textos.searchPh}
-          autoFocus
-          style={{ width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 14px', color: 'var(--heading)', fontSize: 14.5, boxSizing: 'border-box' }}
-        />
-        <p style={{ color: 'var(--text-muted)', fontSize: 12.5, margin: '8px 2px 0' }}>{textos.hint}</p>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <Card>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 280px' }}>
+            <Field label={textos.searchPh}>
+              <Input value={termo} onChange={(e) => setTermo(e.target.value)} autoFocus />
+            </Field>
+          </div>
+          <Button
+            variant={criando ? 'ghost' : 'primary'}
+            leftIcon={criando ? undefined : 'plus'}
+            onClick={() => setCriando((v) => !v)}
+          >
+            {criando ? textos.cancel : textos.newUser}
+          </Button>
+        </div>
+        <p style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: 10 }}>{textos.hint}</p>
 
-      {buscando && <div style={{ padding: 18, color: 'var(--text-muted)', fontSize: 13.5 }}>{textos.searching}</div>}
-      {!buscando && lista?.length === 0 && (
-        <div style={{ padding: 18, color: 'var(--text-muted)', fontSize: 13.5 }}>{textos.none}</div>
+        {criando && (
+          <div style={{ borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12, alignItems: 'end' }}>
+            <Field label={textos.company}>
+              <Select value={novo.tenant_id} onChange={(e) => setNovo({ ...novo, tenant_id: e.target.value })}>
+                <option value="">—</option>
+                {empresas.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+              </Select>
+            </Field>
+            <Field label={textos.name}>
+              <Input value={novo.full_name} onChange={(e) => setNovo({ ...novo, full_name: e.target.value })} />
+            </Field>
+            <Field label={textos.email}>
+              <Input type="email" value={novo.email} onChange={(e) => setNovo({ ...novo, email: e.target.value })} />
+            </Field>
+            <Field label={textos.newPassword}>
+              <Input value={novo.password} onChange={(e) => setNovo({ ...novo, password: e.target.value })} />
+            </Field>
+            <Button disabled={!podeCriar} loading={ocupado === 'novo'} onClick={() => void criarPessoa()}>
+              {textos.create}
+            </Button>
+          </div>
+        )}
+      </Card>
+
+      {lista === null && (
+        <Card>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[0, 1, 2].map((i) => <Skeleton key={i} h={54} r={12} />)}
+          </div>
+        </Card>
+      )}
+
+      {lista?.length === 0 && (
+        <Card>
+          <EmptyState icon="people" title={textos.none} body={textos.noneBody} />
+        </Card>
       )}
 
       {lista?.map((u) => (
-        <div key={u.id} style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ flex: '1 1 240px', minWidth: 0 }}>
-              <div style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 14.5 }}>
+        <Card key={u.id}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            <Avatar name={u.full_name || u.email} />
+            <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+              <div style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 {u.full_name || u.email}
-                {u.is_platform_admin && (
-                  <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '.04em' }}>
-                    {textos.platformAdmin}
-                  </span>
-                )}
+                {u.is_platform_admin && <Chip tone="navy">{textos.platformAdmin}</Chip>}
+                {!u.is_active && <Chip tone="muted">{textos.inactive}</Chip>}
               </div>
-              <div style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{u.email}</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>{u.email}</div>
             </div>
 
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-              {!u.is_active && (
-                <span style={{ fontSize: 11.5, fontWeight: 800, color: '#e08585', textTransform: 'uppercase' }}>
-                  {textos.inactive}
-                </span>
-              )}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               {u.email_verified ? (
-                <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>✓ {textos.verified}</span>
+                <Chip tone="green">{textos.verified}</Chip>
               ) : (
-                <button
-                  style={botao}
-                  disabled={ocupado === u.id}
-                  onClick={() => void agir(u.id, () => api.post(`/platform/users/${u.id}/verify-email`, {}), textos.done)}
-                >
+                <Button variant="ghost" style={{ padding: '8px 14px', fontSize: 13 }} loading={ocupado === u.id}
+                  onClick={() => void agir(u.id, () => api.post(`/platform/users/${u.id}/verify-email`, {}))}>
                   {textos.verifyEmail}
-                </button>
+                </Button>
               )}
-              <button style={botao} onClick={() => { setSenhaDe(senhaDe === u.id ? null : u.id); setSenha('') }}>
+              <Button variant="outline" style={{ padding: '8px 14px', fontSize: 13 }}
+                onClick={() => { setSenhaDe(senhaDe === u.id ? null : u.id); setSenha('') }}>
                 {textos.resetPassword}
-              </button>
+              </Button>
               {!u.is_platform_admin && (
-                <button
-                  style={u.is_active ? perigo : botao}
-                  disabled={ocupado === u.id}
-                  onClick={() =>
-                    confirmar(`ativo:${u.id}`, () =>
-                      void agir(u.id, () => api.post(`/platform/users/${u.id}/active`, { active: !u.is_active }), textos.done),
-                    )
-                  }
-                >
+                <Button variant="outline"
+                  style={{ padding: '8px 14px', fontSize: 13 }}
+                  loading={ocupado === u.id}
+                  onClick={() => confirmar(`ativo:${u.id}`, () => void agir(u.id, () => api.post(`/platform/users/${u.id}/active`, { active: !u.is_active })))}>
                   {confirmando === `ativo:${u.id}` ? textos.confirm : u.is_active ? textos.deactivate : textos.activate}
-                </button>
+                </Button>
               )}
             </div>
           </div>
 
           {senhaDe === u.id && (
-            <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-              <input
-                type="text"
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
-                placeholder={textos.newPassword}
-                style={{ flex: '1 1 220px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 12px', color: 'var(--heading)', fontSize: 13.5 }}
-              />
-              <button
-                style={{ ...botao, background: 'var(--accent)', color: '#fff', borderColor: 'transparent' }}
-                disabled={senha.length < 8 || ocupado === u.id}
-                onClick={() =>
-                  void agir(u.id, () => api.post(`/platform/users/${u.id}/password`, { new_password: senha }), textos.done)
-                    .then(() => { setSenhaDe(null); setSenha('') })
-                }
-              >
+            <div style={{ display: 'flex', gap: 10, marginTop: 14, alignItems: 'end', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 240px' }}>
+                <Field label={textos.newPassword}>
+                  <Input value={senha} onChange={(e) => setSenha(e.target.value)} />
+                </Field>
+              </div>
+              <Button disabled={senha.length < 8} loading={ocupado === u.id}
+                onClick={() => { void agir(u.id, () => api.post(`/platform/users/${u.id}/password`, { new_password: senha })); setSenhaDe(null); setSenha('') }}>
                 {textos.resetPassword}
-              </button>
+              </Button>
             </div>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
             {u.memberships.length === 0 ? (
-              <div style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{textos.noCompany}</div>
+              <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>{textos.noCompany}</p>
             ) : (
-              u.memberships.map((m) => {
-                const est = ESTADO[m.status] ?? { rotulo: m.status, cor: 'var(--text-muted)' }
-                return (
-                  <div key={m.membership_id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--surface-2)', borderRadius: 10, padding: '8px 11px', flexWrap: 'wrap' }}>
-                    <span style={{ color: 'var(--heading)', fontWeight: 600, fontSize: 13 }}>{m.tenant_name}</span>
-                    <span style={{ color: est.cor, fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase' }}>{est.rotulo}</span>
-                    <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-                      {m.status !== 'invited' && (
-                        <button
-                          style={botao}
-                          disabled={ocupado === m.membership_id}
-                          onClick={() =>
-                            void agir(
-                              m.membership_id,
-                              () => api.post(`/platform/memberships/${m.membership_id}/status`, {
-                                status: m.status === 'suspended' ? 'active' : 'suspended',
-                              }),
-                              textos.done,
-                            )
-                          }
-                        >
-                          {m.status === 'suspended' ? textos.reactivateLink : textos.suspendLink}
-                        </button>
-                      )}
-                      <button
-                        style={perigo}
-                        disabled={ocupado === m.membership_id}
-                        onClick={() =>
-                          confirmar(`rm:${m.membership_id}`, () =>
-                            void agir(m.membership_id, () => api.delete(`/platform/memberships/${m.membership_id}`), textos.done),
-                          )
-                        }
-                      >
-                        {confirmando === `rm:${m.membership_id}` ? textos.confirm : textos.removeLink}
-                      </button>
-                    </div>
+              u.memberships.map((m) => (
+                <div key={m.membership_id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--surface-2)', borderRadius: 12, padding: '10px 13px', flexWrap: 'wrap' }}>
+                  <span style={{ color: 'var(--heading)', fontWeight: 600, fontSize: 14 }}>{m.tenant_name}</span>
+                  <Chip tone={TOM[m.status] ?? 'muted'}>{m.status}</Chip>
+                  <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                    {m.status !== 'invited' && (
+                      <Button variant="ghost" style={{ padding: '6px 13px', fontSize: 12.5 }} loading={ocupado === m.membership_id}
+                        onClick={() => void agir(m.membership_id, () => api.post(`/platform/memberships/${m.membership_id}/status`, { status: m.status === 'suspended' ? 'active' : 'suspended' }))}>
+                        {m.status === 'suspended' ? textos.reactivateLink : textos.suspendLink}
+                      </Button>
+                    )}
+                    <Button variant="outline"
+                      style={{ padding: '6px 13px', fontSize: 12.5 }}
+                      loading={ocupado === m.membership_id}
+                      onClick={() => confirmar(`rm:${m.membership_id}`, () => void agir(m.membership_id, () => api.delete(`/platform/memberships/${m.membership_id}`)))}>
+                      {confirmando === `rm:${m.membership_id}` ? textos.confirm : textos.removeLink}
+                    </Button>
                   </div>
-                )
-              })
+                </div>
+              ))
             )}
           </div>
-        </div>
+        </Card>
       ))}
     </div>
   )
