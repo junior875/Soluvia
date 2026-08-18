@@ -6,6 +6,8 @@ import { api, listPlans, logout } from '../lib/api'
 import type { ApiError, PlanOut, PlatformOverview, PlatformTenantDetail, PlatformTenantRow } from '../lib/types'
 import { useTranslation } from '../i18n/LanguageProvider'
 import PrefSwitcher from './PrefSwitcher'
+import PlatformHealth from './platform/PlatformHealth'
+import PlatformUsers from './platform/PlatformUsers'
 
 const L = {
   pt: {
@@ -21,6 +23,17 @@ const L = {
     create: 'Criar empresa', companyCreated: 'Empresa criada.', addUser: 'Adicionar usuário', uName: 'Nome',
     uRole: 'Papel', add: 'Adicionar', userAdded: 'Usuário adicionado.', autoSlug: '(gerado do nome)',
     resend: 'Reenviar convite', resending: 'Enviando…', resendOk: 'Convite reenviado por e-mail.',
+    tab_empresas: 'Empresas', tab_pessoas: 'Pessoas', tab_sistema: 'Sistema',
+    uSearchPh: 'Buscar pessoa por e-mail ou nome…', uHint: 'Mínimo de 2 caracteres. A busca cobre todas as empresas.',
+    uNone: 'Ninguém encontrado.', uSearching: 'Buscando…', uNoCompany: 'Sem vínculo com empresa.',
+    uVerifyEmail: 'Verificar e-mail', uVerified: 'e-mail verificado', uResetPassword: 'Definir senha',
+    uNewPassword: 'Nova senha (mín. 8)', uDeactivate: 'Desativar conta', uActivate: 'Reativar conta',
+    uInactive: 'conta inativa', uSuspendLink: 'Suspender', uReactivateLink: 'Reativar',
+    uRemoveLink: 'Remover', uConfirm: 'Confirmar?', uPlatformAdmin: 'plataforma',
+    hEmail: 'E-mail', hStorage: 'Armazenamento', hReminders: 'Lembretes', hAi: 'Inteligência artificial',
+    hOk: 'configurado', hOff: 'não configurado', hSender: 'Remetente', hBucket: 'Bucket',
+    hEphemeral: 'Sem bucket configurado, os arquivos vão para o disco do container — que é apagado a cada deploy.',
+    hEvery: 'Varredura a cada', hAwaiting: 'Casos aguardando triagem', hEnvironment: 'Ambiente',
   },
   en: {
     kicker: 'Soluqtion Console', subtitle: 'Full platform view', logout: 'Sign out',
@@ -35,6 +48,17 @@ const L = {
     create: 'Create company', companyCreated: 'Company created.', addUser: 'Add user', uName: 'Name',
     uRole: 'Role', add: 'Add', userAdded: 'User added.', autoSlug: '(from the name)',
     resend: 'Resend invite', resending: 'Sending…', resendOk: 'Invitation re-sent by email.',
+    tab_empresas: 'Companies', tab_pessoas: 'People', tab_sistema: 'System',
+    uSearchPh: 'Search a person by email or name…', uHint: 'At least 2 characters. Covers every company.',
+    uNone: 'Nobody found.', uSearching: 'Searching…', uNoCompany: 'No company link.',
+    uVerifyEmail: 'Verify email', uVerified: 'email verified', uResetPassword: 'Set password',
+    uNewPassword: 'New password (min. 8)', uDeactivate: 'Deactivate account', uActivate: 'Reactivate account',
+    uInactive: 'inactive account', uSuspendLink: 'Suspend', uReactivateLink: 'Reactivate',
+    uRemoveLink: 'Remove', uConfirm: 'Confirm?', uPlatformAdmin: 'platform',
+    hEmail: 'Email', hStorage: 'Storage', hReminders: 'Reminders', hAi: 'Artificial intelligence',
+    hOk: 'configured', hOff: 'not configured', hSender: 'Sender', hBucket: 'Bucket',
+    hEphemeral: 'With no bucket configured, files go to the container disk — which is wiped on every deploy.',
+    hEvery: 'Scan every', hAwaiting: 'Cases awaiting triage', hEnvironment: 'Environment',
   },
   es: {
     kicker: 'Consola Soluqtion', subtitle: 'Vista total de la plataforma', logout: 'Salir',
@@ -49,6 +73,17 @@ const L = {
     create: 'Crear empresa', companyCreated: 'Empresa creada.', addUser: 'Agregar usuario', uName: 'Nombre',
     uRole: 'Rol', add: 'Agregar', userAdded: 'Usuario agregado.', autoSlug: '(generado del nombre)',
     resend: 'Reenviar invitación', resending: 'Enviando…', resendOk: 'Invitación reenviada por correo.',
+    tab_empresas: 'Empresas', tab_pessoas: 'Personas', tab_sistema: 'Sistema',
+    uSearchPh: 'Buscar persona por correo o nombre…', uHint: 'Mínimo 2 caracteres. Cubre todas las empresas.',
+    uNone: 'No se encontró a nadie.', uSearching: 'Buscando…', uNoCompany: 'Sin vínculo con empresa.',
+    uVerifyEmail: 'Verificar correo', uVerified: 'correo verificado', uResetPassword: 'Definir contraseña',
+    uNewPassword: 'Nueva contraseña (mín. 8)', uDeactivate: 'Desactivar cuenta', uActivate: 'Reactivar cuenta',
+    uInactive: 'cuenta inactiva', uSuspendLink: 'Suspender', uReactivateLink: 'Reactivar',
+    uRemoveLink: 'Quitar', uConfirm: '¿Confirmar?', uPlatformAdmin: 'plataforma',
+    hEmail: 'Correo', hStorage: 'Almacenamiento', hReminders: 'Recordatorios', hAi: 'Inteligencia artificial',
+    hOk: 'configurado', hOff: 'no configurado', hSender: 'Remitente', hBucket: 'Bucket',
+    hEphemeral: 'Sin bucket configurado, los archivos van al disco del contenedor — que se borra en cada despliegue.',
+    hEvery: 'Escaneo cada', hAwaiting: 'Casos esperando triaje', hEnvironment: 'Entorno',
   },
 }
 
@@ -75,6 +110,7 @@ export default function PlatformConsole() {
   // travar a lista inteira faria os outros botões piscarem sem motivo.
   const [resendId, setResendId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [aba, setAba] = useState<'empresas' | 'pessoas' | 'sistema'>('empresas')
   const [plans, setPlans] = useState<PlanOut[]>([])
   const [showNew, setShowNew] = useState(false)
   const emptyNew = { name: '', slug: '', plan_id: '', admin_name: '', admin_email: '', admin_password: '' }
@@ -131,6 +167,18 @@ export default function PlatformConsole() {
     } catch (e) { flash((e as ApiError).detail ?? 'Erro') } finally { setResendId(null) }
   }
 
+  /** Troca o plano. Reduzir para um plano com menos vagas é permitido de
+   *  propósito — recusar deixaria o comercial sem saída num downgrade legítimo,
+   *  e o limite volta a valer no próximo convite, que é onde ele importa. */
+  async function trocarPlano(planId: string) {
+    if (!detail || !planId) return
+    setBusy(true)
+    try {
+      const d = await api.patch<PlatformTenantDetail>(`/platform/tenants/${detail.id}`, { plan_id: planId })
+      setDetail(d); load(); flash(tr.saved)
+    } catch (e) { flash((e as ApiError).detail ?? 'Erro') } finally { setBusy(false) }
+  }
+
   async function openDetail(id: string) {
     setDetail(null)
     try {
@@ -184,6 +232,56 @@ export default function PlatformConsole() {
           </div>
         </div>
 
+        {/* Abas — o console deixou de ser só "empresas" */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+          {(['empresas', 'pessoas', 'sistema'] as const).map((k) => (
+            <button
+              key={k}
+              onClick={() => setAba(k)}
+              style={{
+                background: aba === k ? 'var(--accent)' : 'rgba(255,255,255,.08)',
+                color: '#fff',
+                border: aba === k ? 'none' : '1px solid rgba(255,255,255,.2)',
+                borderRadius: 100, padding: '8px 18px', fontWeight: 700, fontSize: 13.5,
+                cursor: 'pointer',
+              }}
+            >
+              {tr[`tab_${k}` as keyof typeof tr] as string}
+            </button>
+          ))}
+        </div>
+
+        {aba === 'pessoas' && (
+          <PlatformUsers
+            card={card}
+            onToast={flash}
+            textos={{
+              searchPh: tr.uSearchPh, hint: tr.uHint, none: tr.uNone, searching: tr.uSearching,
+              noCompany: tr.uNoCompany, verifyEmail: tr.uVerifyEmail, verified: tr.uVerified,
+              resetPassword: tr.uResetPassword, newPassword: tr.uNewPassword,
+              deactivate: tr.uDeactivate, activate: tr.uActivate, inactive: tr.uInactive,
+              suspendLink: tr.uSuspendLink, reactivateLink: tr.uReactivateLink,
+              removeLink: tr.uRemoveLink, confirm: tr.uConfirm, done: tr.saved,
+              platformAdmin: tr.uPlatformAdmin,
+            }}
+          />
+        )}
+
+        {aba === 'sistema' && (
+          <PlatformHealth
+            card={card}
+            onToast={flash}
+            textos={{
+              title: tr.tab_sistema, email: tr.hEmail, storage: tr.hStorage,
+              reminders: tr.hReminders, ai: tr.hAi, ok: tr.hOk, off: tr.hOff,
+              sender: tr.hSender, bucket: tr.hBucket, ephemeral: tr.hEphemeral,
+              every: tr.hEvery, awaitingTriage: tr.hAwaiting, environment: tr.hEnvironment,
+              loading: tr.uSearching,
+            }}
+          />
+        )}
+
+        {aba === 'empresas' && <>
         {/* Stats globais */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 14, marginBottom: 28 }}>
           {ov && stat(tr.tenants, ov.tenants)}
@@ -236,6 +334,7 @@ export default function PlatformConsole() {
             </div>
           )}
         </div>
+        </>}
       </div>
 
       {/* Detalhe da empresa */}
@@ -252,6 +351,21 @@ export default function PlatformConsole() {
 
             {/* Cota de IA */}
             <div style={{ background: 'var(--surface-2)', borderRadius: 14, padding: 16, marginBottom: 16 }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>{tr.plan}</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 18 }}>
+                <select
+                  value={plans.find((p) => p.name === detail.plan_name)?.id ?? ''}
+                  onChange={(e) => void trocarPlano(e.target.value)}
+                  disabled={busy}
+                  style={{ ...fld, width: 'auto', minWidth: 190, background: 'var(--surface)' }}
+                >
+                  {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>
+                  {detail.users} {tr.usersCol.toLowerCase()}
+                </span>
+              </div>
+
               <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>{tr.aiQuota}</div>
               <div style={{ color: 'var(--heading)', fontSize: 14, marginBottom: 10 }}>{num(detail.ai_tokens_used, lang)} / {detail.ai_token_limit === 0 ? '∞' : num(detail.ai_token_limit, lang)}</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
