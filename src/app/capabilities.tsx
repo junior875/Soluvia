@@ -28,6 +28,7 @@ import { useT } from './strings'
 import { Button, Card } from './ui'
 import { Icon } from './icons'
 import Onboarding from '../components/Onboarding'
+import { guardarDestino } from './destino'
 
 type Status = 'loading' | 'ready' | 'login' | 'select' | 'error'
 
@@ -147,7 +148,11 @@ export function CapabilityProvider({ children }: { children: ReactNode }) {
           <Card style={{ maxWidth: 420, textAlign: 'center' }}>
             <h2 style={{ color: 'var(--heading)', fontSize: 22, fontWeight: 800, marginBottom: 8 }}>{t.states.sessionExpired}</h2>
             <p style={{ color: 'var(--text-muted)', marginBottom: 18 }}>{t.states.sessionExpiredBody}</p>
-            <Button onClick={() => (window.location.hash = 'entrar')}>{t.states.login}</Button>
+            {/* Guarda o destino ANTES de trocar o hash: depois da troca a
+                informação já se perdeu, e é justamente aqui que ela some —
+                quem chega do e-mail de triagem está em
+                `#painel/cases?protocolo=…` neste exato momento. */}
+            <Button onClick={() => { guardarDestino(); window.location.hash = 'entrar' }}>{t.states.login}</Button>
           </Card>
         )}
         {status === 'error' && (

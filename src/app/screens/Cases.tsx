@@ -95,7 +95,11 @@ export default function Cases({ module = 'etica' }: CasesProps) {
   // pessoa lê) e a rota de detalhe pede o id. E limpa a query em seguida: sem
   // isso o caso reabriria sozinho a cada vez que a tela voltasse a montar.
   useEffect(() => {
-    if (!cases?.length) return
+    // `null` = ainda carregando. Lista VAZIA precisa passar: com o guarda
+    // antigo (`!cases?.length`) o protocolo era engolido em silêncio e a query
+    // ficava grudada no endereço — a pessoa via a lista vazia sem entender que
+    // o caso do e-mail simplesmente não está nesta empresa.
+    if (cases === null) return
     const query = window.location.hash.split('?')[1]
     const protocolo = query ? new URLSearchParams(query).get('protocolo') : null
     if (!protocolo) return

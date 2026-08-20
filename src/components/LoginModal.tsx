@@ -8,6 +8,7 @@ import type { ApiError, MembershipSummary, MeResponse } from '../lib/types'
 import { useTranslation } from '../i18n/LanguageProvider'
 import { localizeRole } from '../lib/systemNames'
 import PrefSwitcher from './PrefSwitcher'
+import { consumirDestino, limparDestino } from '../app/destino'
 
 const L = {
   pt: {
@@ -86,7 +87,10 @@ const primaryBtn: CSSProperties = {
 }
 
 const goToPanel = () => {
-  window.location.hash = 'painel'
+  // Volta para onde a pessoa ia antes do login, quando havia um destino.
+  // `#painel` fixo era o que fazia o protocolo do e-mail evaporar: o login
+  // funcionava, o painel abria, e o caso ficava para trás.
+  window.location.hash = consumirDestino() ?? 'painel'
 }
 
 export default function LoginModal() {
@@ -157,7 +161,10 @@ export default function LoginModal() {
     try {
       const tok = await login(email.trim(), password)
       // Superadmin Soluqtion: vai direto ao console de plataforma (sem tenant).
-      if (tok.is_platform_admin) { window.location.hash = 'plataforma'; return }
+      // Admin de plataforma opera FORA de qualquer empresa, então um destino
+      // de painel guardado não serve para ele — descarta em vez de carregar
+      // para o próximo login de outra pessoa nesta aba.
+      if (tok.is_platform_admin) { limparDestino(); window.location.hash = 'plataforma'; return }
       const me = await api.get<MeResponse>('/auth/me')
       const active = me.memberships.filter((m) => m.status === 'active')
       if (active.length === 0) {
