@@ -11,6 +11,7 @@ import { Button, Card, EmptyState } from '../app/ui'
 import PlatformHealth from './platform/PlatformHealth'
 import PlatformUsers from './platform/PlatformUsers'
 import PlatformConsumo from './platform/PlatformConsumo'
+import PlatformFinance from './platform/PlatformFinance'
 
 const L = {
   pt: {
@@ -33,6 +34,30 @@ const L = {
     uNewUser: 'Nova pessoa', uCompany: 'Empresa', uName2: 'Nome', create2: 'Criar', uCancel: 'Cancelar',
     navSection: 'Console', tab_empresas: 'Empresas', tab_pessoas: 'Pessoas', tab_sistema: 'Sistema',
     tab_armazenamento: 'Armazenamento', tab_tokens: 'Tokens de IA',
+    tab_financeiro: 'Custos e entradas',
+    fTitulo: 'Custos e entradas', fSub: 'O que está contratado, o que entrou de verdade e o que custa manter.',
+    fMrr: 'MRR contratado', fMrrSub: 'assinaturas ativas',
+    fRecebido: 'Recebido no mês', fRecebidoSub: 'líquido, já sem as taxas',
+    fCusto: 'Custo do mês', fCustoSub: 'IA + armazenamento + taxas + fixo',
+    fLucro: 'Resultado do mês',
+    fSemStripe: 'Stripe não configurado',
+    fSemStripeCorpo: 'Sem a chave da Stripe não dá para saber o que entrou. Os números de receita acima usam o valor CONTRATADO, não o recebido.',
+    fErroStripe: 'A Stripe não respondeu',
+    fErroStripeCorpo: 'A credencial existe, mas a consulta falhou. O que entrou de fato está indisponível agora — o valor mostrado é o contratado.',
+    fPorMes: 'Mês', fPorMesLegenda: 'Entradas em valor bruto; custos incluem IA, taxas da Stripe e o fixo. Armazenamento entra só no mês corrente, porque o banco guarda o tamanho de hoje e não o histórico.',
+    fEntrou: 'Entrou', fSaiu: 'Custou',
+    fBruto: 'Bruto', fTaxas: 'Taxas', fLiquido: 'Líquido', fEstornos: 'Estornos',
+    fPorPlano: 'Receita por plano', fEmpresas: 'Empresa',
+    fPlano: 'Plano', fMrrCol: 'MRR', fCustoCol: 'Custo', fMargemCol: 'Margem',
+    fChurn: 'em cancelamento', fChurnSub: 'Já cancelaram e mantêm acesso até o fim do ciclo. É o MRR que cai no próximo.',
+    fOrigens: 'De onde vem o custo', fOrigemIa: 'Inteligência artificial', fOrigemStorage: 'Armazenamento',
+    fOrigemTaxas: 'Taxas da Stripe', fOrigemFixo: 'Infraestrutura fixa',
+    fRateio: 'Rateio do consumo medido — nenhum fornecedor emite nota por empresa.',
+    fTaxasUsadas: 'Taxas usadas', fTaxasOnde: 'Ajustáveis por variável de ambiente, junto com o resto da configuração de infraestrutura.',
+    fVazio: 'Nada registrado ainda.',
+    fCicloMensal: 'mensal', fCicloAnual: 'anual',
+    fAtiva: 'ativa', fCancelada: 'cancelada', fSuspensa: 'suspensa',
+    fBaseRecebido: 'sobre o recebido', fBaseContratado: 'sobre o contratado', fUnidadeMes: 'mês',
     stTitle: 'Armazenamento', stSub: 'Quanto cada empresa ocupa e do que esse espaço é feito.',
     stTotal: 'Total da plataforma', stTotalSub: 'Soma de todas as empresas — é o que fecha com a fatura do provedor.',
     stEvidence: 'Provas', stSignatures: 'Assinaturas', stOver: 'no teto', stOverAll: 'empresas no teto', stNoLimit: 'sem limite',
@@ -74,6 +99,30 @@ const L = {
     uNewUser: 'New person', uCompany: 'Company', uName2: 'Name', create2: 'Create', uCancel: 'Cancel',
     navSection: 'Console', tab_empresas: 'Companies', tab_pessoas: 'People', tab_sistema: 'System',
     tab_armazenamento: 'Storage', tab_tokens: 'AI tokens',
+    tab_financeiro: 'Costs & revenue',
+    fTitulo: 'Costs & revenue', fSub: 'What is contracted, what actually came in, and what it costs to run.',
+    fMrr: 'Contracted MRR', fMrrSub: 'active subscriptions',
+    fRecebido: 'Received this month', fRecebidoSub: 'net, fees already deducted',
+    fCusto: 'Cost this month', fCustoSub: 'AI + storage + fees + fixed',
+    fLucro: 'Result this month',
+    fSemStripe: 'Stripe not configured',
+    fSemStripeCorpo: 'Without the Stripe key there is no way to know what came in. The revenue figures above use the CONTRACTED value, not what was received.',
+    fErroStripe: 'Stripe did not respond',
+    fErroStripeCorpo: 'The credential exists but the call failed. Actual income is unavailable right now — the figure shown is the contracted one.',
+    fPorMes: 'Month', fPorMesLegenda: 'Income is gross; costs include AI, Stripe fees and the fixed line. Storage counts only in the current month, because the database stores the size as of today and not the history.',
+    fEntrou: 'In', fSaiu: 'Out',
+    fBruto: 'Gross', fTaxas: 'Fees', fLiquido: 'Net', fEstornos: 'Refunds',
+    fPorPlano: 'Revenue by plan', fEmpresas: 'Company',
+    fPlano: 'Plan', fMrrCol: 'MRR', fCustoCol: 'Cost', fMargemCol: 'Margin',
+    fChurn: 'churning', fChurnSub: 'Already cancelled, access until the cycle ends. This is the MRR that drops next month.',
+    fOrigens: 'Where the cost comes from', fOrigemIa: 'Artificial intelligence', fOrigemStorage: 'Storage',
+    fOrigemTaxas: 'Stripe fees', fOrigemFixo: 'Fixed infrastructure',
+    fRateio: 'Allocation of measured usage — no provider invoices per company.',
+    fTaxasUsadas: 'Rates used', fTaxasOnde: 'Adjustable via environment variables, alongside the rest of the infrastructure config.',
+    fVazio: 'Nothing recorded yet.',
+    fCicloMensal: 'monthly', fCicloAnual: 'yearly',
+    fAtiva: 'active', fCancelada: 'cancelled', fSuspensa: 'suspended',
+    fBaseRecebido: 'on money received', fBaseContratado: 'on contracted value', fUnidadeMes: 'month',
     stTitle: 'Storage', stSub: 'How much each company takes up, and what that space is made of.',
     stTotal: 'Platform total', stTotalSub: 'Sum of every company — this is what matches the provider invoice.',
     stEvidence: 'Evidence', stSignatures: 'Signatures', stOver: 'at cap', stOverAll: 'companies at cap', stNoLimit: 'no limit',
@@ -115,6 +164,30 @@ const L = {
     uNewUser: 'Nueva persona', uCompany: 'Empresa', uName2: 'Nombre', create2: 'Crear', uCancel: 'Cancelar',
     navSection: 'Consola', tab_empresas: 'Empresas', tab_pessoas: 'Personas', tab_sistema: 'Sistema',
     tab_armazenamento: 'Almacenamiento', tab_tokens: 'Tokens de IA',
+    tab_financeiro: 'Costos e ingresos',
+    fTitulo: 'Costos e ingresos', fSub: 'Lo contratado, lo que entró de verdad y lo que cuesta mantener.',
+    fMrr: 'MRR contratado', fMrrSub: 'suscripciones activas',
+    fRecebido: 'Recibido en el mes', fRecebidoSub: 'neto, sin las comisiones',
+    fCusto: 'Costo del mes', fCustoSub: 'IA + almacenamiento + comisiones + fijo',
+    fLucro: 'Resultado del mes',
+    fSemStripe: 'Stripe no configurado',
+    fSemStripeCorpo: 'Sin la clave de Stripe no hay forma de saber qué entró. Las cifras de arriba usan el valor CONTRATADO, no lo recibido.',
+    fErroStripe: 'Stripe no respondió',
+    fErroStripeCorpo: 'La credencial existe pero la consulta falló. Lo recibido no está disponible ahora — la cifra mostrada es la contratada.',
+    fPorMes: 'Mes', fPorMesLegenda: 'Los ingresos son brutos; los costos incluyen IA, comisiones de Stripe y el fijo. El almacenamiento entra solo en el mes actual, porque la base guarda el tamaño de hoy y no el histórico.',
+    fEntrou: 'Entró', fSaiu: 'Costó',
+    fBruto: 'Bruto', fTaxas: 'Comisiones', fLiquido: 'Neto', fEstornos: 'Reembolsos',
+    fPorPlano: 'Ingresos por plan', fEmpresas: 'Empresa',
+    fPlano: 'Plan', fMrrCol: 'MRR', fCustoCol: 'Costo', fMargemCol: 'Margen',
+    fChurn: 'en cancelación', fChurnSub: 'Ya cancelaron y mantienen acceso hasta fin de ciclo. Es el MRR que cae el próximo mes.',
+    fOrigens: 'De dónde viene el costo', fOrigemIa: 'Inteligencia artificial', fOrigemStorage: 'Almacenamiento',
+    fOrigemTaxas: 'Comisiones de Stripe', fOrigemFixo: 'Infraestructura fija',
+    fRateio: 'Prorrateo del consumo medido — ningún proveedor factura por empresa.',
+    fTaxasUsadas: 'Tarifas usadas', fTaxasOnde: 'Ajustables por variable de entorno, junto al resto de la configuración de infraestructura.',
+    fVazio: 'Nada registrado todavía.',
+    fCicloMensal: 'mensual', fCicloAnual: 'anual',
+    fAtiva: 'activa', fCancelada: 'cancelada', fSuspensa: 'suspendida',
+    fBaseRecebido: 'sobre lo recibido', fBaseContratado: 'sobre lo contratado', fUnidadeMes: 'mes',
     stTitle: 'Almacenamiento', stSub: 'Cuánto ocupa cada empresa y de qué está hecho ese espacio.',
     stTotal: 'Total de la plataforma', stTotalSub: 'Suma de todas las empresas — es lo que cuadra con la factura del proveedor.',
     stEvidence: 'Pruebas', stSignatures: 'Firmas', stOver: 'en el tope', stOverAll: 'empresas en el tope', stNoLimit: 'sin límite',
@@ -138,7 +211,7 @@ const L = {
   },
 }
 
-type AbaId = 'empresas' | 'pessoas' | 'armazenamento' | 'tokens' | 'sistema'
+type AbaId = 'empresas' | 'pessoas' | 'financeiro' | 'armazenamento' | 'tokens' | 'sistema'
 
 /** As seções do console. Ícones do mesmo conjunto que a nav do painel usa. */
 const ABAS: { id: AbaId; icon: IconName }[] = [
@@ -147,6 +220,7 @@ const ABAS: { id: AbaId; icon: IconName }[] = [
   // Armazenamento e IA saíram de dentro da gaveta da empresa e viraram tela
   // própria: as duas perguntas do dono são "quanto no total" e "quem está fora
   // da curva", e nenhuma das duas se responde abrindo empresa por empresa.
+  { id: 'financeiro', icon: 'billing' },
   { id: 'armazenamento', icon: 'download' },
   { id: 'tokens', icon: 'spark' },
   { id: 'sistema', icon: 'settings' },
@@ -406,6 +480,37 @@ export default function PlatformConsole() {
               resendInvite: tr.uResendInvite, pendingHint: tr.uPendingHint,
             }}
             empresas={(rows ?? []).map((r) => ({ id: String(r.id), name: r.name }))}
+          />
+        )}
+
+        {aba === 'financeiro' && (
+          <PlatformFinance
+            onToast={flash}
+            lang={lang}
+            textos={{
+              titulo: tr.fTitulo, subtitulo: tr.fSub,
+              mrr: tr.fMrr, mrrSub: tr.fMrrSub,
+              recebido: tr.fRecebido, recebidoSub: tr.fRecebidoSub,
+              custo: tr.fCusto, custoSub: tr.fCustoSub,
+              lucro: tr.fLucro,
+              lucroBase: { recebido_liquido: tr.fBaseRecebido, mrr_contratado: tr.fBaseContratado },
+              semStripe: tr.fSemStripe, semStripeCorpo: tr.fSemStripeCorpo,
+              erroStripe: tr.fErroStripe, erroStripeCorpo: tr.fErroStripeCorpo,
+              porMes: tr.fPorMes, porMesLegenda: tr.fPorMesLegenda,
+              entrou: tr.fEntrou, saiu: tr.fSaiu,
+              bruto: tr.fBruto, taxas: tr.fTaxas, liquido: tr.fLiquido, estornos: tr.fEstornos,
+              porPlano: tr.fPorPlano, empresas: tr.fEmpresas,
+              companyPlan: tr.fPlano, companyMrr: tr.fMrrCol,
+              companyCost: tr.fCustoCol, companyMargin: tr.fMargemCol,
+              churn: tr.fChurn, churnSub: tr.fChurnSub,
+              origens: tr.fOrigens, origemIa: tr.fOrigemIa, origemStorage: tr.fOrigemStorage,
+              origemTaxas: tr.fOrigemTaxas, origemFixo: tr.fOrigemFixo,
+              rateio: tr.fRateio, taxasUsadas: tr.fTaxasUsadas, taxasOnde: tr.fTaxasOnde,
+              unidadeMes: tr.fUnidadeMes,
+              vazio: tr.fVazio,
+              ciclos: { monthly: tr.fCicloMensal, yearly: tr.fCicloAnual },
+              estados: { active: tr.fAtiva, canceled: tr.fCancelada, suspended: tr.fSuspensa },
+            }}
           />
         )}
 
