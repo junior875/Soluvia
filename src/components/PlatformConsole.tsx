@@ -7,6 +7,7 @@ import type { ApiError, PlanOut, PlatformOverview, PlatformTenantDetail, Platfor
 import { useTranslation } from '../i18n/LanguageProvider'
 import PrefSwitcher from './PrefSwitcher'
 import { Icon, type IconName } from '../app/icons'
+import { Button, Card, EmptyState } from '../app/ui'
 import PlatformHealth from './platform/PlatformHealth'
 import PlatformUsers from './platform/PlatformUsers'
 
@@ -24,6 +25,8 @@ const L = {
     create: 'Criar empresa', companyCreated: 'Empresa criada.', addUser: 'Adicionar usuário', uName: 'Nome',
     uRole: 'Papel', add: 'Adicionar', userAdded: 'Usuário adicionado.', autoSlug: '(gerado do nome)',
     resend: 'Reenviar convite', resending: 'Enviando…', resendOk: 'Convite reenviado por e-mail.',
+    gateAnonTitle: 'Entre para acessar o console', gateAnonBody: 'Esta área exige uma conta de plataforma Soluqtion.', gateSignIn: 'Entrar',
+    gateForbiddenTitle: 'Esta conta não é de plataforma', gateForbiddenBody: 'Você está numa conta de empresa. Saia e entre com a conta Soluqtion.',
     storageQuota: 'Armazenamento de provas', storageWarn: 'Ao atingir o teto, os canais de denúncia e SAC param de aceitar ANEXOS — o relato continua entrando, mas sem foto, vídeo ou documento.',
     uNoneBody: 'Ajuste a busca ou crie uma pessoa nova.',
     uNewUser: 'Nova pessoa', uCompany: 'Empresa', uName2: 'Nome', create2: 'Criar', uCancel: 'Cancelar',
@@ -52,6 +55,8 @@ const L = {
     create: 'Create company', companyCreated: 'Company created.', addUser: 'Add user', uName: 'Name',
     uRole: 'Role', add: 'Add', userAdded: 'User added.', autoSlug: '(from the name)',
     resend: 'Resend invite', resending: 'Sending…', resendOk: 'Invitation re-sent by email.',
+    gateAnonTitle: 'Sign in to access the console', gateAnonBody: 'This area requires a Soluqtion platform account.', gateSignIn: 'Sign in',
+    gateForbiddenTitle: 'This account is not a platform account', gateForbiddenBody: 'You are on a company account. Sign out and use the Soluqtion account.',
     storageQuota: 'Evidence storage', storageWarn: 'Once the cap is reached, the whistleblowing and SAC channels stop accepting ATTACHMENTS — reports still come in, but with no photo, video or document.',
     uNoneBody: 'Adjust the search or create a new person.',
     uNewUser: 'New person', uCompany: 'Company', uName2: 'Name', create2: 'Create', uCancel: 'Cancel',
@@ -80,6 +85,8 @@ const L = {
     create: 'Crear empresa', companyCreated: 'Empresa creada.', addUser: 'Agregar usuario', uName: 'Nombre',
     uRole: 'Rol', add: 'Agregar', userAdded: 'Usuario agregado.', autoSlug: '(generado del nombre)',
     resend: 'Reenviar invitación', resending: 'Enviando…', resendOk: 'Invitación reenviada por correo.',
+    gateAnonTitle: 'Inicia sesión para acceder a la consola', gateAnonBody: 'Esta área exige una cuenta de plataforma Soluqtion.', gateSignIn: 'Entrar',
+    gateForbiddenTitle: 'Esta cuenta no es de plataforma', gateForbiddenBody: 'Estás en una cuenta de empresa. Sal y entra con la cuenta Soluqtion.',
     storageQuota: 'Almacenamiento de pruebas', storageWarn: 'Al alcanzar el tope, los canales de denuncias y SAC dejan de aceptar ADJUNTOS — los relatos siguen entrando, pero sin foto, video ni documento.',
     uNoneBody: 'Ajusta la búsqueda o crea una persona nueva.',
     uNewUser: 'Nueva persona', uCompany: 'Empresa', uName2: 'Nombre', create2: 'Crear', uCancel: 'Cancelar',
@@ -132,6 +139,10 @@ export default function PlatformConsole() {
   const [resendId, setResendId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [aba, setAba] = useState<AbaId>('empresas')
+  // null = ainda conferindo | 'anon' = sem sessão | 'forbidden' = sessão sem
+  // poder de plataforma | 'ok' = pode operar. O e-mail acompanha o 'forbidden'
+  // porque a correção é trocar de conta — a pessoa precisa saber qual está.
+  const [acesso, setAcesso] = useState<{ estado: 'checando' | 'anon' | 'forbidden' | 'ok'; email?: string }>({ estado: 'checando' })
   const [drawer, setDrawer] = useState(false)
   const [plans, setPlans] = useState<PlanOut[]>([])
   const [showNew, setShowNew] = useState(false)
@@ -147,12 +158,22 @@ export default function PlatformConsole() {
     return () => window.removeEventListener('hashchange', sync)
   }, [])
 
+  useEffect(() => {
+    if (!open) return
+    api
+      .get<{ email: string; is_platform_admin: boolean }>('/auth/me')
+      .then((r) =>
+        setAcesso(r.is_platform_admin ? { estado: 'ok' } : { estado: 'forbidden', email: r.email }),
+      )
+      .catch(() => setAcesso({ estado: 'anon' }))
+  }, [open])
+
   const load = useCallback(() => {
     void api.get<PlatformOverview>('/platform/overview').then(setOv).catch(() => setOv(null))
     void api.get<PlatformTenantRow[]>('/platform/tenants').then(setRows).catch(() => setRows([]))
     void listPlans().then(setPlans).catch(() => setPlans([]))
   }, [])
-  useEffect(() => { if (open) load() }, [open, load])
+  useEffect(() => { if (open && acesso.estado === 'ok') load() }, [open, acesso.estado, load])
 
   async function createCompany() {
     setBusy(true)
@@ -302,6 +323,31 @@ export default function PlatformConsole() {
         </header>
 
         <div className="app-scroll" style={{ flex: 1, overflowY: 'auto', padding: 'clamp(18px,3vw,28px)' }}>
+        {acesso.estado !== 'ok' ? (
+          <div style={{ maxWidth: 460, margin: '48px auto' }}>
+            <Card>
+              <EmptyState
+                icon="lock"
+                title={acesso.estado === 'anon' ? tr.gateAnonTitle : acesso.estado === 'forbidden' ? tr.gateForbiddenTitle : '…'}
+                body={
+                  acesso.estado === 'anon'
+                    ? tr.gateAnonBody
+                    : acesso.estado === 'forbidden'
+                      ? `${tr.gateForbiddenBody} (${acesso.email})`
+                      : undefined
+                }
+                action={
+                  acesso.estado === 'anon' ? (
+                    <Button onClick={() => { window.location.hash = 'entrar' }}>{tr.gateSignIn}</Button>
+                  ) : acesso.estado === 'forbidden' ? (
+                    <Button variant="ghost" onClick={() => void doLogout()}>{tr.logout}</Button>
+                  ) : undefined
+                }
+              />
+            </Card>
+          </div>
+        ) : (
+        <>
         {aba === 'pessoas' && (
           <PlatformUsers
             onToast={flash}
@@ -390,6 +436,8 @@ export default function PlatformConsole() {
           )}
         </div>
         </>}
+        </>
+        )}
         </div>
       </main>
 
