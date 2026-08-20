@@ -46,6 +46,9 @@ const L = {
     uNewPassword: 'Nova senha (mín. 8)', uDeactivate: 'Desativar conta', uActivate: 'Reativar conta',
     uInactive: 'conta inativa', uSuspendLink: 'Suspender', uReactivateLink: 'Reativar',
     uRemoveLink: 'Remover', uConfirm: 'Confirmar?', uPlatformAdmin: 'plataforma',
+    uPendingInvite: 'convite pendente', uInviteExpired: 'convite vencido',
+    uResendInvite: 'Reenviar convite',
+    uPendingHint: 'Convidado — ainda não aceitou, então a conta não existe.',
     hEmail: 'E-mail', hStorage: 'Armazenamento', hReminders: 'Lembretes', hAi: 'Inteligência artificial',
     hOk: 'configurado', hOff: 'não configurado', hSender: 'Remetente', hBucket: 'Bucket',
     hEphemeral: 'Sem bucket configurado, os arquivos vão para o disco do container — que é apagado a cada deploy.',
@@ -84,6 +87,9 @@ const L = {
     uNewPassword: 'New password (min. 8)', uDeactivate: 'Deactivate account', uActivate: 'Reactivate account',
     uInactive: 'inactive account', uSuspendLink: 'Suspend', uReactivateLink: 'Reactivate',
     uRemoveLink: 'Remove', uConfirm: 'Confirm?', uPlatformAdmin: 'platform',
+    uPendingInvite: 'invite pending', uInviteExpired: 'invite expired',
+    uResendInvite: 'Resend invite',
+    uPendingHint: 'Invited — has not accepted yet, so no account exists.',
     hEmail: 'Email', hStorage: 'Storage', hReminders: 'Reminders', hAi: 'Artificial intelligence',
     hOk: 'configured', hOff: 'not configured', hSender: 'Sender', hBucket: 'Bucket',
     hEphemeral: 'With no bucket configured, files go to the container disk — which is wiped on every deploy.',
@@ -122,6 +128,9 @@ const L = {
     uNewPassword: 'Nueva contraseña (mín. 8)', uDeactivate: 'Desactivar cuenta', uActivate: 'Reactivar cuenta',
     uInactive: 'cuenta inactiva', uSuspendLink: 'Suspender', uReactivateLink: 'Reactivar',
     uRemoveLink: 'Quitar', uConfirm: '¿Confirmar?', uPlatformAdmin: 'plataforma',
+    uPendingInvite: 'invitación pendiente', uInviteExpired: 'invitación vencida',
+    uResendInvite: 'Reenviar invitación',
+    uPendingHint: 'Invitado — aún no aceptó, así que la cuenta no existe.',
     hEmail: 'Correo', hStorage: 'Almacenamiento', hReminders: 'Recordatorios', hAi: 'Inteligencia artificial',
     hOk: 'configurado', hOff: 'no configurado', hSender: 'Remitente', hBucket: 'Bucket',
     hEphemeral: 'Sin bucket configurado, los archivos van al disco del contenedor — que se borra en cada despliegue.',
@@ -393,6 +402,8 @@ export default function PlatformConsole() {
               newUser: tr.uNewUser, company: tr.uCompany, name: tr.uName2,
               email: tr.cEmail, create: tr.create2,
               cancel: tr.uCancel, created: tr.userAdded,
+              pendingInvite: tr.uPendingInvite, inviteExpired: tr.uInviteExpired,
+              resendInvite: tr.uResendInvite, pendingHint: tr.uPendingHint,
             }}
             empresas={(rows ?? []).map((r) => ({ id: String(r.id), name: r.name }))}
           />

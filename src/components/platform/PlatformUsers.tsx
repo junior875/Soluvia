@@ -33,7 +33,8 @@ export type PlatformUserMembership = {
 }
 
 export type PlatformUser = {
-  id: string
+  /** `null` em convite pendente: a conta só nasce no aceite. */
+  id: string | null
   email: string
   full_name: string | null
   is_active: boolean
@@ -42,6 +43,10 @@ export type PlatformUser = {
   has_password: boolean
   created_at: string
   memberships: PlatformUserMembership[]
+  /** Convidado que ainda não virou conta (Membership sem user_id). */
+  pending?: boolean
+  /** Convite fora do prazo de 7 dias — explica sozinho o "não consigo entrar". */
+  invite_expired?: boolean
 }
 
 export type UsersTextos = {
@@ -70,6 +75,10 @@ export type UsersTextos = {
   create: string
   cancel: string
   created: string
+  pendingInvite: string
+  inviteExpired: string
+  resendInvite: string
+  pendingHint: string
 }
 
 /** Tom do Chip por estado do vínculo — os mesmos tons que o painel usa. */
@@ -221,52 +230,82 @@ export default function PlatformUsers({
         </Card>
       )}
 
-      {lista?.map((u) => (
-        <Card key={u.id}>
+      {lista?.map((u) => {
+        // Convite pendente não tem conta por trás: `id` é null e o vínculo é o
+        // único identificador que existe. Toda ação de USUÁRIO (verificar
+        // e-mail, definir senha, desativar) apontaria para o nada — o que essa
+        // linha oferece é reenviar o convite ou cancelá-lo.
+        const vinculo = u.memberships[0]
+        const chave = u.id ?? vinculo?.membership_id ?? u.email
+        // Const local, e não `u.id` direto: o narrowing de PROPRIEDADE não
+        // sobrevive dentro dos callbacks do JSX, e sem isso cada onClick volta
+        // a enxergar `string | null`.
+        const contaId = u.id
+        return (
+        <Card key={chave}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
             <Avatar name={u.full_name || u.email} />
             <div style={{ flex: '1 1 220px', minWidth: 0 }}>
               <div style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 {u.full_name || u.email}
                 {u.is_platform_admin && <Chip tone="navy">{textos.platformAdmin}</Chip>}
-                {!u.is_active && <Chip tone="muted">{textos.inactive}</Chip>}
+                {u.pending && <Chip tone="accent">{textos.pendingInvite}</Chip>}
+                {u.invite_expired && <Chip tone="muted">{textos.inviteExpired}</Chip>}
+                {!u.pending && !u.is_active && <Chip tone="muted">{textos.inactive}</Chip>}
               </div>
-              <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>{u.email}</div>
+              {/* Convidado não tem nome ainda, então o título JÁ é o e-mail —
+                  repeti-lo embaixo só empilha a mesma informação duas vezes. */}
+              {u.pending ? (
+                <div style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: 2 }}>{textos.pendingHint}</div>
+              ) : (
+                <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>{u.email}</div>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              {u.pending || !contaId ? (
+                vinculo && (
+                  <Button variant="ghost" style={{ padding: '8px 14px', fontSize: 13 }} loading={ocupado === chave}
+                    onClick={() => void agir(chave, () => api.post(`/platform/tenants/${vinculo.tenant_id}/members/${vinculo.membership_id}/resend-invite`, {}))}>
+                    {textos.resendInvite}
+                  </Button>
+                )
+              ) : (
+              <>
               {u.email_verified ? (
                 <Chip tone="green">{textos.verified}</Chip>
               ) : (
-                <Button variant="ghost" style={{ padding: '8px 14px', fontSize: 13 }} loading={ocupado === u.id}
-                  onClick={() => void agir(u.id, () => api.post(`/platform/users/${u.id}/verify-email`, {}))}>
+                <Button variant="ghost" style={{ padding: '8px 14px', fontSize: 13 }} loading={ocupado === contaId}
+                  onClick={() => void agir(contaId, () => api.post(`/platform/users/${contaId}/verify-email`, {}))}>
                   {textos.verifyEmail}
                 </Button>
               )}
               <Button variant="outline" style={{ padding: '8px 14px', fontSize: 13 }}
-                onClick={() => { setSenhaDe(senhaDe === u.id ? null : u.id); setSenha('') }}>
+                onClick={() => { setSenhaDe(senhaDe === contaId ? null : contaId); setSenha('') }}>
                 {textos.resetPassword}
               </Button>
               {!u.is_platform_admin && (
                 <Button variant="outline"
                   style={{ padding: '8px 14px', fontSize: 13 }}
-                  loading={ocupado === u.id}
-                  onClick={() => confirmar(`ativo:${u.id}`, () => void agir(u.id, () => api.post(`/platform/users/${u.id}/active`, { active: !u.is_active })))}>
-                  {confirmando === `ativo:${u.id}` ? textos.confirm : u.is_active ? textos.deactivate : textos.activate}
+                  loading={ocupado === contaId}
+                  onClick={() => confirmar(`ativo:${contaId}`, () => void agir(contaId, () => api.post(`/platform/users/${contaId}/active`, { active: !u.is_active })))}>
+                  {confirmando === `ativo:${contaId}` ? textos.confirm : u.is_active ? textos.deactivate : textos.activate}
                 </Button>
+              )}
+              </>
               )}
             </div>
           </div>
 
-          {senhaDe === u.id && (
+          {!u.pending && contaId && senhaDe === contaId && (
             <div style={{ display: 'flex', gap: 10, marginTop: 14, alignItems: 'end', flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 240px' }}>
                 <Field label={textos.newPassword}>
                   <Input value={senha} onChange={(e) => setSenha(e.target.value)} />
                 </Field>
               </div>
-              <Button disabled={senha.length < 8} loading={ocupado === u.id}
-                onClick={() => { void agir(u.id, () => api.post(`/platform/users/${u.id}/password`, { new_password: senha })); setSenhaDe(null); setSenha('') }}>
+              <Button disabled={senha.length < 8} loading={ocupado === contaId}
+                onClick={() => { void agir(contaId, () => api.post(`/platform/users/${contaId}/password`, { new_password: senha })); setSenhaDe(null); setSenha('') }}>
                 {textos.resetPassword}
               </Button>
             </div>
@@ -299,7 +338,8 @@ export default function PlatformUsers({
             )}
           </div>
         </Card>
-      ))}
+        )
+      })}
     </div>
   )
 }
