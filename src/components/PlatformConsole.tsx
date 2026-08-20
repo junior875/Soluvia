@@ -10,6 +10,7 @@ import { Icon, type IconName } from '../app/icons'
 import { Button, Card, EmptyState } from '../app/ui'
 import PlatformHealth from './platform/PlatformHealth'
 import PlatformUsers from './platform/PlatformUsers'
+import PlatformConsumo from './platform/PlatformConsumo'
 
 const L = {
   pt: {
@@ -31,6 +32,14 @@ const L = {
     uNoneBody: 'Ajuste a busca ou crie uma pessoa nova.',
     uNewUser: 'Nova pessoa', uCompany: 'Empresa', uName2: 'Nome', create2: 'Criar', uCancel: 'Cancelar',
     navSection: 'Console', tab_empresas: 'Empresas', tab_pessoas: 'Pessoas', tab_sistema: 'Sistema',
+    tab_armazenamento: 'Armazenamento', tab_tokens: 'Tokens de IA',
+    stTitle: 'Armazenamento', stSub: 'Quanto cada empresa ocupa e do que esse espaço é feito.',
+    stTotal: 'Total da plataforma', stTotalSub: 'Soma de todas as empresas — é o que fecha com a fatura do provedor.',
+    stEvidence: 'Provas', stSignatures: 'Assinaturas', stOver: 'no teto', stOverAll: 'empresas no teto', stNoLimit: 'sem limite',
+    stHint: 'MB', stSaved: 'Teto atualizado', stEmpty: 'Nenhuma empresa cadastrada.',
+    aiTitle: 'Tokens de IA', aiSub: 'Quanto cada empresa já gastou do que foi liberado para ela.',
+    aiTotal: 'Consumo da plataforma', aiTotalSub: 'Soma de todas as empresas desde o último zeramento.',
+    aiHint: 'tokens', aiSaved: 'Cota atualizada', aiEmpty: 'Nenhuma empresa cadastrada.',
     uSearchPh: 'Buscar pessoa por e-mail ou nome…', uHint: 'Mínimo de 2 caracteres. A busca cobre todas as empresas.',
     uNone: 'Ninguém encontrado.', uSearching: 'Buscando…', uNoCompany: 'Sem vínculo com empresa.',
     uVerifyEmail: 'Verificar e-mail', uVerified: 'e-mail verificado', uResetPassword: 'Definir senha',
@@ -61,6 +70,14 @@ const L = {
     uNoneBody: 'Adjust the search or create a new person.',
     uNewUser: 'New person', uCompany: 'Company', uName2: 'Name', create2: 'Create', uCancel: 'Cancel',
     navSection: 'Console', tab_empresas: 'Companies', tab_pessoas: 'People', tab_sistema: 'System',
+    tab_armazenamento: 'Storage', tab_tokens: 'AI tokens',
+    stTitle: 'Storage', stSub: 'How much each company takes up, and what that space is made of.',
+    stTotal: 'Platform total', stTotalSub: 'Sum of every company — this is what matches the provider invoice.',
+    stEvidence: 'Evidence', stSignatures: 'Signatures', stOver: 'at cap', stOverAll: 'companies at cap', stNoLimit: 'no limit',
+    stHint: 'MB', stSaved: 'Cap updated', stEmpty: 'No companies yet.',
+    aiTitle: 'AI tokens', aiSub: 'How much each company has spent of what was granted to it.',
+    aiTotal: 'Platform usage', aiTotalSub: 'Sum of every company since the last reset.',
+    aiHint: 'tokens', aiSaved: 'Quota updated', aiEmpty: 'No companies yet.',
     uSearchPh: 'Search a person by email or name…', uHint: 'At least 2 characters. Covers every company.',
     uNone: 'Nobody found.', uSearching: 'Searching…', uNoCompany: 'No company link.',
     uVerifyEmail: 'Verify email', uVerified: 'email verified', uResetPassword: 'Set password',
@@ -91,6 +108,14 @@ const L = {
     uNoneBody: 'Ajusta la búsqueda o crea una persona nueva.',
     uNewUser: 'Nueva persona', uCompany: 'Empresa', uName2: 'Nombre', create2: 'Crear', uCancel: 'Cancelar',
     navSection: 'Consola', tab_empresas: 'Empresas', tab_pessoas: 'Personas', tab_sistema: 'Sistema',
+    tab_armazenamento: 'Almacenamiento', tab_tokens: 'Tokens de IA',
+    stTitle: 'Almacenamiento', stSub: 'Cuánto ocupa cada empresa y de qué está hecho ese espacio.',
+    stTotal: 'Total de la plataforma', stTotalSub: 'Suma de todas las empresas — es lo que cuadra con la factura del proveedor.',
+    stEvidence: 'Pruebas', stSignatures: 'Firmas', stOver: 'en el tope', stOverAll: 'empresas en el tope', stNoLimit: 'sin límite',
+    stHint: 'MB', stSaved: 'Tope actualizado', stEmpty: 'Ninguna empresa registrada.',
+    aiTitle: 'Tokens de IA', aiSub: 'Cuánto ha gastado cada empresa de lo que se le concedió.',
+    aiTotal: 'Consumo de la plataforma', aiTotalSub: 'Suma de todas las empresas desde el último reinicio.',
+    aiHint: 'tokens', aiSaved: 'Cuota actualizada', aiEmpty: 'Ninguna empresa registrada.',
     uSearchPh: 'Buscar persona por correo o nombre…', uHint: 'Mínimo 2 caracteres. Cubre todas las empresas.',
     uNone: 'No se encontró a nadie.', uSearching: 'Buscando…', uNoCompany: 'Sin vínculo con empresa.',
     uVerifyEmail: 'Verificar correo', uVerified: 'correo verificado', uResetPassword: 'Definir contraseña',
@@ -104,12 +129,17 @@ const L = {
   },
 }
 
-type AbaId = 'empresas' | 'pessoas' | 'sistema'
+type AbaId = 'empresas' | 'pessoas' | 'armazenamento' | 'tokens' | 'sistema'
 
 /** As seções do console. Ícones do mesmo conjunto que a nav do painel usa. */
 const ABAS: { id: AbaId; icon: IconName }[] = [
   { id: 'empresas', icon: 'overview' },
   { id: 'pessoas', icon: 'people' },
+  // Armazenamento e IA saíram de dentro da gaveta da empresa e viraram tela
+  // própria: as duas perguntas do dono são "quanto no total" e "quem está fora
+  // da curva", e nenhuma das duas se responde abrindo empresa por empresa.
+  { id: 'armazenamento', icon: 'download' },
+  { id: 'tokens', icon: 'spark' },
   { id: 'sistema', icon: 'settings' },
 ]
 
@@ -365,6 +395,47 @@ export default function PlatformConsole() {
               cancel: tr.uCancel, created: tr.userAdded,
             }}
             empresas={(rows ?? []).map((r) => ({ id: String(r.id), name: r.name }))}
+          />
+        )}
+
+        {aba === 'armazenamento' && (
+          <PlatformConsumo
+            endpoint="/platform/storage"
+            discriminado
+            onToast={flash}
+            formatar={mb}
+            // A pessoa digita MB porque é a unidade em que ela pensa o teto de um
+            // cliente; o servidor guarda bytes. 0 continua significando "sem
+            // limite" dos dois lados.
+            paraEnvio={(v) => Math.round(Number(v.replace(',', '.')) * 1024 * 1024)}
+            rotaLimite={(id) => `/platform/tenants/${id}/storage-limit`}
+            campoLimite="limit_bytes"
+            textos={{
+              titulo: tr.stTitle, subtitulo: tr.stSub,
+              totalLabel: tr.stTotal, totalSub: tr.stTotalSub,
+              overLabel: tr.stOver, overGlobal: tr.stOverAll, noLimit: tr.stNoLimit,
+              salvar: tr.save, salvo: tr.stSaved, dica: tr.stHint, vazio: tr.stEmpty,
+              evidence: tr.stEvidence, signatures: tr.stSignatures,
+            }}
+          />
+        )}
+
+        {aba === 'tokens' && (
+          <PlatformConsumo
+            endpoint="/platform/ai-usage"
+            onToast={flash}
+            formatar={(n) => num(n, lang)}
+            // Aqui a unidade digitada JÁ é a unidade guardada; o replace só tira
+            // separador de milhar de quem cola "1.000.000".
+            paraEnvio={(v) => Math.round(Number(v.replace(/[.,\s]/g, '')))}
+            rotaLimite={(id) => `/platform/tenants/${id}/ai-limit`}
+            campoLimite="limit"
+            textos={{
+              titulo: tr.aiTitle, subtitulo: tr.aiSub,
+              totalLabel: tr.aiTotal, totalSub: tr.aiTotalSub,
+              overLabel: tr.stOver, overGlobal: tr.stOverAll, noLimit: tr.stNoLimit,
+              salvar: tr.save, salvo: tr.aiSaved, dica: tr.aiHint, vazio: tr.aiEmpty,
+            }}
           />
         )}
 
