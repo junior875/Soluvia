@@ -35,7 +35,10 @@ function catOf(action: string): Cat {
   if (action.startsWith('role.') || action.startsWith('membership.')) return 'role'
   if (action.startsWith('billing.')) return 'billing'
   if (action.startsWith('account.') || action.startsWith('lgpd.')) return 'account'
-  if (action.startsWith('tenant.')) return 'tenant'
+  // Ações do console de plataforma caem em 'tenant': são sempre sobre a
+  // empresa, e criar uma categoria separada só para elas encheria o filtro de
+  // uma opção que quase nunca tem linha na trilha de um cliente.
+  if (action.startsWith('tenant.') || action.startsWith('platform.')) return 'tenant'
   return 'other'
 }
 function normAction(action: string): string {

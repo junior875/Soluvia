@@ -75,6 +75,8 @@ export default function FormBuilder() {
   const [channels, setChannels] = useState<ChannelOut[] | null>(null)
   const [channelId, setChannelId] = useState<string | null>(null)
   const [form, setForm] = useState<FormData | null>(null)
+  // Assinatura do conteúdo no último salvamento. `null` = ainda carregando.
+  const [salvo, setSalvo] = useState<string | null>(null)
   // Meta de cada formulário (título/status/nº campos) p/ o rail "Meus formulários".
   const [formsMeta, setFormsMeta] = useState<Record<string, { title: string; published: boolean; count: number }>>({})
   const [busy, setBusy] = useState(false)
@@ -133,8 +135,8 @@ export default function FormBuilder() {
 
   useEffect(() => {
     if (!channelId) return
-    setForm(null); setMsgs([])
-    api.get<FormData>(`/channels/${channelId}/form`).then((f) => { setForm(f); setLang((f.base_lang as Lang) || 'pt') }).catch(() => {})
+    setForm(null); setSalvo(null); setMsgs([])
+    api.get<FormData>(`/channels/${channelId}/form`).then((f) => { setForm(f); setSalvo(assinatura(f)); setLang((f.base_lang as Lang) || 'pt') }).catch(() => {})
     api.get<{ public_url: string }>(`/channels/${channelId}/public-link`).then((r) => setPublicUrl(r.public_url)).catch(() => {})
     // Reabre a conversa anterior com o agente. O histórico sempre esteve salvo
     // (é o que dá memória a ele), mas a tela zerava o chat e parecia perdido.
@@ -162,6 +164,13 @@ export default function FormBuilder() {
       .catch(() => { if (!cancelled) setPreviewForm(form) })
     return () => { cancelled = true }
   }, [lang, form, channelId])
+
+  /** Só o que é publicável entra na assinatura — versão e idiomas mudam
+   *  sozinhos no salvamento e marcariam "alterado" sem ninguém ter mexido. */
+  const assinatura = (f: FormData) =>
+    JSON.stringify({ title: f.title, intro: f.intro, identification: f.identification, fields: f.fields })
+
+  const sujo = !!form && salvo !== null && assinatura(form) !== salvo
 
   const patch = (p: Partial<FormData>) => setForm((f) => (f ? { ...f, ...p } : f))
   const updateField = (i: number, p: Partial<FF>) => setForm((f) => {
@@ -228,6 +237,15 @@ export default function FormBuilder() {
         fields: form.fields.map((x, i) => ({ ...x, key: mkKey(x, i) })),
       }
       const saved = await api.put<FormData>(`/channels/${channelId}/form`, payload)
+      // A assinatura sai do PAYLOAD, não do estado: é exatamente o que foi
+      // para o servidor. As chaves dos campos são normalizadas no envio
+      // (`mkKey`), então comparar com o estado marcaria "alterado" logo após
+      // salvar, e o botão de publicar nunca liberaria.
+      setSalvo(JSON.stringify({
+        title: payload.title, intro: payload.intro,
+        identification: payload.identification, fields: payload.fields,
+      }))
+      setForm((f) => (f ? { ...f, fields: payload.fields } : f))
       setForm((f) => f ? { ...f, base_lang: saveLang, available_langs: saved.available_langs ?? [saveLang], published: publish ? f.published : f.published } : f)
       if (publish) {
         const p = await api.post<FormData>(`/channels/${channelId}/form/publish`, {})
@@ -318,7 +336,13 @@ export default function FormBuilder() {
         action={
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <Button variant="ghost" onClick={() => void save(false)} loading={busy}>{t.fb.save}</Button>
-            <Button leftIcon="check" onClick={() => void save(true)} loading={busy}>{t.fb.publish}</Button>
+            {/* Publicar troca o formulário que o denunciante vê. Com alteração
+                pendente, o clique publicaria uma versão diferente da que está
+                na tela — e isso não tem desfazer. */}
+            <Button leftIcon="check" onClick={() => void save(true)} loading={busy} disabled={sujo}>{t.fb.publish}</Button>
+            {sujo && (
+              <span style={{ color: '#e0a23c', fontSize: 12.5, alignSelf: 'center' }}>{t.fb.needsSave}</span>
+            )}
           </div>
         }
       />
