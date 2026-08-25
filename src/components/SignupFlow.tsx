@@ -16,6 +16,7 @@ import { BASE_URL, checkSlug, listPlans, startCheckout } from '../lib/api'
 import type { ApiError, PlanOut } from '../lib/types'
 import { useTranslation } from '../i18n/LanguageProvider'
 import PrefSwitcher from './PrefSwitcher'
+import { PasswordInput } from '../app/ui'
 
 type Step = 'plan' | 'checkout'
 type Cycle = 'monthly' | 'yearly'
@@ -325,7 +326,7 @@ export default function SignupFlow() {
             <Section title={tr.secAccount}>
               <Field label={tr.yourName}><input className="app-input" style={input} required value={adminName} onChange={(e) => setAdminName(e.target.value)} placeholder="Maria Silva" /></Field>
               <Field label={tr.email}><input className="app-input" style={input} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="maria@acme.com" /></Field>
-              <Field label={tr.password}><input className="app-input" style={input} type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" /></Field>
+              <Field label={tr.password}><PasswordInput style={input} required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" /></Field>
             </Section>
 
             {(() => {

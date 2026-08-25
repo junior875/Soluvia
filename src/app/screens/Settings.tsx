@@ -8,7 +8,7 @@ import type { Lang } from '../../i18n/translations'
 import { FONT_STEPS, applyFontScale, applyThemePref, getFontScale, getThemePref, pushPrefs, type ThemePref } from '../../lib/prefs'
 import { useCaps } from '../capabilities'
 import { useT } from '../strings'
-import { Button, Card, Field, Input, Modal, PageHeader, SectionLabel } from '../ui'
+import { Button, Card, Field, Input, Modal, PageHeader, SectionLabel, PasswordInput } from '../ui'
 import { Icon } from '../icons'
 
 function Segmented<T extends string | number>({ value, options, onChange }: { value: T; options: { v: T; label: string }[]; onChange: (v: T) => void }) {
@@ -146,8 +146,8 @@ export default function Settings() {
         </div>
         <SectionLabel>{t.settings.changePassword}</SectionLabel>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, alignItems: 'end' }} className="rb-id">
-          <Field label={t.settings.currentPassword}><Input type="password" value={curPw} onChange={(e) => setCurPw(e.target.value)} /></Field>
-          <Field label={t.settings.newPassword}><Input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} /></Field>
+          <Field label={t.settings.currentPassword}><PasswordInput value={curPw} onChange={(e) => setCurPw(e.target.value)} /></Field>
+          <Field label={t.settings.newPassword}><PasswordInput value={newPw} onChange={(e) => setNewPw(e.target.value)} /></Field>
           <Button variant="ghost" onClick={() => void changePassword()} disabled={newPw.length < 8}>{t.settings.save}</Button>
         </div>
       </Card>

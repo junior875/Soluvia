@@ -22,7 +22,11 @@ export default function Channels() {
   const [links, setLinks] = useState<Record<string, string>>({})
   const [copied, setCopied] = useState<string | null>(null)
   const canManage = can('admin.manage_roles')
-  const modules = ctx.enabled_modules.filter((m) => m !== 'admin')
+  // Só denúncia e SAC viram canal: são os que recebem relato de fora. Os
+  // outros módulos do plano são telas de trabalho interno, e apareciam aqui
+  // oferecendo um canal que nunca receberia nada.
+  const MODULOS_DE_CANAL = ['etica', 'sac']
+  const modules = ctx.enabled_modules.filter((m) => MODULOS_DE_CANAL.includes(m))
 
   const load = () => api.get<ChannelOut[]>('/channels').then(setChannels).catch(() => setChannels([]))
   useEffect(() => { void load() }, [])
@@ -43,7 +47,7 @@ export default function Channels() {
     e.preventDefault()
     setBusy(true); setError(null)
     try {
-      await api.post('/channels', { module: moduleCode, name: name.trim(), slug: slug || slugify(name), config: {} })
+      await api.post('/channels', { module: moduleCode, name: name.trim(), config: {} })
       setOpen(false); setName(''); setSlug('')
       await load()
     } catch (err) {
@@ -99,10 +103,7 @@ export default function Channels() {
             </Select>
           </Field>
           <Field label={t.channels.name}>
-            <Input required value={name} onChange={(e) => { setName(e.target.value); setSlug(slugify(e.target.value)) }} placeholder={t.channels.egName} autoFocus />
-          </Field>
-          <Field label={t.channels.slug}>
-            <Input required value={slug} onChange={(e) => setSlug(slugify(e.target.value))} placeholder={t.channels.egSlug} />
+            <Input required value={name} onChange={(e) => setName(e.target.value)} placeholder={t.channels.egName} autoFocus />
           </Field>
           <Button type="submit" loading={busy}>{t.common.create}</Button>
         </form>

@@ -3,6 +3,7 @@
 
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { BASE_URL, login, switchTenant } from '../lib/api'
+import { PasswordInput } from '../app/ui'
 import { api } from '../lib/api'
 import type { ApiError, MembershipSummary, MeResponse } from '../lib/types'
 import { useTranslation } from '../i18n/LanguageProvider'
@@ -305,7 +306,7 @@ export default function LoginModal() {
             </div>
             <div style={{ marginBottom: 20 }}>
               <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>{tr.newPassword}</label>
-              <input className="app-input" style={input} type="password" required minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" />
+              <PasswordInput style={input} required minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" />
             </div>
             <button type="submit" disabled={loading} style={{ ...primaryBtn, opacity: loading ? 0.6 : 1 }}>{loading ? tr.sending : tr.resetBtn}</button>
             <p style={{ textAlign: 'center', marginTop: 16 }}>
@@ -323,7 +324,7 @@ export default function LoginModal() {
             </div>
             <div style={{ marginBottom: 8 }}>
               <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>{tr.password}</label>
-              <input className="app-input" style={input} type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+              <PasswordInput style={input} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
             </div>
             <div style={{ textAlign: 'right', marginBottom: 16 }}>
               <button type="button" onClick={() => { setView('forgot'); setError(null); setNotice(null) }} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>{tr.forgot}</button>

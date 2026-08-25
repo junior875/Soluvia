@@ -28,8 +28,25 @@ export type IconName =
   | 'signature'
   | 'flow'
   | 'trash'
+  | 'eye'
+  | 'eyeOff'
 
 const PATHS: Record<IconName, JSX.Element> = {
+  eye: (
+    <>
+      <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="2.8" />
+    </>
+  ),
+  eyeOff: (
+    <>
+      <path d="M10.6 6.7A9.7 9.7 0 0 1 12 5.5c6.4 0 10 6.5 10 6.5a17 17 0 0 1-3.4 4.1M6.4 7.9A17 17 0 0 0 2 12s3.6 6.5 10 6.5c1.5 0 2.8-.3 4-.9" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+      {/* A barra atravessa o olho inteiro: sem ela o "escondido" fica quase
+          igual ao "visível" no tamanho de ícone, e o botão perde o sentido. */}
+      <path d="M3 3l18 18" />
+    </>
+  ),
   flow: (
     <>
       <circle cx="6" cy="6" r="2.4" />

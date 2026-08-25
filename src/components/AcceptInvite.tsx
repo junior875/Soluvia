@@ -4,6 +4,7 @@
 // direto no painel dela. (Enquanto não há e-mail, o link é copiado pelo admin.)
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { api, login, switchTenant } from '../lib/api'
+import { PasswordInput } from '../app/ui'
 import type { ApiError, MeResponse } from '../lib/types'
 import { useTranslation } from '../i18n/LanguageProvider'
 import PrefSwitcher from './PrefSwitcher'
@@ -126,7 +127,7 @@ export default function AcceptInvite() {
               </div>
               <div>
                 <label style={labelS}>{tr.pass}</label>
-                <input className="app-input" style={input} type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void accept() }} placeholder="••••••••" />
+                <PasswordInput style={input} value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void accept() }} placeholder="••••••••" />
                 <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 5 }}>{tr.passHint}</p>
               </div>
             </>

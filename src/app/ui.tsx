@@ -2,9 +2,11 @@
 // Mesma linguagem visual do site: Poppins, cards arredondados, rótulos laranja
 // em maiúsculas, headings navy, e suporte a tema claro/escuro automático.
 
+import { useState } from 'react'
 import type { ButtonHTMLAttributes, CSSProperties, InputHTMLAttributes, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon, type IconName } from './icons'
+import { currentLang } from '../lib/api'
 
 type Tone = 'accent' | 'blue' | 'muted' | 'green' | 'navy'
 
@@ -187,6 +189,78 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
         ...props.style,
       }}
     />
+  )
+}
+
+/**
+ * Rótulos do botão de revelar. Ficam AQUI, e não vindos por propriedade, porque
+ * o campo de senha aparece em seis telas espalhadas por quatro dicionários
+ * diferentes — pedir o texto a cada chamador significaria mexer nos quatro e
+ * esquecer de um, e o esquecido vira `undefined` no leitor de tela.
+ */
+const SENHA_LABEL: Record<string, { mostrar: string; ocultar: string }> = {
+  pt: { mostrar: 'Mostrar senha', ocultar: 'Ocultar senha' },
+  en: { mostrar: 'Show password', ocultar: 'Hide password' },
+  es: { mostrar: 'Mostrar contraseña', ocultar: 'Ocultar contraseña' },
+}
+
+/**
+ * Campo de senha com o olho para revelar o que foi digitado.
+ *
+ * Não é conforto: senha mascarada é a causa mais comum de "não consigo entrar"
+ * que na verdade era um caractere trocado. Sem poder conferir, a pessoa repete
+ * o mesmo erro e conclui que a conta está quebrada.
+ *
+ * Aceita `style` de fora porque o site público e o painel têm caixas de texto
+ * com aparências diferentes, e este componente atende os dois.
+ */
+export function PasswordInput({ style, ...props }: InputHTMLAttributes<HTMLInputElement>) {
+  const rotulo = SENHA_LABEL[currentLang()] ?? SENHA_LABEL.pt
+  const revealLabel = rotulo.mostrar
+  const hideLabel = rotulo.ocultar
+  // Sempre nasce oculta: lembrar "estava visível" exporia a senha por uma
+  // decisão que a pessoa tomou noutra tela, noutro dia, talvez sozinha.
+  const [visivel, setVisivel] = useState(false)
+  return (
+    <div style={{ position: 'relative', width: '100%' }}>
+      <input
+        {...props}
+        type={visivel ? 'text' : 'password'}
+        className="app-input"
+        style={{
+          width: '100%',
+          background: 'var(--surface-2)',
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          padding: '12px 14px',
+          color: 'var(--heading)',
+          fontSize: 15,
+          outline: 'none',
+          boxSizing: 'border-box',
+          fontFamily: 'inherit',
+          ...style,
+          // Depois do spread de propósito: o texto não pode correr por baixo do
+          // botão, qualquer que seja o padding que venha de fora.
+          paddingRight: 46,
+        }}
+      />
+      <button
+        type="button"                        // sem isto, o clique ENVIA o formulário
+        onClick={() => setVisivel((v) => !v)}
+        aria-label={visivel ? hideLabel : revealLabel}
+        aria-pressed={visivel}
+        title={visivel ? hideLabel : revealLabel}
+        style={{
+          position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 34, height: 34, borderRadius: 9, cursor: 'pointer',
+          background: 'transparent', border: 'none',
+          color: visivel ? 'var(--accent)' : 'var(--text-muted)',
+        }}
+      >
+        <Icon name={visivel ? 'eyeOff' : 'eye'} size={18} />
+      </button>
+    </div>
   )
 }
 

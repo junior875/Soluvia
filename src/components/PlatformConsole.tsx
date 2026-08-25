@@ -12,6 +12,7 @@ import PlatformHealth from './platform/PlatformHealth'
 import PlatformUsers from './platform/PlatformUsers'
 import PlatformConsumo from './platform/PlatformConsumo'
 import PlatformFinance from './platform/PlatformFinance'
+import { PasswordInput } from '../app/ui'
 
 const L = {
   pt: {
@@ -733,7 +734,7 @@ export default function PlatformConsole() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <input style={fld} placeholder={tr.uName} value={mf.full_name} onChange={(e) => setMf({ ...mf, full_name: e.target.value })} />
                 <input style={fld} type="email" placeholder={tr.cEmail} value={mf.email} onChange={(e) => setMf({ ...mf, email: e.target.value })} />
-                <input style={fld} type="password" placeholder={tr.cPassword} value={mf.password} onChange={(e) => setMf({ ...mf, password: e.target.value })} />
+                <PasswordInput style={fld} placeholder={tr.cPassword} value={mf.password} onChange={(e) => setMf({ ...mf, password: e.target.value })} />
                 <select style={fld} value={mf.role_id} onChange={(e) => setMf({ ...mf, role_id: e.target.value })}>
                   <option value="">{tr.uRole}</option>
                   {detail.roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -763,7 +764,7 @@ export default function PlatformConsole() {
               <div style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', marginTop: 6 }}>{tr.cAdmin}</div>
               <input style={fld} placeholder={tr.cAdminName} value={nf.admin_name} onChange={(e) => setNf({ ...nf, admin_name: e.target.value })} />
               <input style={fld} type="email" placeholder={tr.cEmail} value={nf.admin_email} onChange={(e) => setNf({ ...nf, admin_email: e.target.value })} />
-              <input style={fld} type="password" placeholder={tr.cPassword} value={nf.admin_password} onChange={(e) => setNf({ ...nf, admin_password: e.target.value })} />
+              <PasswordInput style={fld} placeholder={tr.cPassword} value={nf.admin_password} onChange={(e) => setNf({ ...nf, admin_password: e.target.value })} />
               <button disabled={busy || !nf.name.trim() || !nf.admin_name.trim() || !nf.admin_email.trim() || nf.admin_password.length < 8} onClick={() => void createCompany()} style={{ ...btnAccent, marginTop: 6, opacity: busy || !nf.name.trim() || !nf.admin_name.trim() || !nf.admin_email.trim() || nf.admin_password.length < 8 ? 0.6 : 1 }}>{tr.create}</button>
             </div>
           </div>
