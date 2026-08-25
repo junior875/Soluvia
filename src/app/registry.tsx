@@ -13,6 +13,7 @@ import FormBuilder from './screens/FormBuilder'
 import FlowBuilder from './screens/FlowBuilder'
 import Billing from './screens/Billing'
 import Audit from './screens/Audit'
+import Announcements from './screens/Announcements'
 import Settings from './screens/Settings'
 
 export interface Requirement {
@@ -85,6 +86,13 @@ export const SCREENS: ScreenDef[] = [
     requires: { allOf: ['admin.view_audit'] },
   },
   // Configurações: pessoal, disponível a qualquer membro (sem 'requires').
+  {
+    // Fica em 'config' junto de canais e formulário: divulgar é o último passo
+    // de colocar um canal no ar, não uma tarefa administrativa avulsa.
+    id: 'announcements', navKey: 'announcements', icon: 'people', group: 'config',
+    Component: Announcements,
+    requires: { anyOf: ['admin.notify'] },
+  },
   { id: 'settings', navKey: 'settings', icon: 'settings', group: 'admin', Component: Settings },
 ]
 
