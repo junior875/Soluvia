@@ -82,6 +82,15 @@ async function doRefresh(): Promise<boolean> {
         if (!resp.ok) return false
         const data = (await resp.json()) as TokenResponse
         setAccessToken(data.access_token)
+        // O token do /auth/refresh nasce SEM empresa: o refresh token guarda só
+        // o usuário. Sem recolocar o contexto aqui, o retry que vem a seguir
+        // bate em `get_tenant_context` e volta 403 "Selecione uma empresa" —
+        // que era o erro que aparecia ao salvar um fluxo depois de um tempo
+        // parado, justamente quando o token de 15 min vence.
+        //
+        // Admin de plataforma não tem empresa guardada e segue sem tenant, que
+        // é o contexto correto para ele.
+        if (getStoredTenantId()) await doReswitch()
         return true
       } catch {
         return false
@@ -131,7 +140,11 @@ async function doReswitch(): Promise<boolean> {
 interface RequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown
   auth?: boolean // default true
-  _retried?: boolean
+  // Duas recuperações DIFERENTES, cada uma com sua vez. Uma flag só fazia o
+  // refresh gastar a única tentativa e a re-seleção de empresa — que era a
+  // correção de fato — nunca acontecer.
+  _refreshed?: boolean
+  _reswitched?: boolean
 }
 
 // Idioma atual (o LanguageProvider persiste em 'soluvia.lang') → header X-Lang,
@@ -145,7 +158,7 @@ export function currentLang(): string {
 }
 
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { body, auth = true, _retried = false, headers, ...rest } = options
+  const { body, auth = true, _refreshed = false, _reswitched = false, headers, ...rest } = options
 
   const finalHeaders: Record<string, string> = {
     'X-Lang': currentLang(),
@@ -167,20 +180,20 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   })
 
   // 401 → tenta um refresh transparente e repete a requisição uma vez.
-  if (resp.status === 401 && auth && !_retried) {
+  if (resp.status === 401 && auth && !_refreshed) {
     const ok = await doRefresh()
     if (ok) {
-      return apiFetch<T>(path, { ...options, _retried: true })
+      return apiFetch<T>(path, { ...options, _refreshed: true })
     }
     setAccessToken(null)
   }
 
   // 403 → o token pode ainda não estar no escopo do tenant (corrida no bootstrap).
   // Reemite o token com escopo e repete UMA vez. (Não vale para rotas /auth/*.)
-  if (resp.status === 403 && auth && !_retried && !path.startsWith('/auth/')) {
+  if (resp.status === 403 && auth && !_reswitched && !path.startsWith('/auth/')) {
     const ok = await doReswitch()
     if (ok) {
-      return apiFetch<T>(path, { ...options, _retried: true })
+      return apiFetch<T>(path, { ...options, _reswitched: true })
     }
   }
 
