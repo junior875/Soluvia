@@ -14,6 +14,7 @@ import { useCaps } from '../capabilities'
 import { useT } from '../strings'
 import { Button, Card, EmptyState, Field, Input, PageHeader, SectionLabel, Select, Skeleton } from '../ui'
 import { Icon } from '../icons'
+import FlowCanvas from './FlowCanvas'
 
 type Draft = FlowStageIn & { key: string; group_index: number }
 const SEVS = ['low', 'medium', 'high', 'critical'] as const
@@ -150,18 +151,16 @@ export default function FlowBuilder() {
   // ── Movimentação entre grupos ──────────────────────────────────
   // `arrastando` é a etapa presa no cursor; `alvo` é o grupo sob ela. O alvo
   // existe só para o realce — sem ele a pessoa solta no escuro.
-  const [arrastando, setArrastando] = useState<string | null>(null)
-  const [arrastavel, setArrastavel] = useState<string | null>(null)
-  // Alvo como CHAVE ("bloco:2", "novo:1") e não como número: as zonas de "novo
-  // bloco" aparecem uma abaixo de cada bloco, e com um valor único elas
-  // acendiam TODAS ao mesmo tempo — a pessoa não sabia onde ia soltar.
-  const [alvo, setAlvo] = useState<string | null>(null)
+  // Bloco aberto para configuração. O arrasto em si vive dentro do canvas.
+  const [selecionado, setSelecionado] = useState<string | null>(null)
 
-  /** `dragleave` dispara ao passar por cima de um FILHO da zona, não só ao
-   *  sair dela. Sem esta checagem o realce pisca a cada cartão que o cursor
-   *  cruza, e a área parece estar recusando o arrasto. */
-  const saiuDeVerdade = (e: React.DragEvent) =>
-    !e.currentTarget.contains(e.relatedTarget as Node | null)
+  // Abre já com o primeiro bloco escolhido — e re-escolhe se o selecionado foi
+  // apagado. Sem isto, a tela carregava com o painel de configuração vazio e
+  // parecia que faltava alguma coisa.
+  useEffect(() => {
+    if (!stages?.length) return
+    if (!stages.some((s) => s.key === selecionado)) setSelecionado(stages[0].key)
+  }, [stages, selecionado])
 
   const moverPara = (key: string, grupo: number) =>
     setStages((s) => normalizar((s ?? []).map((x) => (x.key === key ? { ...x, group_index: grupo } : x))))
@@ -317,74 +316,53 @@ export default function FlowBuilder() {
               action={canEdit && <Button leftIcon="plus" onClick={() => addStage()}>{t.flow.addStage}</Button>} /></Card>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-              <p style={{ color: 'var(--text-muted)', fontSize: 12.5, marginBottom: 14, lineHeight: 1.5 }}>
-                {t.flow.groupsHint}
-              </p>
+              {/* ÁREA DE TRABALHO: os blocos e as linhas. A configuração de
+                  cada um abre embaixo, ao clicar — assim o desenho do fluxo
+                  fica legível de uma olhada, sem virar um formulário gigante. */}
+              <div style={{ overflowX: 'auto', paddingBottom: 4, marginBottom: 18 }}>
+                <FlowCanvas
+                  nos={stages.map((s) => ({
+                    key: s.key,
+                    name: s.name,
+                    group_index: s.group_index,
+                    quem: s.operator_membership_id
+                      ? (members.find((m) => m.id === s.operator_membership_id)?.full_name
+                         ?? members.find((m) => m.id === s.operator_membership_id)?.email ?? '')
+                      : (s.operator_role_id ? localizeRole(roleName(s.operator_role_id)) : ''),
+                  }))}
+                  selecionado={selecionado}
+                  canEdit={canEdit}
+                  textos={{
+                    together: t.flow.together,
+                    waitsAll: t.flow.waitsAll,
+                    emptyName: t.flow.untitled,
+                    noOne: t.flow.noRole,
+                    addHere: t.flow.addToGroup,
+                    newColumn: t.flow.newColumn,
+                    dragHint: t.flow.canvasHint,
+                    remove: t.common.remove,
+                  }}
+                  onSelecionar={setSelecionado}
+                  onMoverParaColuna={moverPara}
+                  onNovaColunaDepois={soltarEmNovoGrupo}
+                  onAdicionar={(c) => addStage(c)}
+                  onRemover={remove}
+                />
+              </div>
 
-              {porGrupo(stages).map((doGrupo, g) => (
-                <div key={`g${g}`}>
-                  {/* Conector: diz em palavras a regra que o desenho sugere. */}
-                  {g > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0 10px 6px' }}>
-                      <Icon name="chevron" size={16} style={{ color: 'var(--text-muted)' }} />
-                      <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{t.flow.waitsAll}</span>
-                    </div>
-                  )}
-
-                  <div
-                    onDragOver={(e) => { if (arrastando) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setAlvo(`bloco:${g}`) } }}
-                    onDragLeave={(e) => { if (saiuDeVerdade(e)) setAlvo((a) => (a === `bloco:${g}` ? null : a)) }}
-                    onDrop={(e) => {
-                      e.preventDefault()
-                      if (arrastando) moverPara(arrastando, g)
-                      setArrastando(null); setAlvo(null)
-                    }}
-                    style={{
-                      border: `2px dashed ${alvo === `bloco:${g}` ? 'var(--accent)' : 'transparent'}`,
-                      background: alvo === `bloco:${g}` ? 'var(--accent-soft)' : 'transparent',
-                      borderRadius: 18, padding: 8, transition: 'background .15s, border-color .15s',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, paddingLeft: 4 }}>
-                      <span style={{ color: 'var(--accent)', fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>
-                        {t.flow.groupLabel(g + 1)}
-                      </span>
-                      {doGrupo.length > 1 && (
-                        <span style={{ background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 100, padding: '3px 10px', fontSize: 11.5, fontWeight: 700 }}>
-                          {t.flow.together}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Lado a lado quando há mais de um: é o desenho que faz
-                        "ao mesmo tempo" ser lido antes de ser explicado. */}
-                    <div style={{ display: 'grid', gridTemplateColumns: doGrupo.length > 1 ? 'repeat(auto-fit, minmax(330px, 1fr))' : '1fr', gap: 14, alignItems: 'start' }}>
-                      {doGrupo.map((s) => (
+              {/* Configuração do bloco escolhido. */}
+              {stages.filter((s) => s.key === selecionado).map((s) => (
                 <Card key={s.key}>
-                  <div
-                    draggable={canEdit && arrastavel === s.key}
-                    onDragStart={(e) => { setArrastando(s.key); e.dataTransfer.effectAllowed = 'move' }}
-                    onDragEnd={() => { setArrastando(null); setArrastavel(null); setAlvo(null) }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, opacity: arrastando === s.key ? 0.4 : 1 }}
-                  >
-                    {/* O `draggable` só liga ao segurar a alça. Se o cartão
-                        inteiro fosse arrastável, os campos de texto lá dentro
-                        parariam de aceitar seleção com o mouse — o navegador
-                        entende a seleção como início de arrasto. */}
-                    {canEdit && (
-                      <span
-                        onMouseDown={() => setArrastavel(s.key)}
-                        onMouseUp={() => setArrastavel(null)}
-                        title={t.flow.dragHandle}
-                        aria-hidden="true"
-                        style={{ cursor: 'grab', color: 'var(--text-muted)', fontSize: 17, lineHeight: 1, padding: '0 2px', userSelect: 'none' }}
-                      >
-                        ⠿
-                      </span>
-                    )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                    <span style={{ color: 'var(--accent)', fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                      {t.flow.groupLabel(s.group_index + 1)}
+                    </span>
                     <Input value={s.name} onChange={(e) => patch(s.key, { name: e.target.value })} disabled={!canEdit} placeholder={tf.stageNamePh} style={{ flex: 1 }} />
                     {canEdit && (
                       <div style={{ display: 'flex', gap: 4 }}>
+                        {/* Alternativa de teclado ao arrasto: sem ela a tela
+                            seria inoperável para quem não usa mouse, e no
+                            celular não haveria como reordenar. */}
                         <IconBtn icon="chevron" title={t.flow.moveGroupUp} flip onClick={() => moverGrupo(s.key, -1)} />
                         <IconBtn icon="chevron" title={t.flow.moveGroupDown} onClick={() => moverGrupo(s.key, 1)} />
                         <IconBtn icon="trash" title={t.common.remove} danger onClick={() => remove(s.key)} />
@@ -469,43 +447,16 @@ export default function FlowBuilder() {
                     )}
                   </div>
                 </Card>
-                      ))}
-                    </div>
-
-                    {canEdit && (
-                      <button type="button" onClick={() => addStage(g)} className="app-btn"
-                        style={{ marginTop: 10, background: 'transparent', border: '1px dashed var(--border)', color: 'var(--text-muted)', borderRadius: 12, padding: '8px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                        + {t.flow.addToGroup}
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Soltar AQUI cria um grupo entre este e o próximo. É o
-                      gesto que separa "junto" de "depois" sem abrir menu. */}
-                  {canEdit && arrastando && (
-                    <div
-                      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setAlvo(`novo:${g}`) }}
-                      onDragLeave={(e) => { if (saiuDeVerdade(e)) setAlvo((a) => (a === `novo:${g}` ? null : a)) }}
-                      onDrop={(e) => {
-                        e.preventDefault()
-                        if (arrastando) soltarEmNovoGrupo(arrastando, g)
-                        setArrastando(null); setAlvo(null)
-                      }}
-                      style={{
-                        marginTop: 10, borderRadius: 12, padding: alvo === `novo:${g}` ? '18px 14px' : '10px 14px',
-                        textAlign: 'center',
-                        border: `2px dashed ${alvo === `novo:${g}` ? 'var(--accent)' : 'var(--border)'}`,
-                        background: alvo === `novo:${g}` ? 'var(--accent-soft)' : 'transparent',
-                        color: alvo === `novo:${g}` ? 'var(--accent)' : 'var(--text-muted)',
-                        fontSize: 12.5, fontWeight: 700,
-                        transition: 'padding .12s, background .15s, border-color .15s',
-                      }}
-                    >
-                      {t.flow.dropNewGroup}
-                    </div>
-                  )}
-                </div>
               ))}
+
+              {/* Nada escolhido: diz o que fazer em vez de deixar um vazio. */}
+              {!stages.some((s) => s.key === selecionado) && (
+                <Card>
+                  <p style={{ color: 'var(--text-muted)', fontSize: 13.5, textAlign: 'center', padding: '8px 0' }}>
+                    {t.flow.pickBlock}
+                  </p>
+                </Card>
+              )}
 
               {canEdit && (
                 <div style={{ marginTop: 18 }}>
