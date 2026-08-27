@@ -233,19 +233,12 @@ export default function FlowBuilder() {
             </div>
           </Card>
 
-          {/* Trilho visual da cadeia inteira */}
-          <SectionLabel>{t.flow.rail}</SectionLabel>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 22 }}>
-            <RailPill label={t.flow.railReceived} tone="muted" />
-            <Arrow />
-            <RailPill label={t.flow.railTriage} tone="blue" />
-            <Arrow />
-            <RailPill label={`${tf.railInvestigation} (${stages?.length ?? 0})`} tone="accent" strong />
-            <Arrow />
-            <RailPill label={t.flow.railResponded} tone="blue" />
-            <Arrow />
-            <RailPill label={t.flow.railClosed} tone="green" />
-          </div>
+          {/* O trilho "cadeia inteira" (Recebido → Triagem → …) saiu daqui de
+              propósito: quatro das cinco caixas eram etapas FIXAS que esta
+              tela não controla, e num construtor tudo que aparece parece
+              editável — a pessoa procurava onde mexer em "Triagem" e concluía
+              que a tela estava quebrada. O construtor mostra só o que ele de
+              fato constrói: as sub-etapas da investigação. */}
 
           {/* Sub-etapas configuráveis da investigação */}
           <SectionLabel>{tf.stages}</SectionLabel>
@@ -426,14 +419,6 @@ function PersonPicker({ members, value, onChange, roleId, disabled, anyLabel, se
   )
 }
 
-function RailPill({ label, tone, strong }: { label: string; tone: 'muted' | 'blue' | 'accent' | 'green'; strong?: boolean }) {
-  const bg = tone === 'accent' ? 'var(--accent-soft)' : tone === 'green' ? 'var(--green-soft)' : tone === 'blue' ? 'var(--blue-soft)' : 'var(--surface-2)'
-  const fg = tone === 'accent' ? 'var(--accent)' : tone === 'green' ? 'var(--green)' : tone === 'blue' ? 'var(--blue)' : 'var(--text-muted)'
-  return <span style={{ background: bg, color: fg, borderRadius: 100, padding: '8px 14px', fontSize: 12.5, fontWeight: strong ? 800 : 700, border: `1px solid ${strong ? 'var(--accent-border)' : 'transparent'}`, whiteSpace: 'nowrap' }}>{label}</span>
-}
-function Arrow() {
-  return <Icon name="chevron" size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-}
 function IconBtn({ icon, danger, flip, disabled, onClick }: { icon: 'chevron' | 'trash'; title: string; danger?: boolean; flip?: boolean; disabled?: boolean; onClick: () => void }) {
   return (
     <button type="button" disabled={disabled} onClick={onClick} className="app-btn"
