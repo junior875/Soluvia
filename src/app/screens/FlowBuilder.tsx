@@ -15,9 +15,30 @@ import { useT } from '../strings'
 import { Button, Card, EmptyState, Field, Input, PageHeader, SectionLabel, Select, Skeleton } from '../ui'
 import { Icon } from '../icons'
 
-type Draft = FlowStageIn & { key: string }
+type Draft = FlowStageIn & { key: string; group_index: number }
 const SEVS = ['low', 'medium', 'high', 'critical'] as const
 const uid = () => Math.random().toString(36).slice(2, 9)
+
+/**
+ * Deixa os grupos contíguos (0,1,2…) e joga fora os que ficaram vazios.
+ *
+ * Roda depois de TODA movimentação. Sem isso, arrastar a última etapa de um
+ * grupo deixaria um grupo fantasma no meio do fluxo — e o motor entenderia
+ * como "espere um grupo que não tem ninguém", travando a apuração.
+ */
+export function normalizar(lista: Draft[]): Draft[] {
+  const usados = [...new Set(lista.map((s) => s.group_index))].sort((a, b) => a - b)
+  const mapa = new Map(usados.map((g, i) => [g, i]))
+  return lista
+    .map((s) => ({ ...s, group_index: mapa.get(s.group_index) ?? 0 }))
+    .sort((a, b) => a.group_index - b.group_index)
+}
+
+/** Etapas agrupadas, na ordem de execução. */
+export function porGrupo(lista: Draft[]): Draft[][] {
+  const total = lista.length ? Math.max(...lista.map((s) => s.group_index)) + 1 : 0
+  return Array.from({ length: total }, (_, g) => lista.filter((s) => s.group_index === g))
+}
 
 export default function FlowBuilder() {
   const { can } = useCaps()
@@ -92,14 +113,18 @@ export default function FlowBuilder() {
         setCloserMembershipId(f.closer_membership_id ?? null)
         setCloserRoleId(f.closer_role_id ?? null)
         setCloserRequireSignature(!!f.closer_require_signature)
-        setStages(f.stages.map((s) => ({
+        setStages(normalizar(f.stages.map((s, i) => ({
           key: uid(), name: s.name, operator_role_id: s.operator_role_id,
           operator_membership_id: s.operator_membership_id ?? null,
+          // Fluxo salvo antes dos grupos não traz `group_index`. O padrão
+          // seguro é UM GRUPO POR ETAPA (sequencial): juntar tudo num grupo só
+          // faria o fluxo antigo passar a acionar todo mundo de uma vez.
+          group_index: s.group_index ?? (f.mode === 'parallel' ? 0 : i),
           parecer_config: s.parecer_config ?? {},
           require_signature: !!s.require_signature,
           watcher_role_ids: s.watcher_role_ids ?? [], sla_days: s.sla_days,
           is_conditional: s.is_conditional, condition: s.condition,
-        })))
+        }))))
       })
       .catch(() => { setFlowName(tf.egName); setMode('sequential'); setCloserMembershipId(null); setCloserRoleId(null); setCloserRequireSignature(false); setStages([]) })
     // `tf` de propósito fora das dependências: ele só muda junto com o canal, e
@@ -110,10 +135,58 @@ export default function FlowBuilder() {
 
   const patch = (key: string, p: Partial<Draft>) =>
     setStages((s) => (s ?? []).map((x) => (x.key === key ? { ...x, ...p } : x)))
-  const addStage = () => setStages((s) => [...(s ?? []), {
-    key: uid(), name: '', operator_role_id: null, operator_membership_id: null, parecer_config: {},
-    require_signature: false, watcher_role_ids: [], sla_days: 5, is_conditional: false, condition: null,
-  }])
+  /** Etapa nova nasce num grupo SÓ DELA, no fim — o caso mais comum é "mais um
+   *  passo depois", não "mais um em paralelo". Juntar é um arrasto. */
+  const addStage = (grupo?: number) => setStages((s) => {
+    const atual = s ?? []
+    const destino = grupo ?? (atual.length ? Math.max(...atual.map((x) => x.group_index)) + 1 : 0)
+    return normalizar([...atual, {
+      key: uid(), name: '', operator_role_id: null, operator_membership_id: null, parecer_config: {},
+      require_signature: false, watcher_role_ids: [], sla_days: 5, is_conditional: false,
+      condition: null, group_index: destino,
+    }])
+  })
+
+  // ── Movimentação entre grupos ──────────────────────────────────
+  // `arrastando` é a etapa presa no cursor; `alvo` é o grupo sob ela. O alvo
+  // existe só para o realce — sem ele a pessoa solta no escuro.
+  const [arrastando, setArrastando] = useState<string | null>(null)
+  const [arrastavel, setArrastavel] = useState<string | null>(null)
+  // Alvo como CHAVE ("bloco:2", "novo:1") e não como número: as zonas de "novo
+  // bloco" aparecem uma abaixo de cada bloco, e com um valor único elas
+  // acendiam TODAS ao mesmo tempo — a pessoa não sabia onde ia soltar.
+  const [alvo, setAlvo] = useState<string | null>(null)
+
+  /** `dragleave` dispara ao passar por cima de um FILHO da zona, não só ao
+   *  sair dela. Sem esta checagem o realce pisca a cada cartão que o cursor
+   *  cruza, e a área parece estar recusando o arrasto. */
+  const saiuDeVerdade = (e: React.DragEvent) =>
+    !e.currentTarget.contains(e.relatedTarget as Node | null)
+
+  const moverPara = (key: string, grupo: number) =>
+    setStages((s) => normalizar((s ?? []).map((x) => (x.key === key ? { ...x, group_index: grupo } : x))))
+
+  /** Solta num grupo NOVO, inserido depois de `depoisDe`. Abre espaço somando
+   *  1 em todo mundo dali para frente, e a normalização fecha as lacunas. */
+  const soltarEmNovoGrupo = (key: string, depoisDe: number) =>
+    setStages((s) => normalizar((s ?? []).map((x) => {
+      if (x.key === key) return { ...x, group_index: depoisDe + 1 }
+      return x.group_index > depoisDe ? { ...x, group_index: x.group_index + 2 } : x
+    })))
+
+  /** Alternativa de teclado ao arrasto: sem isto a tela seria inoperável para
+   *  quem não usa mouse, e arrastar não tem equivalente acessível nativo. */
+  const moverGrupo = (key: string, dir: -1 | 1) => setStages((s) => {
+    const atual = s ?? []
+    const eu = atual.find((x) => x.key === key)
+    if (!eu) return atual
+    const destino = eu.group_index + dir
+    if (destino < 0) {
+      // Subindo do primeiro: cria um grupo ANTES de todos.
+      return normalizar(atual.map((x) => (x.key === key ? { ...x, group_index: -1 } : x)))
+    }
+    return normalizar(atual.map((x) => (x.key === key ? { ...x, group_index: destino } : x)))
+  })
   const toggleCfg = (key: string, field: 'decision' | 'rating' | 'urgency') => setStages((s) => (s ?? []).map((x) => {
     if (x.key !== key) return x
     const cfg = { ...(x.parecer_config ?? {}) }
@@ -138,12 +211,15 @@ export default function FlowBuilder() {
     try {
       const payload = {
         name: flowName.trim() || tf.egName,
-        mode,
         closer_membership_id: closerMembershipId,
         closer_role_id: closerRoleId,
         closer_require_signature: closerRequireSignature,
+        // Já vai ordenado por grupo (a normalização ordena), e o servidor grava
+        // `order` na sequência recebida — assim a ordem visual e a de execução
+        // não podem divergir.
         stages: stages.map((s) => ({
           name: s.name.trim() || t.flow.untitled,
+          group_index: s.group_index,
           operator_role_id: s.operator_role_id,
           operator_membership_id: s.operator_membership_id ?? null,
           parecer_config: s.parecer_config ?? {},
@@ -199,21 +275,13 @@ export default function FlowBuilder() {
             </div>
           </Card>
 
-          {/* Modo do fluxo + encerrador */}
+          {/* Encerrador.
+              O seletor "sequencial / paralelo" saiu daqui: quem diz o que roda
+              junto e o que roda depois agora é o AGRUPAMENTO das etapas lá
+              embaixo. Manter os dois seria ter duas fontes para a mesma
+              resposta — e a pessoa nunca saberia qual vence. */}
           <Card style={{ marginBottom: 18 }}>
             <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-              <div style={{ minWidth: 240 }}>
-                <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.04em' }}>{t.flow.mode}</div>
-                <div style={{ display: 'inline-flex', background: 'var(--surface-2)', borderRadius: 100, padding: 4 }}>
-                  {(['sequential', 'parallel'] as const).map((m) => (
-                    <button key={m} type="button" disabled={!canEdit} onClick={() => setMode(m)} className="app-btn"
-                      style={{ border: 'none', cursor: canEdit ? 'pointer' : 'default', padding: '8px 16px', borderRadius: 100, fontWeight: 700, fontSize: 13, background: mode === m ? 'var(--accent)' : 'transparent', color: mode === m ? '#fff' : 'var(--text-muted)' }}>
-                      {m === 'sequential' ? t.flow.sequential : t.flow.parallel}
-                    </button>
-                  ))}
-                </div>
-                <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 8, maxWidth: 320, lineHeight: 1.5 }}>{mode === 'sequential' ? t.flow.sequentialHint : t.flow.parallelHint}</p>
-              </div>
               <div style={{ flex: 1, minWidth: 240, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
                 <Field label={t.flow.closerRole}>
                   <Select value={closerRoleId ?? ''} onChange={(e) => setCloserRoleId(e.target.value || null)} disabled={!canEdit}>
@@ -246,19 +314,80 @@ export default function FlowBuilder() {
             <Skeleton h={160} r={16} />
           ) : stages.length === 0 ? (
             <Card><EmptyState icon="flow" title={t.flow.emptyStages} body={tf.emptyStagesBody}
-              action={canEdit && <Button leftIcon="plus" onClick={addStage}>{t.flow.addStage}</Button>} /></Card>
+              action={canEdit && <Button leftIcon="plus" onClick={() => addStage()}>{t.flow.addStage}</Button>} /></Card>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {stages.map((s, i) => (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: 12.5, marginBottom: 14, lineHeight: 1.5 }}>
+                {t.flow.groupsHint}
+              </p>
+
+              {porGrupo(stages).map((doGrupo, g) => (
+                <div key={`g${g}`}>
+                  {/* Conector: diz em palavras a regra que o desenho sugere. */}
+                  {g > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0 10px 6px' }}>
+                      <Icon name="chevron" size={16} style={{ color: 'var(--text-muted)' }} />
+                      <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{t.flow.waitsAll}</span>
+                    </div>
+                  )}
+
+                  <div
+                    onDragOver={(e) => { if (arrastando) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setAlvo(`bloco:${g}`) } }}
+                    onDragLeave={(e) => { if (saiuDeVerdade(e)) setAlvo((a) => (a === `bloco:${g}` ? null : a)) }}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      if (arrastando) moverPara(arrastando, g)
+                      setArrastando(null); setAlvo(null)
+                    }}
+                    style={{
+                      border: `2px dashed ${alvo === `bloco:${g}` ? 'var(--accent)' : 'transparent'}`,
+                      background: alvo === `bloco:${g}` ? 'var(--accent-soft)' : 'transparent',
+                      borderRadius: 18, padding: 8, transition: 'background .15s, border-color .15s',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, paddingLeft: 4 }}>
+                      <span style={{ color: 'var(--accent)', fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>
+                        {t.flow.groupLabel(g + 1)}
+                      </span>
+                      {doGrupo.length > 1 && (
+                        <span style={{ background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 100, padding: '3px 10px', fontSize: 11.5, fontWeight: 700 }}>
+                          {t.flow.together}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Lado a lado quando há mais de um: é o desenho que faz
+                        "ao mesmo tempo" ser lido antes de ser explicado. */}
+                    <div style={{ display: 'grid', gridTemplateColumns: doGrupo.length > 1 ? 'repeat(auto-fit, minmax(330px, 1fr))' : '1fr', gap: 14, alignItems: 'start' }}>
+                      {doGrupo.map((s) => (
                 <Card key={s.key}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                    <span style={{ width: 30, height: 30, minWidth: 30, borderRadius: 9, background: 'var(--accent-soft)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14 }}>{i + 1}</span>
+                  <div
+                    draggable={canEdit && arrastavel === s.key}
+                    onDragStart={(e) => { setArrastando(s.key); e.dataTransfer.effectAllowed = 'move' }}
+                    onDragEnd={() => { setArrastando(null); setArrastavel(null); setAlvo(null) }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, opacity: arrastando === s.key ? 0.4 : 1 }}
+                  >
+                    {/* O `draggable` só liga ao segurar a alça. Se o cartão
+                        inteiro fosse arrastável, os campos de texto lá dentro
+                        parariam de aceitar seleção com o mouse — o navegador
+                        entende a seleção como início de arrasto. */}
+                    {canEdit && (
+                      <span
+                        onMouseDown={() => setArrastavel(s.key)}
+                        onMouseUp={() => setArrastavel(null)}
+                        title={t.flow.dragHandle}
+                        aria-hidden="true"
+                        style={{ cursor: 'grab', color: 'var(--text-muted)', fontSize: 17, lineHeight: 1, padding: '0 2px', userSelect: 'none' }}
+                      >
+                        ⠿
+                      </span>
+                    )}
                     <Input value={s.name} onChange={(e) => patch(s.key, { name: e.target.value })} disabled={!canEdit} placeholder={tf.stageNamePh} style={{ flex: 1 }} />
                     {canEdit && (
                       <div style={{ display: 'flex', gap: 4 }}>
-                        <IconBtn icon="chevron" title="↑" flip disabled={i === 0} onClick={() => move(i, -1)} />
-                        <IconBtn icon="chevron" title="↓" disabled={i === stages.length - 1} onClick={() => move(i, 1)} />
-                        <IconBtn icon="trash" title="x" danger onClick={() => remove(s.key)} />
+                        <IconBtn icon="chevron" title={t.flow.moveGroupUp} flip onClick={() => moverGrupo(s.key, -1)} />
+                        <IconBtn icon="chevron" title={t.flow.moveGroupDown} onClick={() => moverGrupo(s.key, 1)} />
+                        <IconBtn icon="trash" title={t.common.remove} danger onClick={() => remove(s.key)} />
                       </div>
                     )}
                   </div>
@@ -340,8 +469,49 @@ export default function FlowBuilder() {
                     )}
                   </div>
                 </Card>
+                      ))}
+                    </div>
+
+                    {canEdit && (
+                      <button type="button" onClick={() => addStage(g)} className="app-btn"
+                        style={{ marginTop: 10, background: 'transparent', border: '1px dashed var(--border)', color: 'var(--text-muted)', borderRadius: 12, padding: '8px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+                        + {t.flow.addToGroup}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Soltar AQUI cria um grupo entre este e o próximo. É o
+                      gesto que separa "junto" de "depois" sem abrir menu. */}
+                  {canEdit && arrastando && (
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setAlvo(`novo:${g}`) }}
+                      onDragLeave={(e) => { if (saiuDeVerdade(e)) setAlvo((a) => (a === `novo:${g}` ? null : a)) }}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        if (arrastando) soltarEmNovoGrupo(arrastando, g)
+                        setArrastando(null); setAlvo(null)
+                      }}
+                      style={{
+                        marginTop: 10, borderRadius: 12, padding: alvo === `novo:${g}` ? '18px 14px' : '10px 14px',
+                        textAlign: 'center',
+                        border: `2px dashed ${alvo === `novo:${g}` ? 'var(--accent)' : 'var(--border)'}`,
+                        background: alvo === `novo:${g}` ? 'var(--accent-soft)' : 'transparent',
+                        color: alvo === `novo:${g}` ? 'var(--accent)' : 'var(--text-muted)',
+                        fontSize: 12.5, fontWeight: 700,
+                        transition: 'padding .12s, background .15s, border-color .15s',
+                      }}
+                    >
+                      {t.flow.dropNewGroup}
+                    </div>
+                  )}
+                </div>
               ))}
-              {canEdit && <Button variant="ghost" leftIcon="plus" onClick={addStage}>{t.flow.addStage}</Button>}
+
+              {canEdit && (
+                <div style={{ marginTop: 18 }}>
+                  <Button variant="ghost" leftIcon="plus" onClick={() => addStage()}>{t.flow.addStage}</Button>
+                </div>
+              )}
             </div>
           )}
 

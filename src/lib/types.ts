@@ -149,6 +149,10 @@ export interface ParecerConfig {
 
 export interface FlowStageIn {
   name: string
+  /** Bloco de execução: etapas do mesmo bloco são acionadas juntas, e o bloco
+   *  seguinte só começa quando todas responderem. Opcional na leitura porque
+   *  fluxo salvo antes dos blocos não tem o campo. */
+  group_index?: number
   operator_role_id: string | null
   operator_membership_id?: string | null
   parecer_config?: ParecerConfig
