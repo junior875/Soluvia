@@ -11,6 +11,7 @@ import { Button, Card, EmptyState } from '../app/ui'
 import PlatformHealth from './platform/PlatformHealth'
 import PlatformUsers from './platform/PlatformUsers'
 import PlatformConsumo from './platform/PlatformConsumo'
+import PlatformWallet from './platform/PlatformWallet'
 import PlatformFinance from './platform/PlatformFinance'
 import { PasswordInput } from '../app/ui'
 
@@ -21,6 +22,10 @@ const L = {
     aiUsed: 'Tokens de IA usados', search: 'Buscar empresa…', plan: 'Plano', usersCol: 'Usuários',
     aiCol: 'IA (uso/limite)', status: 'Status', none: 'Nenhuma empresa encontrada.',
     members: 'Membros', channelsList: 'Canais', aiQuota: 'Cota de IA (tokens)', save: 'Salvar',
+    seats: 'Usuários (assentos)', seatsUsePlan: 'Usar padrão do plano',
+    seatsFromPlan: 'Valendo o padrão do plano: {p} usuários. Digite um número para dar um teto próprio a esta empresa.',
+    seatsManual: 'Teto próprio desta empresa: {n} usuários (padrão do plano: {p}).',
+    walletFree: 'Disponível na carteira da plataforma: {n} tokens.',
     reset: 'Zerar uso', suspend: 'Suspender', reactivate: 'Reativar', close: 'Fechar',
     active: 'ativa', suspended: 'suspensa', domain: 'Domínio', created: 'Criada em', saved: 'Atualizado.',
     newCompany: 'Nova empresa', cName: 'Nome da empresa', cSlug: 'Endereço (slug, opcional)', cPlan: 'Plano',
@@ -68,7 +73,7 @@ const L = {
     aiHint: 'tokens', aiSaved: 'Cota atualizada', aiEmpty: 'Nenhuma empresa cadastrada.',
     uSearchPh: 'Buscar pessoa por e-mail ou nome…', uHint: 'Mínimo de 2 caracteres. A busca cobre todas as empresas.',
     uNone: 'Ninguém encontrado.', uSearching: 'Buscando…', uNoCompany: 'Sem vínculo com empresa.',
-    uVerifyEmail: 'Verificar e-mail', uVerified: 'e-mail verificado', uResetPassword: 'Definir senha',
+    uVerifyEmail: 'Verificar e-mail', uSendAccess: 'Reenviar acesso', uAccessSent: 'Enviamos um e-mail com o código para a pessoa redefinir a senha.', uSendVerification: 'Enviar verificação', uVerificationSent: 'Código de verificação enviado para o e-mail.', uMarkVerified: 'Marcar verificado', uVerified: 'e-mail verificado', uResetPassword: 'Definir senha',
     uNewPassword: 'Nova senha (mín. 8)', uDeactivate: 'Desativar conta', uActivate: 'Reativar conta',
     uInactive: 'conta inativa', uSuspendLink: 'Suspender', uReactivateLink: 'Reativar',
     uRemoveLink: 'Remover', uConfirm: 'Confirmar?', uPlatformAdmin: 'plataforma',
@@ -86,6 +91,10 @@ const L = {
     aiUsed: 'AI tokens used', search: 'Search company…', plan: 'Plan', usersCol: 'Users',
     aiCol: 'AI (used/limit)', status: 'Status', none: 'No companies found.',
     members: 'Members', channelsList: 'Channels', aiQuota: 'AI quota (tokens)', save: 'Save',
+    seats: 'Users (seats)', seatsUsePlan: 'Use plan default',
+    seatsFromPlan: 'Following the plan default: {p} users. Type a number to give this company its own cap.',
+    seatsManual: 'Custom cap for this company: {n} users (plan default: {p}).',
+    walletFree: 'Available in the platform wallet: {n} tokens.',
     reset: 'Reset usage', suspend: 'Suspend', reactivate: 'Reactivate', close: 'Close',
     active: 'active', suspended: 'suspended', domain: 'Domain', created: 'Created', saved: 'Updated.',
     newCompany: 'New company', cName: 'Company name', cSlug: 'Address (slug, optional)', cPlan: 'Plan',
@@ -133,7 +142,7 @@ const L = {
     aiHint: 'tokens', aiSaved: 'Quota updated', aiEmpty: 'No companies yet.',
     uSearchPh: 'Search a person by email or name…', uHint: 'At least 2 characters. Covers every company.',
     uNone: 'Nobody found.', uSearching: 'Searching…', uNoCompany: 'No company link.',
-    uVerifyEmail: 'Verify email', uVerified: 'email verified', uResetPassword: 'Set password',
+    uVerifyEmail: 'Verify email', uSendAccess: 'Resend access', uAccessSent: 'We sent an email with the code for the person to reset their password.', uSendVerification: 'Send verification', uVerificationSent: 'Verification code sent to the email.', uMarkVerified: 'Mark verified', uVerified: 'email verified', uResetPassword: 'Set password',
     uNewPassword: 'New password (min. 8)', uDeactivate: 'Deactivate account', uActivate: 'Reactivate account',
     uInactive: 'inactive account', uSuspendLink: 'Suspend', uReactivateLink: 'Reactivate',
     uRemoveLink: 'Remove', uConfirm: 'Confirm?', uPlatformAdmin: 'platform',
@@ -151,6 +160,10 @@ const L = {
     aiUsed: 'Tokens de IA usados', search: 'Buscar empresa…', plan: 'Plan', usersCol: 'Usuarios',
     aiCol: 'IA (uso/límite)', status: 'Estado', none: 'No se encontraron empresas.',
     members: 'Miembros', channelsList: 'Canales', aiQuota: 'Cuota de IA (tokens)', save: 'Guardar',
+    seats: 'Usuarios (asientos)', seatsUsePlan: 'Usar el plan',
+    seatsFromPlan: 'Rige el estándar del plan: {p} usuarios. Escribe un número para dar un tope propio a esta empresa.',
+    seatsManual: 'Tope propio de esta empresa: {n} usuarios (estándar del plan: {p}).',
+    walletFree: 'Disponible en la cartera de la plataforma: {n} tokens.',
     reset: 'Reiniciar uso', suspend: 'Suspender', reactivate: 'Reactivar', close: 'Cerrar',
     active: 'activa', suspended: 'suspendida', domain: 'Dominio', created: 'Creada', saved: 'Actualizado.',
     newCompany: 'Nueva empresa', cName: 'Nombre de la empresa', cSlug: 'Dirección (slug, opcional)', cPlan: 'Plan',
@@ -198,7 +211,7 @@ const L = {
     aiHint: 'tokens', aiSaved: 'Cuota actualizada', aiEmpty: 'Ninguna empresa registrada.',
     uSearchPh: 'Buscar persona por correo o nombre…', uHint: 'Mínimo 2 caracteres. Cubre todas las empresas.',
     uNone: 'No se encontró a nadie.', uSearching: 'Buscando…', uNoCompany: 'Sin vínculo con empresa.',
-    uVerifyEmail: 'Verificar correo', uVerified: 'correo verificado', uResetPassword: 'Definir contraseña',
+    uVerifyEmail: 'Verificar correo', uSendAccess: 'Reenviar acceso', uAccessSent: 'Enviamos un correo con el código para que la persona restablezca su contraseña.', uSendVerification: 'Enviar verificación', uVerificationSent: 'Código de verificación enviado al correo.', uMarkVerified: 'Marcar verificado', uVerified: 'correo verificado', uResetPassword: 'Definir contraseña',
     uNewPassword: 'Nueva contraseña (mín. 8)', uDeactivate: 'Desactivar cuenta', uActivate: 'Reactivar cuenta',
     uInactive: 'cuenta inactiva', uSuspendLink: 'Suspender', uReactivateLink: 'Reactivar',
     uRemoveLink: 'Quitar', uConfirm: '¿Confirmar?', uPlatformAdmin: 'plataforma',
@@ -247,6 +260,11 @@ export default function PlatformConsole() {
   const [detail, setDetail] = useState<PlatformTenantDetail | null>(null)
   const [limitEdit, setLimitEdit] = useState('')
   const [storageEdit, setStorageEdit] = useState('')
+  // Assentos manuais da empresa aberta no drawer.
+  const [seatsEdit, setSeatsEdit] = useState('')
+  // O "livre para alocar" da carteira — o drawer mostra ao lado da cota de IA,
+  // para a alocação sair de um número real e não de um chute.
+  const [livreNaCarteira, setLivreNaCarteira] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   // Qual convite está sendo reenviado. Por linha, e não um booleano global:
   // travar a lista inteira faria os outros botões piscarem sem motivo.
@@ -286,6 +304,10 @@ export default function PlatformConsole() {
     void api.get<PlatformOverview>('/platform/overview').then(setOv).catch(() => setOv(null))
     void api.get<PlatformTenantRow[]>('/platform/tenants').then(setRows).catch(() => setRows([]))
     void listPlans().then(setPlans).catch(() => setPlans([]))
+    // O "livre" da carteira acompanha o console inteiro: o drawer da empresa
+    // mostra esse número ao lado da cota de IA.
+    void api.get<{ free_to_allocate: number }>('/platform/wallet')
+      .then((w) => setLivreNaCarteira(w.free_to_allocate)).catch(() => setLivreNaCarteira(null))
   }, [])
   useEffect(() => { if (open && acesso.estado === 'ok') load() }, [open, acesso.estado, load])
 
@@ -296,7 +318,7 @@ export default function PlatformConsole() {
         name: nf.name.trim(), slug: nf.slug.trim() || null, plan_id: nf.plan_id || null,
         admin_name: nf.admin_name.trim(), admin_email: nf.admin_email.trim(), admin_password: nf.admin_password,
       })
-      setShowNew(false); setNf(emptyNew); load(); setDetail(d); setLimitEdit(String(d.ai_token_limit)); setStorageEdit(String(Math.round((d.storage_limit_bytes || 0) / 1024 / 1024))); flash(tr.companyCreated)
+      setShowNew(false); setNf(emptyNew); load(); setDetail(d); setLimitEdit(String(d.ai_token_limit)); setStorageEdit(String(Math.round((d.storage_limit_bytes || 0) / 1024 / 1024))); setSeatsEdit(d.max_users_override != null ? String(d.max_users_override) : ''); flash(tr.companyCreated)
     } catch (e) { flash((e as ApiError).detail ?? 'Erro') } finally { setBusy(false) }
   }
   async function addMember() {
@@ -353,15 +375,28 @@ export default function PlatformConsole() {
     setDetail(null)
     try {
       const d = await api.get<PlatformTenantDetail>(`/platform/tenants/${id}`)
-      setDetail(d); setLimitEdit(String(d.ai_token_limit)); setStorageEdit(String(Math.round((d.storage_limit_bytes || 0) / 1024 / 1024)))
+      setDetail(d); setLimitEdit(String(d.ai_token_limit)); setStorageEdit(String(Math.round((d.storage_limit_bytes || 0) / 1024 / 1024))); setSeatsEdit(d.max_users_override != null ? String(d.max_users_override) : '')
     } catch (e) { flash((e as ApiError).detail ?? 'Erro') }
   }
   async function act(fn: () => Promise<PlatformTenantDetail>) {
     setBusy(true)
-    try { const d = await fn(); setDetail(d); setLimitEdit(String(d.ai_token_limit)); setStorageEdit(String(Math.round((d.storage_limit_bytes || 0) / 1024 / 1024))); load(); flash(tr.saved) }
+    try { const d = await fn(); setDetail(d); setLimitEdit(String(d.ai_token_limit)); setStorageEdit(String(Math.round((d.storage_limit_bytes || 0) / 1024 / 1024))); setSeatsEdit(d.max_users_override != null ? String(d.max_users_override) : ''); load(); flash(tr.saved) }
     catch (e) { flash((e as ApiError).detail ?? 'Erro') } finally { setBusy(false) }
   }
-  const saveLimit = () => act(() => api.post<PlatformTenantDetail>(`/platform/tenants/${detail!.id}/ai-limit`, { limit: Number(limitEdit) || 0 }))
+  const saveLimit = () => act(async () => {
+    const d = await api.post<PlatformTenantDetail>(`/platform/tenants/${detail!.id}/ai-limit`, { limit: Number(limitEdit) || 0 })
+    // A alocação mudou → o "livre" da carteira também. Atualiza na hora, senão
+    // o número ao lado do campo mente até a próxima visita à aba Tokens.
+    void api.get<{ free_to_allocate: number }>('/platform/wallet')
+      .then((w) => setLivreNaCarteira(w.free_to_allocate)).catch(() => {})
+    return d
+  })
+
+  /** Assentos manuais: vazio = volta ao padrão do plano. */
+  const saveSeats = () => act(() => api.post<PlatformTenantDetail>(
+    `/platform/tenants/${detail!.id}/seats`,
+    { max_users: seatsEdit.trim() === '' ? null : Math.max(1, Math.round(Number(seatsEdit) || 0)) },
+  ))
   const resetAi = () => act(() => api.post<PlatformTenantDetail>(`/platform/tenants/${detail!.id}/ai-reset`, {}))
   const toggleSuspend = () => {
     const s = detail!.subscription_status !== 'suspended'
@@ -467,7 +502,7 @@ export default function PlatformConsole() {
             onToast={flash}
             textos={{
               searchPh: tr.uSearchPh, hint: tr.uHint, none: tr.uNone,
-              noCompany: tr.uNoCompany, verifyEmail: tr.uVerifyEmail, verified: tr.uVerified,
+              noCompany: tr.uNoCompany, verifyEmail: tr.uVerifyEmail, sendAccess: tr.uSendAccess, accessSent: tr.uAccessSent, sendVerification: tr.uSendVerification, verificationSent: tr.uVerificationSent, markVerified: tr.uMarkVerified, verified: tr.uVerified,
               resetPassword: tr.uResetPassword, newPassword: tr.uNewPassword,
               deactivate: tr.uDeactivate, activate: tr.uActivate, inactive: tr.uInactive,
               suspendLink: tr.uSuspendLink, reactivateLink: tr.uReactivateLink,
@@ -538,6 +573,15 @@ export default function PlatformConsole() {
         )}
 
         {aba === 'tokens' && (
+          <>
+          {/* A carteirinha vem ANTES da lista por empresa: primeiro o estoque
+              da plataforma, depois como ele está repartido. */}
+          <PlatformWallet
+            lang={lang}
+            formatar={(n) => num(n, lang)}
+            onToast={flash}
+            onSaldo={setLivreNaCarteira}
+          />
           <PlatformConsumo
             endpoint="/platform/ai-usage"
             onToast={flash}
@@ -554,6 +598,7 @@ export default function PlatformConsole() {
               salvar: tr.save, salvo: tr.aiSaved, dica: tr.aiHint, vazio: tr.aiEmpty,
             }}
           />
+          </>
         )}
 
         {aba === 'sistema' && (
@@ -654,9 +699,34 @@ export default function PlatformConsole() {
                   {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
                 <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>
-                  {detail.users} {tr.usersCol.toLowerCase()}
+                  {detail.users} / {detail.max_users} {tr.usersCol.toLowerCase()}
                 </span>
               </div>
+
+              {/* ASSENTOS — o número é escolha da plataforma, não refém do
+                  plano. Vazio = vale o padrão do plano; preenchido = teto
+                  próprio desta empresa ("Enterprise, mas eles são 12"). */}
+              <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>{tr.seats}</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 6 }}>
+                <input
+                  type="number" min={1} value={seatsEdit}
+                  onChange={(e) => setSeatsEdit(e.target.value)}
+                  placeholder={String(detail.plan_max_users)}
+                  style={{ width: 120, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 12px', color: 'var(--heading)', fontSize: 14 }}
+                />
+                <button disabled={busy} onClick={() => void saveSeats()} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '9px 18px', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>{tr.save}</button>
+                {detail.max_users_override != null && (
+                  <button disabled={busy} onClick={() => { setSeatsEdit(''); void act(() => api.post<PlatformTenantDetail>(`/platform/tenants/${detail.id}/seats`, { max_users: null })) }}
+                    style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 100, padding: '9px 18px', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>
+                    {tr.seatsUsePlan}
+                  </button>
+                )}
+              </div>
+              <p style={{ color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5, marginBottom: 18 }}>
+                {detail.max_users_override != null
+                  ? tr.seatsManual.replace('{n}', String(detail.max_users_override)).replace('{p}', String(detail.plan_max_users))
+                  : tr.seatsFromPlan.replace('{p}', String(detail.plan_max_users))}
+              </p>
 
               {/* Armazenamento — o ÚNICO controle de storage que cabe aqui.
                   O bucket é infraestrutura, um só para a plataforma; o que se
@@ -685,7 +755,14 @@ export default function PlatformConsole() {
               </p>
 
               <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>{tr.aiQuota}</div>
-              <div style={{ color: 'var(--heading)', fontSize: 14, marginBottom: 10 }}>{num(detail.ai_tokens_used, lang)} / {detail.ai_token_limit === 0 ? '∞' : num(detail.ai_token_limit, lang)}</div>
+              <div style={{ color: 'var(--heading)', fontSize: 14, marginBottom: 4 }}>{num(detail.ai_tokens_used, lang)} / {detail.ai_token_limit === 0 ? '∞' : num(detail.ai_token_limit, lang)}</div>
+              {/* De ONDE sai o que se aloca: o livre da carteira da plataforma.
+                  Sem este número, definir a cota era prometer no escuro. */}
+              {livreNaCarteira != null && (
+                <div style={{ color: livreNaCarteira < 0 ? '#e11d48' : 'var(--text-muted)', fontSize: 12.5, marginBottom: 10 }}>
+                  {tr.walletFree.replace('{n}', num(livreNaCarteira, lang))}
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 <input type="number" min={0} value={limitEdit} onChange={(e) => setLimitEdit(e.target.value)}
                   style={{ width: 160, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 12px', color: 'var(--heading)', fontSize: 14 }} />

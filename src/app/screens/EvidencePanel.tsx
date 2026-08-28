@@ -23,6 +23,10 @@ export type Prova = {
   kind: 'image' | 'video' | 'document'
   size_bytes: number
   created_at: string
+  /** Ficha de parecer que trouxe o arquivo (nulo = veio com o relato). */
+  assignment_id?: string | null
+  /** Nome da etapa que juntou a prova — a ORIGEM que a tela mostra. */
+  stage_name?: string | null
 }
 
 export type Acesso = {
@@ -39,6 +43,8 @@ export type EvidenceTextos = {
   empty: string
   view: string
   download: string
+  /** Rótulo da prova que veio com o relato (denunciante x consumidor). */
+  fromReporter?: string
   close: string
   failed: string
   noPreview: string
@@ -90,6 +96,7 @@ export default function EvidencePanel({
   canAudit,
   textos,
   onError,
+  onContagem,
 }: {
   caseId: string
   canView: boolean
@@ -97,6 +104,10 @@ export default function EvidencePanel({
   canAudit: boolean
   textos: EvidenceTextos
   onError: (msg: string) => void
+  /** Quantas provas o caso tem. Quem monta o parecer de investigação precisa
+   *  do número, e ele já foi buscado aqui — pedir de novo seria a mesma
+   *  consulta duas vezes por abertura de caso. */
+  onContagem?: (n: number) => void
 }) {
   const [provas, setProvas] = useState<Prova[] | null>(null)
   const [aberta, setAberta] = useState<{ prova: Prova; url: string } | null>(null)
@@ -114,9 +125,12 @@ export default function EvidencePanel({
     let vivo = true
     api
       .get<Prova[]>(`/cases/${caseId}/attachments`)
-      .then((r) => vivo && setProvas(r))
+      .then((r) => { if (vivo) { setProvas(r); onContagem?.(r.length) } })
       .catch(() => vivo && setProvas([]))
     return () => { vivo = false }
+    // `onContagem` fora das dependências de propósito: a função é recriada a
+    // cada render do pai, e incluí-la refaria o GET num laço.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caseId, canView])
 
   async function abrir(prova: Prova) {
@@ -199,6 +213,20 @@ export default function EvidencePanel({
               </div>
               <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>
                 {humano(p.size_bytes)} · {new Date(p.created_at).toLocaleDateString()}
+              </div>
+              {/* A ORIGEM: quem trouxe este arquivo. Sem o rótulo, o material
+                  do denunciante e o levantado pela apuração viram um monte só
+                  — exatamente a distinção que a investigação precisa fazer. */}
+              <div style={{ marginTop: 5 }}>
+                {p.stage_name ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--accent-border)', background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 100, padding: '2px 9px', fontSize: 11, fontWeight: 800 }}>
+                    {p.stage_name}
+                  </span>
+                ) : textos.fromReporter ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--text-muted)', borderRadius: 100, padding: '2px 9px', fontSize: 11, fontWeight: 700 }}>
+                    {textos.fromReporter}
+                  </span>
+                ) : null}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 7, flexShrink: 0 }}>

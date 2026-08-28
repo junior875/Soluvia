@@ -1,7 +1,8 @@
 // Shell do painel: sidebar montada por capacidade + topbar (tema/idioma/sair) +
 // área de conteúdo que renderiza a tela ativa (navegação por hash #painel/<id>).
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { api } from '../lib/api'
 import { useTheme } from '../theme/ThemeProvider'
 import { useTranslation } from '../i18n/LanguageProvider'
 import { LANGS } from '../i18n/translations'
@@ -10,9 +11,62 @@ import { useT } from './strings'
 import { SCREENS, evaluate, type ScreenState } from './registry'
 import { currentScreenId, goScreen } from './nav'
 import { Avatar, IconButton } from './ui'
-import { Icon } from './icons'
+import { DuoIcon, Icon } from './icons'
+import NotificationBell from './NotificationBell'
 
 const GROUPS = ['main', 'modules', 'config', 'admin'] as const
+
+type Badges = { mine: number; watching: number; bell: number }
+
+/** De quanto em quanto tempo perguntar pelos números da nav (mesmo ritmo do
+ *  sininho: chega "na hora" para quem está com a tela aberta, sem virar uma
+ *  consulta por segundo). */
+const BADGES_MS = 45_000
+
+/**
+ * Os números da nav — pareceres esperando, acompanhamentos que andaram e
+ * avisos não lidos. UMA consulta para as três abas, da MESMA fonte que dispara
+ * os e-mails: o vermelhinho da nav, o sininho e a caixa de entrada contam
+ * sempre a mesma história.
+ */
+function useBadges(): Badges {
+  const [badges, setBadges] = useState<Badges>({ mine: 0, watching: 0, bell: 0 })
+  const carregar = useCallback(async () => {
+    try { setBadges(await api.get<Badges>('/notifications/badges')) } catch { /* fundo */ }
+  }, [])
+  useEffect(() => {
+    void carregar()
+    const tick = () => { if (!document.hidden) void carregar() }
+    const id = window.setInterval(tick, BADGES_MS)
+    document.addEventListener('visibilitychange', tick)
+    // Trocar de tela também atualiza: quem acabou de responder um parecer
+    // espera ver o número cair AGORA, não em 45 segundos.
+    window.addEventListener('hashchange', tick)
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener('visibilitychange', tick)
+      window.removeEventListener('hashchange', tick)
+    }
+  }, [carregar])
+  return badges
+}
+
+/** A bolinha vermelha com número — o padrão que todo mundo já leu no WhatsApp. */
+function BadgePill({ n }: { n: number }) {
+  if (n <= 0) return null
+  return (
+    <span
+      style={{
+        minWidth: 19, height: 19, padding: '0 5px', borderRadius: 100,
+        background: '#ef4444', color: '#fff', fontSize: 11, fontWeight: 800,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0, boxShadow: '0 2px 6px rgba(239,68,68,.45)',
+      }}
+    >
+      {n > 99 ? '99+' : n}
+    </span>
+  )
+}
 
 export default function Shell() {
   const caps = useCaps()
@@ -22,6 +76,20 @@ export default function Shell() {
   const { lang, setLang } = useTranslation()
   const [active, setActive] = useState(currentScreenId())
   const [drawer, setDrawer] = useState(false)
+  const badges = useBadges()
+  // Aba → número. As três abas "pessoais" têm badge; as demais são telas de
+  // trabalho, não de aviso.
+  const badgeDe: Record<string, number> = { mine: badges.mine, watching: badges.watching }
+  // Nav recolhida. Fica GUARDADA: quem trabalha no construtor de fluxo quer a
+  // largura toda e não vai reclicar a cada visita. Só no desktop — no celular
+  // a nav já é uma gaveta.
+  const [navOculta, setNavOculta] = useState(() => {
+    try { return localStorage.getItem('soluvia.navOculta') === '1' } catch { return false }
+  })
+  const alternarNav = () => setNavOculta((v) => {
+    try { localStorage.setItem('soluvia.navOculta', v ? '0' : '1') } catch { /* modo privado */ }
+    return !v
+  })
 
   // Telas visíveis (ok|locked) com seu estado, na ordem do registro.
   const evaluated = useMemo(
@@ -50,7 +118,10 @@ export default function Shell() {
       <div className={`app-sidebar-backdrop ${drawer ? 'open' : ''}`} onClick={() => setDrawer(false)} />
 
       {/* Sidebar */}
-      <aside className={`app-sidebar ${drawer ? 'open' : ''}`} style={{ width: 260, minWidth: 260, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <aside
+        className={`app-sidebar ${drawer ? 'open' : ''} ${navOculta ? 'recolhida' : ''}`}
+        style={{ width: 260, minWidth: 260, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', height: '100%' }}
+      >
         <div style={{ padding: '16px 14px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <img src="/soluvia.png" alt="Soluvia" className={theme === 'dark' ? 'brand-logo' : undefined} style={{ width: '78%', maxWidth: 196, height: 'auto', display: 'block' }} />
         </div>
@@ -73,9 +144,12 @@ export default function Shell() {
                       {s.logo ? (
                         <img src={s.logo} alt="" className="module-logo" style={{ width: 27, height: 27, minWidth: 27, objectFit: 'contain', margin: '-4px 0' }} />
                       ) : (
-                        <Icon name={s.icon} size={18} />
+                        // Duotone: véu + traço, entintado pelo tema (index.css).
+                        <DuoIcon name={s.icon} size={19} />
                       )}
                       <span style={{ flex: 1 }}>{t.nav[s.navKey]}</span>
+                      {/* O vermelhinho: "tem coisa esperando você aqui". */}
+                      <BadgePill n={badgeDe[s.id] ?? 0} />
                       {state === 'locked' && <Icon name="lock" size={15} />}
                     </button>
                   )
@@ -104,12 +178,25 @@ export default function Shell() {
           <button className="app-btn app-burger" aria-label="Menu" onClick={() => setDrawer(true)} style={{ display: 'none', width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer' }}>
             <Icon name="menu" />
           </button>
+          {/* Recolher a nav: telas largas (o construtor de fluxo) precisam da
+              largura toda. Escondido no celular, onde a nav já é gaveta. */}
+          <button
+            className="app-btn pnl-nav-toggle"
+            aria-label={navOculta ? t.nav.showNav : t.nav.hideNav}
+            title={navOculta ? t.nav.showNav : t.nav.hideNav}
+            aria-pressed={navOculta}
+            onClick={alternarNav}
+            style={{ width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center', background: 'var(--surface-2)', border: '1px solid var(--border)', color: navOculta ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', flexShrink: 0 }}
+          >
+            <Icon name="menu" size={17} />
+          </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, color: 'var(--heading)', fontWeight: 800, minWidth: 0 }}>
             <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
             <span className="pnl-topbar-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ctx.tenant_name}</span>
           </div>
 
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <NotificationBell />
             {/* Idioma */}
             <div className="pnl-lang" style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 100, padding: 3 }}>
               {LANGS.map((l) => (

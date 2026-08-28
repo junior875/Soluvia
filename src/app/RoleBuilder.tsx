@@ -4,6 +4,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api'
+import { desligarComDependentes, ligarComDeps } from '../lib/permDeps'
 import { localizeRole } from '../lib/systemNames'
 import type { ApiError, ModulePermissions, RoleOut } from '../lib/types'
 import { useT } from './strings'
@@ -55,12 +56,35 @@ export default function RoleBuilder({ open, onClose, catalog, templates, role, o
     }
   }, [open, role])
 
+  // Aviso curto de "entrou/saiu de carona" — a regra "agir exige ler"
+  // acontecendo na frente da pessoa, em vez de permissões mudando sozinhas.
+  const [depAviso, setDepAviso] = useState<string | null>(null)
+
   const toggle = (code: string) =>
     setSelected((prev) => {
-      const next = new Set(prev)
-      next.has(code) ? next.delete(code) : next.add(code)
-      return next
+      // Ligar puxa as dependências; desligar carrega os dependentes. O
+      // servidor fecha o conjunto de qualquer jeito (a garantia é lá) — aqui
+      // é para a pessoa VER a regra.
+      const ligando = !prev.has(code)
+      const { proximo, carona } = ligando
+        ? ligarComDeps(prev, code)
+        : desligarComDependentes(prev, code)
+      if (carona.length > 0) {
+        const nomes = carona.map((c) => rotuloDe(c)).join(', ')
+        setDepAviso(ligando ? t.roles.depOn(nomes) : t.roles.depOff(nomes))
+        window.setTimeout(() => setDepAviso(null), 4200)
+      }
+      return proximo
     })
+
+  /** Rótulo humano de um código, direto do catálogo carregado. */
+  const rotuloDe = (code: string): string => {
+    for (const m of catalog) {
+      const p = m.permissions.find((x) => x.code === code)
+      if (p) return p.label
+    }
+    return code
+  }
 
   const applyTemplate = (id: string) => {
     setFromId(id)
@@ -125,6 +149,12 @@ export default function RoleBuilder({ open, onClose, catalog, templates, role, o
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ color: 'var(--heading)', fontWeight: 800, fontSize: 16 }}>{name || t.roles.name}</div>
           <div style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{selected.size} {t.roles.activeCount}</div>
+          {/* A regra "agir exige ler", acontecendo na frente da pessoa. */}
+          {depAviso && (
+            <div style={{ marginTop: 8, border: '1px solid var(--accent-border)', background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 10, padding: '7px 11px', fontSize: 12.5, fontWeight: 700 }}>
+              {depAviso}
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
           {modulesWithAccess.map((m) => (

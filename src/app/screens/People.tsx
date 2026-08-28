@@ -12,84 +12,45 @@ import type { ApiError } from '../../lib/types'
 const STATUS_TONE = { active: 'green', invited: 'accent', suspended: 'muted' } as const
 
 // ── Overrides de permissão por membro ──────────────────────────────────────
-type OverrideState = 'revoke' | 'default' | 'grant'
 interface PermOverride { code: string; grant: boolean }
 interface PermSnapshot { effective: string[]; overrides: PermOverride[] }
 
 // i18n LOCAL (PT · EN · ES) — evita tocar em strings.ts compartilhado.
 const PERM_I18N: Record<Lang, {
   manage: string; title: string; intro: string
-  revoke: string; roleDefault: string; grant: string
-  effective: string; inactive: string; fromRole: string
-  ovGrant: string; ovRevoke: string
+  fromRole: string; ovGrant: string; ovRevoke: string
   empty: string; loadErr: string; saveErr: string; close: string
 }> = {
   pt: {
     manage: 'Permissões',
-    title: 'Permissões individuais',
-    intro: 'Ajuste as permissões deste membro além da função. “Padrão” usa o que a função concede; “Conceder” ou “Revogar” criam um override individual.',
-    revoke: 'Revogar', roleDefault: 'Padrão', grant: 'Conceder',
-    effective: 'Ativa', inactive: 'Inativa', fromRole: 'Vem da função',
-    ovGrant: 'Concedida por override', ovRevoke: 'Revogada por override',
+    title: 'Permissões desta pessoa',
+    intro: 'Marcado = pode. A função marca o padrão; o que você mudar aqui vale só para esta pessoa — e desmarcar de volta desfaz o ajuste.',
+    fromRole: 'Da função',
+    ovGrant: 'Além da função', ovRevoke: 'Tirada da função',
     empty: 'Nenhuma permissão disponível.',
     loadErr: 'Falha ao carregar permissões.', saveErr: 'Falha ao salvar. Tente novamente.',
     close: 'Fechar',
   },
   en: {
     manage: 'Permissions',
-    title: 'Individual permissions',
-    intro: 'Adjust this member’s permissions beyond their role. “Default” uses whatever the role grants; “Grant” or “Revoke” create an individual override.',
-    revoke: 'Revoke', roleDefault: 'Default', grant: 'Grant',
-    effective: 'Active', inactive: 'Inactive', fromRole: 'From role',
-    ovGrant: 'Granted by override', ovRevoke: 'Revoked by override',
+    title: "This person's permissions",
+    intro: 'Checked = allowed. The role sets the default; whatever you change here applies to this person only — and unchecking it back undoes the tweak.',
+    fromRole: 'From role',
+    ovGrant: 'Beyond the role', ovRevoke: 'Removed from the role',
     empty: 'No permissions available.',
     loadErr: 'Failed to load permissions.', saveErr: 'Failed to save. Please try again.',
     close: 'Close',
   },
   es: {
     manage: 'Permisos',
-    title: 'Permisos individuales',
-    intro: 'Ajusta los permisos de este miembro más allá de su rol. “Predeterminado” usa lo que concede el rol; “Conceder” o “Revocar” crean un override individual.',
-    revoke: 'Revocar', roleDefault: 'Predeterminado', grant: 'Conceder',
-    effective: 'Activa', inactive: 'Inactiva', fromRole: 'Del rol',
-    ovGrant: 'Concedida por override', ovRevoke: 'Revocada por override',
+    title: 'Permisos de esta persona',
+    intro: 'Marcado = puede. El rol marca el estándar; lo que cambies aquí vale solo para esta persona — y desmarcar de vuelta deshace el ajuste.',
+    fromRole: 'Del rol',
+    ovGrant: 'Además del rol', ovRevoke: 'Quitado del rol',
     empty: 'No hay permisos disponibles.',
     loadErr: 'Error al cargar permisos.', saveErr: 'Error al guardar. Inténtalo de nuevo.',
     close: 'Cerrar',
   },
-}
-
-// Controle segmentado de 3 estados: [Revogar | Padrão (função) | Conceder].
-function PermSeg({ value, disabled, labels, onChange }: {
-  value: OverrideState
-  disabled: boolean
-  labels: { revoke: string; roleDefault: string; grant: string }
-  onChange: (s: OverrideState) => void
-}) {
-  const opts: { key: OverrideState; label: string; bg: string; fg: string }[] = [
-    { key: 'revoke', label: labels.revoke, bg: 'rgba(225,29,72,.16)', fg: '#e11d48' },
-    { key: 'default', label: labels.roleDefault, bg: 'var(--surface)', fg: 'var(--heading)' },
-    { key: 'grant', label: labels.grant, bg: 'rgba(22,163,74,.16)', fg: '#16a34a' },
-  ]
-  return (
-    <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: 2, opacity: disabled ? 0.55 : 1 }}>
-      {opts.map((o) => {
-        const active = value === o.key
-        return (
-          <button
-            key={o.key}
-            type="button"
-            disabled={disabled}
-            onClick={() => onChange(o.key)}
-            className="app-btn"
-            style={{ padding: '5px 11px', borderRadius: 8, border: 'none', cursor: disabled ? 'default' : 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', background: active ? o.bg : 'transparent', color: active ? o.fg : 'var(--text-muted)', boxShadow: active ? '0 1px 2px rgba(0,0,0,.06)' : 'none', transition: 'background .15s, color .15s' }}
-          >
-            {o.label}
-          </button>
-        )
-      })}
-    </div>
-  )
 }
 
 // Modal de gestão dos overrides de um membro (catálogo agrupado por módulo).
@@ -116,20 +77,28 @@ function PermissionsModal({ member, catalog, onClose }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [member])
 
-  const stateOf = (code: string): OverrideState => {
-    const ov = snap?.overrides.find((o) => o.code === code)
-    if (!ov) return 'default'
-    return ov.grant ? 'grant' : 'revoke'
-  }
+  const overrideDe = (code: string) => snap?.overrides.find((o) => o.code === code) ?? null
   const isEffective = (code: string) => !!snap?.effective.includes(code)
 
-  async function apply(code: string, next: OverrideState) {
-    if (!member || busyCode || stateOf(code) === next) return
+  /** Um quadradinho, uma pergunta: esta pessoa PODE isto?
+   *
+   *  O clique decide sozinho o que fazer com o override: se o alvo é voltar
+   *  ao que a função já diz, o override some (delete); se difere da função,
+   *  nasce/atualiza (put). "Padrão × conceder × revogar" era o modelo do
+   *  BANCO vazando para a tela — quem gerencia pensa só em "tem ou não tem".
+   */
+  async function toggle(code: string) {
+    if (!member || busyCode || !snap) return
+    const efetiva = isEffective(code)
+    const desejado = !efetiva
+    // O que a FUNÇÃO daria sozinha = efetivo sem o override atual.
+    const ov = overrideDe(code)
+    const daFuncao = ov ? (ov.grant ? false : true) : efetiva
     setBusyCode(code); setError(null)
     try {
-      const res = next === 'default'
+      const res = desejado === daFuncao
         ? await api.delete<PermSnapshot>(`/memberships/${member.id}/permissions/${code}`)
-        : await api.put<PermSnapshot>(`/memberships/${member.id}/permissions/${code}`, { grant: next === 'grant' })
+        : await api.put<PermSnapshot>(`/memberships/${member.id}/permissions/${code}`, { grant: desejado })
       setSnap(res)
     } catch {
       setError(L.saveErr)
@@ -160,28 +129,31 @@ function PermissionsModal({ member, catalog, onClose }: {
               </div>
               <div>
                 {mod.permissions.map((p) => {
-                  const st = stateOf(p.code)
                   const eff = isEffective(p.code)
-                  const overridden = st !== 'default'
+                  const ov = overrideDe(p.code)
                   return (
-                    <div key={p.code} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderTop: '1px solid var(--border)', flexWrap: 'wrap', rowGap: 8 }}>
-                      <div style={{ flex: '1 1 220px', minWidth: 0 }}>
-                        <div style={{ color: 'var(--heading)', fontWeight: 600, fontSize: 14 }}>{p.label}</div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{p.description}</div>
-                        <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                          <Chip tone={eff ? 'green' : 'muted'}>{eff ? L.effective : L.inactive}</Chip>
-                          {overridden
-                            ? <Chip tone={st === 'grant' ? 'accent' : 'muted'}>{st === 'grant' ? L.ovGrant : L.ovRevoke}</Chip>
-                            : eff ? <Chip tone="blue">{L.fromRole}</Chip> : null}
-                        </div>
-                      </div>
-                      <PermSeg
-                        value={st}
-                        disabled={busyCode === p.code}
-                        labels={{ revoke: L.revoke, roleDefault: L.roleDefault, grant: L.grant }}
-                        onChange={(s) => void apply(p.code, s)}
+                    // A LINHA inteira é o rótulo do quadradinho: alvo grande,
+                    // uma pergunta só — pode ou não pode.
+                    <label key={p.code} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '11px 14px', borderTop: '1px solid var(--border)', cursor: busyCode ? 'default' : 'pointer', opacity: busyCode === p.code ? 0.55 : 1 }}>
+                      <input
+                        type="checkbox"
+                        checked={eff}
+                        disabled={busyCode !== null}
+                        onChange={() => void toggle(p.code)}
+                        style={{ width: 17, height: 17, marginTop: 2, accentColor: 'var(--accent)', flexShrink: 0 }}
                       />
-                    </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ color: eff ? 'var(--heading)' : 'var(--text-muted)', fontWeight: 600, fontSize: 14 }}>{p.label}</span>
+                          {/* O selo só aparece quando ESTA pessoa difere da
+                              função — o resto é o padrão, sem ruído. */}
+                          {ov && (
+                            <Chip tone={ov.grant ? 'accent' : 'muted'}>{ov.grant ? L.ovGrant : L.ovRevoke}</Chip>
+                          )}
+                        </div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: 2 }}>{p.description}</div>
+                      </div>
+                    </label>
                   )
                 })}
               </div>

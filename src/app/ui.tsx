@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import type { ButtonHTMLAttributes, CSSProperties, InputHTMLAttributes, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Icon, type IconName } from './icons'
+import { DuoIcon, Icon, type IconName } from './icons'
 import { currentLang } from '../lib/api'
 
 type Tone = 'accent' | 'blue' | 'muted' | 'green' | 'navy'
@@ -155,7 +155,8 @@ export function IconButton({ icon, label, onClick, active }: { icon: IconName; l
         cursor: 'pointer',
       }}
     >
-      <Icon name={icon} size={18} />
+      {/* Duotone quando existir: o topo fala a mesma língua visual da nav. */}
+      <DuoIcon name={icon} size={18} />
     </button>
   )
 }

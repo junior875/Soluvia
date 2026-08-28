@@ -1,9 +1,9 @@
-/* ─────────────────────────────────────────────
-   Soluvia — estilos globais + tokens de tema
-   Tema claro/escuro via variáveis CSS em [data-theme].
-   A maior parte do estilo é inline nos componentes;
-   cores vêm destes tokens (var(--token)).
-───────────────────────────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   Soluvia â€” estilos globais + tokens de tema
+   Tema claro/escuro via variÃ¡veis CSS em [data-theme].
+   A maior parte do estilo Ã© inline nos componentes;
+   cores vÃªm destes tokens (var(--token)).
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 * {
   margin: 0;
@@ -28,7 +28,7 @@ body {
 }
 
 /* Tema CLARO: tintas de marca sutis (laranja/azul) sobre o off-white, para o
-   fundo não ficar branco chapado. O escuro tem seu próprio fundo e não é tocado. */
+   fundo nÃ£o ficar branco chapado. O escuro tem seu prÃ³prio fundo e nÃ£o Ã© tocado. */
 [data-theme='light'] body,
 :root body {
   background:
@@ -53,7 +53,7 @@ input, select, textarea {
   font-family: 'Poppins', sans-serif;
 }
 
-/* ── Tokens de marca (iguais nos dois temas) ── */
+/* â”€â”€ Tokens de marca (iguais nos dois temas) â”€â”€ */
 :root {
   --accent: #f2921e;
   --accent-2: #e07b12;
@@ -67,18 +67,18 @@ input, select, textarea {
   --wa: #25d366;
 }
 
-/* ── Tema CLARO ── */
+/* â”€â”€ Tema CLARO â”€â”€ */
 :root,
 [data-theme='light'] {
   color-scheme: light;
-  /* Base off-white morna (não é branco puro chapado). Fica SÓLIDA porque
-     alguns lugares usam var(--bg) em border/ring — o gradiente de marca é
-     aplicado no body (.app-shell) via regra própria abaixo. */
+  /* Base off-white morna (nÃ£o Ã© branco puro chapado). Fica SÃ“LIDA porque
+     alguns lugares usam var(--bg) em border/ring â€” o gradiente de marca Ã©
+     aplicado no body (.app-shell) via regra prÃ³pria abaixo. */
   --bg: #fbfcfe;
   --surface: #ffffff;
-  /* Superfície secundária levemente mais azulada/saturada — cards e chips ganham cor. */
+  /* SuperfÃ­cie secundÃ¡ria levemente mais azulada/saturada â€” cards e chips ganham cor. */
   --surface-2: #e9eef6;
-  /* Tintas de marca um pouco mais presentes no claro (override só do tema claro;
+  /* Tintas de marca um pouco mais presentes no claro (override sÃ³ do tema claro;
      o escuro herda os valores do bloco de marca e fica intocado). */
   --accent-soft: rgba(242, 146, 30, 0.16);
   --accent-border: rgba(242, 146, 30, 0.40);
@@ -88,15 +88,15 @@ input, select, textarea {
   --heading: #0e2c46;
   /* Bordas com um toque de azul-marinho, menos cinza morto. */
   --border: rgba(24, 62, 110, 0.12);
-  /* Sombra de card com tinta azul-marinho quente (sombra colorida, não cinza chapado). */
+  /* Sombra de card com tinta azul-marinho quente (sombra colorida, nÃ£o cinza chapado). */
   --card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 12px 30px rgba(28, 70, 120, 0.11), 0 3px 8px rgba(28, 70, 120, 0.07);
   --section-navy: #0e2c46;
   --footer-bg: #07192a;
-  /* Scrim dos modais: escurece de leve e desfoca, mas o fundo continua visível. */
+  /* Scrim dos modais: escurece de leve e desfoca, mas o fundo continua visÃ­vel. */
   --scrim: rgba(30, 50, 78, 0.30);
 }
 
-/* ── Tema ESCURO ── */
+/* â”€â”€ Tema ESCURO â”€â”€ */
 [data-theme='dark'] {
   color-scheme: dark;
   --bg: #0a1622;
@@ -112,7 +112,7 @@ input, select, textarea {
   --scrim: rgba(6, 16, 28, 0.55);
 }
 
-/* ── Keyframes ── */
+/* â”€â”€ Keyframes â”€â”€ */
 @keyframes scrollBounce {
   0%, 100% { opacity: 0.7; transform: translateY(0); }
   50%      { opacity: 0.3; transform: translateY(10px); }
@@ -134,7 +134,7 @@ input, select, textarea {
   70%      { box-shadow: 0 0 0 16px rgba(37, 211, 102, 0); }
 }
 
-/* ── Mobile nav overlay ── */
+/* â”€â”€ Mobile nav overlay â”€â”€ */
 #mobile-nav {
   display: none;
   position: fixed;
@@ -159,7 +159,7 @@ input, select, textarea {
 #mobile-nav a:hover { color: #f2921e; }
 #nav-hbg { display: none; }
 
-/* ── Responsivo ── */
+/* â”€â”€ Responsivo â”€â”€ */
 @media (max-width: 960px) {
   .rsp-nav   { display: none !important; }
   #main-nav  { padding: 16px 24px !important; }
@@ -207,9 +207,9 @@ input, select, textarea {
   .fab-gear  { right: 18px !important; bottom: 90px !important; }
 }
 
-/* ─────────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Sistema de movimento premium (Etapa 1)
-───────────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :root {
   --ease-out: cubic-bezier(.16, 1, .3, 1);
   --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
@@ -218,7 +218,7 @@ input, select, textarea {
   --fs-h3: clamp(24px, 3vw, 34px);
 }
 
-/* Foco acessível e bonito (AA) */
+/* Foco acessÃ­vel e bonito (AA) */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
@@ -255,7 +255,7 @@ input, select, textarea {
   pointer-events: none;
 }
 
-/* Textura de grão sobre fundos escuros (atmosfera) */
+/* Textura de grÃ£o sobre fundos escuros (atmosfera) */
 .grain::after {
   content: '';
   position: absolute;
@@ -266,7 +266,7 @@ input, select, textarea {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* Grão GLOBAL sutil — textura "cara" em todo o site (não bloqueia cliques) */
+/* GrÃ£o GLOBAL sutil â€” textura "cara" em todo o site (nÃ£o bloqueia cliques) */
 body::after {
   content: '';
   position: fixed;
@@ -286,16 +286,16 @@ body::after {
   75% { transform: translate(2%, 2%); }
 }
 
-/* Transição de tema (View Transitions API) */
+/* TransiÃ§Ã£o de tema (View Transitions API) */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation-duration: .5s;
   animation-timing-function: var(--ease-out);
 }
 
-/* ─────────────────────────────────────────────
-   Painel do sistema (área autenticada)
-───────────────────────────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   Painel do sistema (Ã¡rea autenticada)
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes appShimmer { 0% { background-position: -480px 0; } 100% { background-position: 480px 0; } }
 @keyframes appFadeUp  { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
@@ -343,7 +343,7 @@ body::after {
 .app-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
 .app-scroll::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: content-box; }
 
-/* ── Fundo de marca (mesmo clima do hero da home) ── */
+/* â”€â”€ Fundo de marca (mesmo clima do hero da home) â”€â”€ */
 /* Auth/onboarding: navy mesh premium, sempre escuro (momento de marca). */
 .brand-bg {
   background:
@@ -358,7 +358,7 @@ body::after {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* Versão CLARA do fundo de marca (onboarding reage ao tema escolhido) */
+/* VersÃ£o CLARA do fundo de marca (onboarding reage ao tema escolhido) */
 .brand-bg-light {
   position: relative;
   background:
@@ -368,7 +368,7 @@ body::after {
 }
 .brand-bg, .brand-bg-light { transition: background .45s ease, color .45s ease; }
 
-/* Painel: fundo de marca SUTIL atrás dos cards opacos (tema-aware). */
+/* Painel: fundo de marca SUTIL atrÃ¡s dos cards opacos (tema-aware). */
 [data-theme='light'] .app-bg {
   background:
     radial-gradient(48% 42% at 100% 0%, rgba(242,146,30,.11), transparent 60%),
@@ -383,13 +383,13 @@ body::after {
     #08131f;
 }
 
-/* Escala de fonte do painel (acessibilidade) via zoom no conteúdo. */
+/* Escala de fonte do painel (acessibilidade) via zoom no conteÃºdo. */
 .app-zoomable { zoom: var(--app-zoom, 1); }
 
-/* Botões nunca quebram o rótulo em duas linhas. */
+/* BotÃµes nunca quebram o rÃ³tulo em duas linhas. */
 .app-btn { white-space: nowrap; }
 
-/* PageHeader no mobile: a ação ocupa a largura toda e o botão cresce. */
+/* PageHeader no mobile: a aÃ§Ã£o ocupa a largura toda e o botÃ£o cresce. */
 @media (max-width: 560px) {
   .app-pagehead { align-items: stretch !important; }
   .app-ph-act { width: 100%; display: flex; gap: 10px; flex-wrap: wrap; }
@@ -407,14 +407,14 @@ body::after {
 /* Logo no header/painel um pouco mais presente */
 .brand-logo { filter: drop-shadow(0 0 1px rgba(255,255,255,.95)) drop-shadow(0 0 1px rgba(255,255,255,.95)); }
 
-/* Logotipos de módulo (PNG transparente): halo branco sutil para as partes
-   azul-marinho lerem no tema escuro; imperceptível no tema claro. */
+/* Logotipos de mÃ³dulo (PNG transparente): halo branco sutil para as partes
+   azul-marinho lerem no tema escuro; imperceptÃ­vel no tema claro. */
 .module-logo { filter: drop-shadow(0 0 1px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.9)); }
 
-/* Opções do seletor de pessoa (PersonPicker) — hover suave. */
+/* OpÃ§Ãµes do seletor de pessoa (PersonPicker) â€” hover suave. */
 .picker-opt:hover { background: var(--surface-2); }
 
-/* ── Modais: entrada suave + viram "sheet" full-screen no mobile ── */
+/* â”€â”€ Modais: entrada suave + viram "sheet" full-screen no mobile â”€â”€ */
 @keyframes sheetUp { from { opacity: 0; transform: translateY(30px) scale(.985); } to { opacity: 1; transform: none; } }
 .m-modal { animation: sheetUp .42s var(--ease-spring) both; }
 .m-scrim { animation: appFadeUp .22s ease both; }
@@ -422,7 +422,7 @@ body::after {
 @keyframes stepIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 .step-anim { animation: stepIn .4s var(--ease-out) both; }
 
-/* ── Chat do agente de IA: entrada das bolhas + indicador de digitação ── */
+/* â”€â”€ Chat do agente de IA: entrada das bolhas + indicador de digitaÃ§Ã£o â”€â”€ */
 @keyframes chatIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .chat-in { animation: chatIn .32s var(--ease-out) both; }
 .typing { display: inline-flex; gap: 4px; align-items: center; }
@@ -432,7 +432,7 @@ body::after {
 
 @media (max-width: 620px) {
   /* No mobile viram "bottom-sheet": sobem de baixo e o fundo (desfocado) ainda
-     aparece no topo — nunca apagam a tela inteira. */
+     aparece no topo â€” nunca apagam a tela inteira. */
   .m-scrim, .app-modal-scrim {
     padding: 0 !important; align-items: flex-end !important; justify-content: stretch !important;
   }
@@ -444,7 +444,7 @@ body::after {
   }
 }
 
-/* ── Topbar do painel: enxuga no mobile ── */
+/* â”€â”€ Topbar do painel: enxuga no mobile â”€â”€ */
 @media (max-width: 560px) {
   .pnl-topbar-name { display: none !important; }
 }
@@ -452,7 +452,7 @@ body::after {
   .pnl-lang { display: none !important; }
 }
 
-/* Toques confortáveis no mobile */
+/* Toques confortÃ¡veis no mobile */
 @media (max-width: 620px) {
   .app-input { padding: 14px 15px !important; font-size: 16px !important; }
 }
@@ -462,7 +462,7 @@ body::after {
   .ov-grid { grid-template-columns: 1fr !important; }
 }
 @media (max-width: 900px) {
-  /* 1 coluna e os cards podem encolher abaixo do conteúdo (evita overflow lateral). */
+  /* 1 coluna e os cards podem encolher abaixo do conteÃºdo (evita overflow lateral). */
   .fb-grid { grid-template-columns: minmax(0, 1fr) !important; }
   .fb-grid > * { min-width: 0; }
 }
@@ -478,6 +478,26 @@ body::after {
 @media (max-width: 480px) { .audit-filters { grid-template-columns: 1fr; } .audit-filters .af-span { grid-column: auto; } }
 
 /* Drawer da sidebar no mobile */
+/* Nav recolhida (desktop): some de vez, liberando a largura para telas que
+   precisam dela â€” o construtor de fluxo Ã© a que mais precisa. Some por
+   `width`, e nÃ£o por `display`, para a transiÃ§Ã£o existir. */
+@media (min-width: 901px) {
+  .app-sidebar.recolhida {
+    width: 0 !important;
+    min-width: 0 !important;
+    overflow: hidden;
+    border-right: none;
+    transition: width .22s var(--ease-out), min-width .22s var(--ease-out);
+  }
+}
+/* No celular a nav jÃ¡ Ã© gaveta: o botÃ£o de recolher sÃ³ confundiria. */
+@media (max-width: 900px) {
+  .pnl-nav-toggle { display: none !important; }
+}
+@media (min-width: 901px) {
+  .pnl-nav-toggle { display: inline-flex !important; }
+}
+
 .app-sidebar-backdrop { display: none; }
 @media (max-width: 900px) {
   .app-sidebar { position: fixed !important; left: 0; top: 0; bottom: 0; transform: translateX(-100%); transition: transform .3s var(--ease-out); z-index: 50; }
@@ -486,7 +506,7 @@ body::after {
   .app-burger { display: inline-flex !important; }
 }
 
-/* Respeita preferência de menos movimento */
+/* Respeita preferÃªncia de menos movimento */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: .001ms !important;
@@ -494,4 +514,73 @@ body::after {
     transition-duration: .001ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* â”€â”€ Ãcones duotone da nav â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   Duas camadas: vÃ©u preenchido atrÃ¡s + traÃ§o na frente. Cada TEMA entinta o
+   mesmo desenho para o prÃ³prio fundo â€” o claro usa um vÃ©u discreto do accent
+   com traÃ§o escuro; o escuro usa um brilho mais denso e traÃ§o claro. */
+:root {
+  --duo-fill: color-mix(in srgb, var(--accent) 13%, transparent);
+  --duo-stroke: currentColor;
+}
+[data-theme='dark'] {
+  --duo-fill: color-mix(in srgb, var(--accent) 20%, transparent);
+  --duo-stroke: currentColor;
+}
+
+/* â”€â”€ Polimento de tema (cockpit) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   O escuro deixa de ser um azul chapado: ganha o mesmo "clima" de marca do
+   claro â€” dois vÃ©us radiais (Ã¢mbar e azul) sobre um fundo de tinta mais
+   profundo. SuperfÃ­cies sobem meio tom para os cards se descolarem do fundo. */
+[data-theme='dark'] {
+  --bg: #081420;
+  --surface: #102436;
+  --surface-2: #0b1a29;
+  --border: rgba(165, 200, 235, 0.11);
+  --card-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 16px 40px rgba(0, 0, 0, 0.5),
+    0 2px 10px rgba(0, 0, 0, 0.35);
+}
+[data-theme='dark'] body {
+  background:
+    radial-gradient(56% 48% at 100% 0%, rgba(242, 146, 30, 0.055), transparent 62%),
+    radial-gradient(50% 44% at 0% 4%, rgba(72, 140, 205, 0.07), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* O painel (app-bg) acompanha o clima do body nos dois temas â€” antes o fundo
+   do cockpit era uma cor sÃ³lida e a tela parecia "colada" por cima do site. */
+.app-bg {
+  background:
+    radial-gradient(56% 48% at 100% 0%, rgba(242, 146, 30, 0.05), transparent 62%),
+    radial-gradient(50% 44% at 0% 4%, rgba(47, 111, 176, 0.06), transparent 60%),
+    var(--bg);
+}
+
+/* Item ativo da nav: filete de marca Ã  esquerda + vÃ©u com direÃ§Ã£o. Ã‰ a
+   assinatura visual de "vocÃª estÃ¡ aqui" â€” um fundo chapado nÃ£o tem hierarquia. */
+.app-nav-item { position: relative; }
+.app-nav-item.active {
+  background: linear-gradient(90deg, var(--accent-soft), transparent 140%);
+}
+.app-nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 100px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 10px var(--accent-shadow);
+}
+
+/* Anel de foco visÃ­vel para teclado, na cor da marca â€” acessÃ­vel sem sujar o
+   clique de mouse (sÃ³ :focus-visible). */
+:where(button, a, [role='button']):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

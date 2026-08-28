@@ -56,6 +56,11 @@ export type UsersTextos = {
   noneBody: string
   noCompany: string
   verifyEmail: string
+  sendAccess: string
+  accessSent: string
+  sendVerification: string
+  verificationSent: string
+  markVerified: string
   verified: string
   resetPassword: string
   newPassword: string
@@ -129,11 +134,13 @@ export default function PlatformUsers({
     return () => window.clearTimeout(timer.current)
   }, [termo, buscar])
 
-  async function agir(chave: string, fn: () => Promise<unknown>) {
+  async function agir(chave: string, fn: () => Promise<unknown>, msg?: string) {
     setOcupado(chave)
     try {
       await fn()
-      onToast(textos.done)
+      // Mensagem específica quando a ação tem uma ("código enviado") — o
+      // "feito" genérico não conta o que aconteceu.
+      onToast(msg ?? textos.done)
       await buscar(termo.trim())
     } catch (e) {
       onToast((e as ApiError).detail ?? 'Erro')
@@ -272,13 +279,40 @@ export default function PlatformUsers({
                 )
               ) : (
               <>
+              {/* REENVIAR ACESSO — sempre disponível, inclusive para quem já
+                  está verificado e ativo: o chamado real é "perdi o e-mail".
+                  Convite não volta depois do aceite (a conta já existe), então
+                  o que resolve é o código de redefinição de senha. */}
+              <Button variant="ghost" style={{ padding: '8px 14px', fontSize: 13 }} loading={ocupado === contaId}
+                onClick={() => void agir(
+                  contaId,
+                  () => api.post(`/platform/users/${contaId}/send-access`, {}),
+                  textos.accessSent,
+                )}>
+                {textos.sendAccess}
+              </Button>
               {u.email_verified ? (
                 <Chip tone="green">{textos.verified}</Chip>
               ) : (
-                <Button variant="ghost" style={{ padding: '8px 14px', fontSize: 13 }} loading={ocupado === contaId}
-                  onClick={() => void agir(contaId, () => api.post(`/platform/users/${contaId}/verify-email`, {}))}>
-                  {textos.verifyEmail}
-                </Button>
+                <>
+                  {/* Duas ações DIFERENTES que um botão só escondia: enviar o
+                      código para a pessoa verificar (o caminho normal) e
+                      carimbar na mão (suporte, quando o código não chega).
+                      O botão antigo dizia "verificar" e só carimbava — sem
+                      disparar e-mail nenhum. */}
+                  <Button variant="ghost" style={{ padding: '8px 14px', fontSize: 13 }} loading={ocupado === contaId}
+                    onClick={() => void agir(
+                      contaId,
+                      () => api.post(`/platform/users/${contaId}/send-verification`, {}),
+                      textos.verificationSent,
+                    )}>
+                    {textos.sendVerification}
+                  </Button>
+                  <Button variant="outline" style={{ padding: '8px 14px', fontSize: 13 }} loading={ocupado === contaId}
+                    onClick={() => confirmar(`verif:${contaId}`, () => void agir(contaId, () => api.post(`/platform/users/${contaId}/verify-email`, {})))}>
+                    {confirmando === `verif:${contaId}` ? textos.confirm : textos.markVerified}
+                  </Button>
+                </>
               )}
               <Button variant="outline" style={{ padding: '8px 14px', fontSize: 13 }}
                 onClick={() => { setSenhaDe(senhaDe === contaId ? null : contaId); setSenha('') }}>

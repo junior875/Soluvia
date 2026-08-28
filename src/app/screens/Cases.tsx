@@ -9,11 +9,13 @@ import { useCaps } from '../capabilities'
 import { modPerm } from '../modulePerms'
 import { goScreen } from '../nav'
 import EvidencePanel from './EvidencePanel'
+import ParecerForm, { type ParecerPayload } from './ParecerForm'
 import { EvidenceUploader } from '../../components/EvidenceUploader'
 import { carregarTiposAceitos, megabytes, paraAccept, type TiposAceitos } from '../../lib/uploads'
 import { useT } from '../strings'
 import { useTranslation } from '../../i18n/LanguageProvider'
 import { Button, Card, Chip, EmptyState, Input, Modal, PageHeader, SectionLabel, Select, Skeleton } from '../ui'
+import { Icon } from '../icons'
 import ParecerSignModal from './signature/ParecerSignModal'
 
 const SEV_TONE = { low: 'muted', medium: 'blue', high: 'accent', critical: 'accent' } as const
@@ -50,13 +52,17 @@ export default function Cases({ module = 'etica' }: CasesProps) {
   const [severity, setSeverity] = useState('medium')
   const [resolution, setResolution] = useState('')
   const [resVisible, setResVisible] = useState(true)
-  // Parecer (etapa de investigação)
-  const [pDecision, setPDecision] = useState<string>('')
-  const [pRating, setPRating] = useState<string>('')
-  const [pUrgency, setPUrgency] = useState<string>('')
-  const [pParecer, setPParecer] = useState('')
+  // Parecer da etapa. O rascunho mora no formulário (que muda de forma conforme
+  // o TIPO do bloco); aqui fica só o que já foi preenchido e está esperando a
+  // assinatura — sem isto, abrir o modal de assinar perderia o que a pessoa
+  // acabou de escrever.
+  const [parecerPronto, setParecerPronto] = useState<ParecerPayload | null>(null)
+  // Sobe a cada envio: remonta o formulário limpo para a próxima etapa.
+  const [parecerNonce, setParecerNonce] = useState(0)
   // Muda a cada anexo novo da equipe: remonta a galeria para ele aparecer.
   const [evidenceNonce, setEvidenceNonce] = useState(0)
+  // Quantas provas o caso tem — o bloco de investigação abre citando o número.
+  const [provasCount, setProvasCount] = useState(0)
   const [tiposAceitos, setTiposAceitos] = useState<TiposAceitos | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [q, setQ] = useState('')
@@ -131,19 +137,30 @@ export default function Cases({ module = 'etica' }: CasesProps) {
   const applySeverity = () => act(async () => { await api.post(`/cases/${detail!.id}/events`, { type: 'note', new_severity: severity }) })
   const advance = () => act(async () => { await api.post(`/cases/${detail!.id}/advance`, {}) })
   const closeCase = () => act(async () => { await api.post(`/cases/${detail!.id}/close`, { resolution, visible_to_reporter: resVisible }) })
-  const releaseFlow = () => act(async () => { const d = await api.post<CaseDetail>(`/cases/${detail!.id}/release-flow`, {}); setDetail(d) })
+  // `releaseFlow` saiu: o fluxo arranca sozinho quando o relato chega. A ROTA
+  // continua no backend de propósito — é o resgate para o caso que entrou antes
+  // de o fluxo do canal existir, e para relançar uma apuração configurada
+  // depois. Só não é mais um passo obrigatório na tela.
   // Envia o parecer. Se a etapa exigir assinatura, `sig` traz rubrica + geo + CPF.
-  const doSubmitParecer = (sig?: { signature_image: string; geo: SigGeo; cpf: string | null }) => act(async () => {
+  const doSubmitParecer = (p: ParecerPayload, sig?: { signature_image: string; geo: SigGeo; cpf: string | null }) => act(async () => {
     const d = await api.post<CaseDetail>(`/cases/${detail!.id}/parecer`, {
-      decision: pDecision || null, rating: pRating ? Number(pRating) : null, urgency: pUrgency || null, parecer: pParecer,
+      decision: p.decision, urgency: p.urgency, parecer: p.parecer,
+      attachment_ids: p.attachment_ids,
       signature_image: sig?.signature_image ?? null, geo: sig?.geo ?? null, cpf: sig?.cpf ?? null,
     })
-    setDetail(d); setPDecision(''); setPRating(''); setPUrgency(''); setPParecer(''); setSignOpen(false)
+    setDetail(d)
+    setParecerPronto(null)
+    setParecerNonce((n) => n + 1)
+    setSignOpen(false)
     flash(t.cases.inv.sent)
   })
   const myPending = detail?.assignments.find((a) => a.id === detail.my_pending_assignment_id) ?? null
-  // Botão do parecer: abre o modal de assinatura se a etapa exigir; senão envia direto.
-  const onSubmitParecer = () => { if (myPending?.require_signature) setSignOpen(true); else void doSubmitParecer() }
+  /** O formulário terminou. Se a etapa exigir assinatura, guarda o que foi
+   *  preenchido e abre a rubrica; senão vai direto. */
+  const onEnviarParecer = (p: ParecerPayload) => {
+    if (myPending?.require_signature) { setParecerPronto(p); setSignOpen(true) }
+    else void doSubmitParecer(p)
+  }
 
   const answersView = detail && detail.form_snapshot.length > 0
     ? detail.form_snapshot.filter((f) => f.type !== 'section' && f.type !== 'info').map((f) => {
@@ -275,9 +292,12 @@ export default function Cases({ module = 'etica' }: CasesProps) {
                 canDownload={p('download_evidence')}
                 canAudit={can('admin.view_audit')}
                 onError={flash}
+                onContagem={setProvasCount}
                 textos={{
                   title: tx.evidenceTitle,
                   empty: tx.evidenceEmpty,
+                  // Vocabulário do módulo: no SAC quem envia é o consumidor.
+                  fromReporter: tx.evidenceFromReporter,
                   view: tx.evidenceView,
                   download: tx.evidenceDownload,
                   close: t.common.close ?? 'Fechar',
@@ -386,16 +406,47 @@ export default function Cases({ module = 'etica' }: CasesProps) {
               </div>
             </div>
 
-            {/* Investigação — fluxo de pareceres */}
-            {(detail.assignments.length > 0 || (detail.can_release && canTriage)) && (
+            {/* Investigação — fluxo de pareceres.
+                O botão "liberar fluxo" saiu daqui: responder o formulário JÁ é
+                o início da apuração, e o fluxo arranca sozinho na chegada do
+                relato. O passo manual não decidia nada e só atrasava — no SAC,
+                com o prazo legal de 7 dias já correndo. */}
+            {detail.assignments.length > 0 && (
               <div>
                 <SectionLabel>{t.cases.inv.title}</SectionLabel>
-                {detail.can_release && canTriage && (
-                  <div style={{ marginBottom: 12 }}>
-                    <Button loading={busy} onClick={releaseFlow} leftIcon="flow">{t.cases.inv.release}</Button>
-                    <p style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: 6 }}>{t.cases.inv.releaseHint}</p>
-                  </div>
-                )}
+
+                {/* EM QUE ETAPA ESTÁ — a pergunta que se faz ao abrir o caso.
+                    A lista de fichas mostra tudo, do que já passou ao que
+                    ainda vem; ela sozinha não diz onde a apuração parou. */}
+                {(() => {
+                  const ativas = detail.assignments.filter((a) => a.status === 'active')
+                  const feitas = detail.assignments.filter((a) => a.status === 'submitted').length
+                  const total = detail.assignments.length
+                  if (ativas.length === 0) return null
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: 12, padding: '10px 13px', marginBottom: 12 }}>
+                      <span style={{ color: 'var(--accent)', fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                        {t.cases.inv.nowAt}
+                      </span>
+                      <span style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 14 }}>
+                        {ativas.map((a) => (a.is_closer ? t.cases.inv.closer : a.stage_name)).join(' · ')}
+                      </span>
+                      {/* Duas ao mesmo tempo = bloco paralelo: dizer isso evita
+                          a leitura de que uma delas está atrasada. */}
+                      {ativas.length > 1 && <Chip tone="accent">{t.flow.together}</Chip>}
+                      <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: 12.5 }}>
+                        {t.cases.inv.progress(feitas, total)}
+                      </span>
+                    </div>
+                  )
+                })()}
+
+                {/* A TRILHA — o mesmo desenho do construtor, em miniatura e
+                    somente leitura: blocos com seta, paralelo com "+", e a
+                    etapa ATUAL acesa. É o mapa que deixa a lista de baixo
+                    legível — a pessoa entende ONDE está antes de ler O QUÊ. */}
+                <FluxoTrilha assignments={detail.assignments} t={t} />
+
                 {detail.assignments.length > 0 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {detail.assignments.map((a) => {
@@ -405,7 +456,16 @@ export default function Cases({ module = 'etica' }: CasesProps) {
                         <div key={a.id} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '10px 12px', background: a.id === detail.my_pending_assignment_id ? 'var(--accent-soft)' : 'var(--surface-2)' }}>
                           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                             <span style={{ fontWeight: 800, color: 'var(--heading)', fontSize: 14 }}>{a.is_closer ? t.cases.inv.closer : a.stage_name}</span>
-                            <Chip tone={stTone as 'green' | 'accent' | 'muted'}>{(t.cases.inv.status as Record<string, string>)[a.status] ?? a.status}</Chip>
+                            {/* "Sua vez" SÓ para quem vai responder. Para quem
+                                apenas olha o caso, a etapa ativa está
+                                "aguardando parecer" — mostrar "sua vez" a
+                                todo mundo fazia o Admin procurar um formulário
+                                que nunca existiu para ele. */}
+                            <Chip tone={stTone as 'green' | 'accent' | 'muted'}>
+                              {a.status === 'active' && a.id !== detail.my_pending_assignment_id
+                                ? t.cases.inv.waitingOther
+                                : (t.cases.inv.status as Record<string, string>)[a.status] ?? a.status}
+                            </Chip>
                             <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: 12.5 }}>{who}</span>
                           </div>
                           {a.status === 'submitted' && (
@@ -430,36 +490,19 @@ export default function Cases({ module = 'etica' }: CasesProps) {
                   </div>
                 )}
                 {myPending && (
-                  <div style={{ marginTop: 14, border: '1.5px solid var(--accent)', borderRadius: 14, padding: 14, background: 'var(--surface-2)' }}>
-                    <div style={{ fontWeight: 800, color: 'var(--heading)', marginBottom: 10 }}>{t.cases.inv.give} — {myPending.is_closer ? t.cases.inv.closer : myPending.stage_name}</div>
-                    {myPending.parecer_config?.decision && (
-                      <div style={{ marginBottom: 10 }}>
-                        <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>{t.cases.inv.decision}</div>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          {(['agree', 'more_info', 'dismiss'] as const).map((d) => (
-                            <button key={d} type="button" onClick={() => setPDecision(d)} className="app-btn" style={{ cursor: 'pointer', border: `1.5px solid ${pDecision === d ? 'var(--accent)' : 'var(--border)'}`, background: pDecision === d ? 'var(--accent-soft)' : 'var(--surface)', color: pDecision === d ? 'var(--accent)' : 'var(--text)', borderRadius: 100, padding: '7px 14px', fontSize: 13, fontWeight: 700 }}>{(t.cases.inv.dec as Record<string, string>)[d]}</button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
-                      {myPending.parecer_config?.rating && (
-                        <div><div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>{t.cases.inv.rating}</div>
-                          <Select value={pRating} onChange={(e) => setPRating(e.target.value)} style={{ maxWidth: 120 }}><option value="">—</option>{[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}</Select></div>
-                      )}
-                      {myPending.parecer_config?.urgency && (
-                        <div><div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>{t.cases.inv.urgency}</div>
-                          <Select value={pUrgency} onChange={(e) => setPUrgency(e.target.value)} style={{ maxWidth: 160 }}><option value="">—</option>{(['low', 'medium', 'high'] as const).map((u) => <option key={u} value={u}>{(t.cases.inv.urg as Record<string, string>)[u]}</option>)}</Select></div>
-                      )}
-                    </div>
-                    <textarea style={ta} value={pParecer} onChange={(e) => setPParecer(e.target.value)} placeholder={t.cases.inv.pareceerPh} />
-                    {myPending.require_signature && (
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 8, background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: 10, padding: '9px 12px', color: 'var(--accent)', fontSize: 12.5, lineHeight: 1.5 }}>
-                        <span>🔏</span><span>{t.cases.inv.sigRequired}</span>
-                      </div>
-                    )}
-                    <Button loading={busy} disabled={!pParecer.trim()} onClick={onSubmitParecer} leftIcon={myPending.require_signature ? 'signature' : undefined} style={{ marginTop: 8 }}>{myPending.require_signature ? t.cases.inv.submitSign : t.cases.inv.submit}</Button>
-                  </div>
+                  // `key` com o nonce: depois de enviar, o formulário volta
+                  // limpo. Ele guarda o próprio rascunho, e remontar é mais
+                  // honesto do que limpar campo a campo de fora.
+                  <ParecerForm
+                    key={`${myPending.id}:${parecerNonce}`}
+                    ficha={myPending}
+                    caseId={detail.id}
+                    tiposAceitos={tiposAceitos}
+                    busy={busy}
+                    provasExistentes={provasCount}
+                    onEnviar={onEnviarParecer}
+                    onAnexoConcluido={() => setEvidenceNonce((n) => n + 1)}
+                  />
                 )}
               </div>
             )}
@@ -474,18 +517,12 @@ export default function Cases({ module = 'etica' }: CasesProps) {
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
                   {flowActive && <p style={{ color: 'var(--text-muted)', fontSize: 12.5, lineHeight: 1.5, margin: 0 }}>{t.cases.inv.flowManaged}</p>}
-                  {!flowActive && canTriage && (
-                    <div>
-                      <SectionLabel>{t.cases.triageL}</SectionLabel>
-                      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <Select value={severity} onChange={(e) => setSeverity(e.target.value)} style={{ maxWidth: 200 }}>
-                          {SEVS.map((s) => <option key={s} value={s}>{sevL(s)}</option>)}
-                        </Select>
-                        <Button variant="ghost" loading={busy} onClick={applySeverity}>{t.cases.applySev}</Button>
-                        <Button loading={busy} onClick={advance}>{t.cases.advance}</Button>
-                      </div>
-                    </div>
-                  )}
+                  {/* A TRIAGEM (gravidade + avançar etapa) saiu daqui.
+                      Quem decide o andamento é o FLUXO: a gravidade vem do
+                      relato e, quando o fluxo pede, do campo "urgência" do
+                      parecer. Ter os dois caminhos deixava a mesma decisão em
+                      dois lugares — e o manual furava a apuração configurada,
+                      avançando etapa sem ninguém ter dado parecer. */}
                   {canRespond && (
                     <div>
                       <SectionLabel>{tx.respondL}</SectionLabel>
@@ -517,12 +554,81 @@ export default function Cases({ module = 'etica' }: CasesProps) {
         )}
       </Modal>
 
-      <ParecerSignModal open={signOpen} busy={busy} onClose={() => setSignOpen(false)} onConfirm={(sig) => doSubmitParecer(sig)} defaultName={ctx.user.full_name} />
+      <ParecerSignModal
+        open={signOpen} busy={busy}
+        onClose={() => setSignOpen(false)}
+        // Só assina o que já foi preenchido: sem `parecerPronto` não há parecer
+        // para selar, e assinar o vazio geraria uma prova de nada.
+        onConfirm={(sig) => { if (parecerPronto) void doSubmitParecer(parecerPronto, sig) }}
+        defaultName={ctx.user.full_name}
+      />
 
       {toast && createPortal(
         <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: 'var(--heading)', color: 'var(--surface)', padding: '12px 22px', borderRadius: 100, fontWeight: 700, fontSize: 14, boxShadow: '0 12px 30px rgba(0,0,0,.3)', zIndex: 10002, maxWidth: '90vw', textAlign: 'center' }}>{toast}</div>,
         document.body,
       )}
+    </div>
+  )
+}
+
+/**
+ * A trilha do fluxo dentro do caso — o desenho do construtor em miniatura.
+ *
+ * Grupos viram passos com seta (→); blocos do mesmo grupo aparecem empilhados
+ * com "+" (rodam AO MESMO TEMPO). O passo atual fica aceso na cor da marca,
+ * o que já passou ganha o verde de concluído, o que ainda vem fica apagado.
+ * Somente leitura: quem quer mexer no desenho vai ao construtor.
+ */
+function FluxoTrilha({ assignments, t }: { assignments: CaseDetail['assignments']; t: ReturnType<typeof useT> }) {
+  if (assignments.length === 0) return null
+  // Agrupa pelo group_index (o encerrador, sem grupo próprio, vai ao fim).
+  const etapas = assignments.filter((a) => !a.is_closer)
+  const closer = assignments.find((a) => a.is_closer)
+  const grupos = new Map<number, typeof etapas>()
+  for (const a of etapas) {
+    const g = a.group_index ?? 0
+    grupos.set(g, [...(grupos.get(g) ?? []), a])
+  }
+  const ordenados = [...grupos.entries()].sort(([a], [b]) => a - b).map(([, v]) => v)
+  if (closer) ordenados.push([closer])
+
+  const corDo = (grupo: typeof etapas) => {
+    if (grupo.some((a) => a.status === 'active')) return 'ativa'
+    if (grupo.every((a) => a.status === 'submitted')) return 'feita'
+    return 'espera'
+  }
+
+  return (
+    <div className="app-scroll" style={{ display: 'flex', alignItems: 'center', gap: 8, overflowX: 'auto', padding: '4px 2px 10px', marginBottom: 14 }}>
+      {ordenados.map((grupo, gi) => {
+        const estado = corDo(grupo)
+        const borda = estado === 'ativa' ? 'var(--accent)' : estado === 'feita' ? '#16a34a' : 'var(--border)'
+        const texto = estado === 'espera' ? 'var(--text-muted)' : 'var(--heading)'
+        return (
+          <span key={gi} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            {gi > 0 && <span style={{ color: 'var(--text-muted)', fontWeight: 800, fontSize: 14 }}>→</span>}
+            <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 4 }}>
+              {grupo.map((a, i) => (
+                <span key={a.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  {i > 0 && <span style={{ color: 'var(--accent)', fontWeight: 800, fontSize: 11, marginRight: -2 }}>+</span>}
+                  <span
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      border: `1.5px solid ${borda}`, borderRadius: 100, padding: '4px 11px',
+                      background: estado === 'ativa' ? 'var(--accent-soft)' : 'var(--surface)',
+                      color: texto, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {estado === 'feita' && <Icon name="check" size={11} style={{ color: '#16a34a' }} />}
+                    {estado === 'ativa' && <span className="dot-live" style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)' }} />}
+                    {a.is_closer ? t.cases.inv.closer : a.stage_name}
+                  </span>
+                </span>
+              ))}
+            </span>
+          </span>
+        )
+      })}
     </div>
   )
 }

@@ -3,6 +3,9 @@
 import type { ComponentType } from 'react'
 import type { IconName } from './icons'
 import type { AppStrings } from './strings'
+import EvidenceVault from './screens/EvidenceVault'
+import MyCases from './screens/MyCases'
+import MyWatching from './screens/MyWatching'
 import Overview from './screens/Overview'
 import Cases from './screens/Cases'
 import Signature from './screens/Signature'
@@ -39,6 +42,25 @@ const SACScreen = () => <Cases module="sac" />
 
 export const SCREENS: ScreenDef[] = [
   { id: 'overview', navKey: 'overview', icon: 'overview', group: 'main', Component: Overview },
+  {
+    // Logo abaixo da visão geral: é a primeira pergunta de quem entra no
+    // sistema para trabalhar — "o que está esperando por mim?". Sem `requires`
+    // porque a tela é auto-escopada: mostra as fichas DESTA pessoa, e quem não
+    // tem nenhuma vê o estado vazio.
+    id: 'mine', navKey: 'mine', icon: 'check', group: 'main', Component: MyCases,
+  },
+  {
+    // Ao lado de "Meus atendimentos" e pela mesma razão de existir: uma
+    // responde "o que espera por mim?", a outra "o que andou no que eu
+    // acompanho?". Também auto-escopada — quem não observa nada vê o vazio.
+    id: 'watching', navKey: 'watching', icon: 'eye', group: 'main', Component: MyWatching,
+  },
+  {
+    // O cofre: todas as provas visíveis num lugar só, com busca. A permissão
+    // é a mesma da tela do caso — o cofre não abre nada novo.
+    id: 'evidence', navKey: 'evidence', icon: 'vault', group: 'main', Component: EvidenceVault,
+    requires: { anyOf: ['etica.view_evidence', 'sac.view_evidence'] },
+  },
   {
     id: 'cases', navKey: 'cases', icon: 'cases', logo: '/canal-denuncias-icon.png', group: 'modules', Component: Cases,
     requires: { anyOf: ['etica.view_cases', 'privacidade.view_requests', 'incidentes.view'] },
@@ -89,7 +111,7 @@ export const SCREENS: ScreenDef[] = [
   {
     // Fica em 'config' junto de canais e formulário: divulgar é o último passo
     // de colocar um canal no ar, não uma tarefa administrativa avulsa.
-    id: 'announcements', navKey: 'announcements', icon: 'people', group: 'config',
+    id: 'announcements', navKey: 'announcements', icon: 'megaphone', group: 'config',
     Component: Announcements,
     requires: { anyOf: ['admin.notify'] },
   },

@@ -34,6 +34,11 @@ export interface PlatformTenantRow {
   ai_tokens_used: number
   storage_limit_bytes: number
   storage_used_bytes: number
+  /** Teto de usuários EFETIVO (plano ou manual), o padrão do plano e o
+   *  manual quando existe — a tela mostra de onde o número veio. */
+  max_users: number
+  plan_max_users: number
+  max_users_override: number | null
   created_at: string
 }
 
@@ -141,14 +146,32 @@ export interface FlowCondition {
   value: string
 }
 
+/** LEGADO: os interruptores que o `kind` substituiu. Fluxo antigo ainda tem. */
 export interface ParecerConfig {
   decision?: boolean
   rating?: boolean
   urgency?: boolean
 }
 
+/**
+ * O TIPO do bloco — é ele que decide o formulário que a pessoa designada vê.
+ *
+ * - `decisao`      só o texto da decisão
+ * - `urgencia`     normal | média | alta
+ * - `avaliacao`    texto livre + qualquer arquivo
+ * - `investigacao` as provas já carregadas + poder carregar mais
+ */
+export type StageKind = 'decisao' | 'urgencia' | 'avaliacao' | 'investigacao'
+
+export const STAGE_KINDS: StageKind[] = ['decisao', 'urgencia', 'avaliacao', 'investigacao']
+
+/** Blocos em que o parecer aceita anexo. */
+export const KINDS_COM_ANEXO: StageKind[] = ['avaliacao', 'investigacao']
+
 export interface FlowStageIn {
   name: string
+  /** Opcional na leitura: fluxo salvo antes dos tipos não tem o campo. */
+  kind?: StageKind
   /** Bloco de execução: etapas do mesmo bloco são acionadas juntas, e o bloco
    *  seguinte só começa quando todas responderem. Opcional na leitura porque
    *  fluxo salvo antes dos blocos não tem o campo. */
@@ -157,8 +180,13 @@ export interface FlowStageIn {
   operator_membership_id?: string | null
   parecer_config?: ParecerConfig
   require_signature?: boolean
+  /** Observadores: a empresa inteira, papéis e/ou pessoas nominais. */
+  watcher_all?: boolean
   watcher_role_ids: string[]
+  watcher_membership_ids?: string[]
   sla_days: number
+  /** Prazo em HORAS — manda quando presente (o SAC tem 168h legais no total). */
+  sla_hours?: number | null
   is_conditional: boolean
   condition: FlowCondition | null
 }
@@ -218,11 +246,14 @@ export interface CaseAssignment {
   stage_id: string | null
   stage_name: string
   order: number
+  /** Grupo de execução — a trilha do caso desenha o paralelo com ele. */
+  group_index: number
   is_closer: boolean
   assignee_membership_id: string | null
   assignee_role_id: string | null
   assignee_name: string | null
   role_name: string | null
+  kind: StageKind
   parecer_config: ParecerConfig
   require_signature: boolean
   signature_token: string | null
@@ -242,6 +273,7 @@ export interface MyAssignment {
   status: string
   stage_name: string
   is_closer: boolean
+  kind: StageKind
   parecer_config: ParecerConfig
   require_signature: boolean
 }

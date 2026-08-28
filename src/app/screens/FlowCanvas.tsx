@@ -1,127 +1,239 @@
 /**
- * Área de trabalho do fluxo: bloquinhos ligados por linhas.
+ * Área de trabalho do fluxo — o editor de nós.
  *
- * A COLUNA é a ordem de execução. Tudo que está na mesma coluna roda AO MESMO
- * TEMPO; a coluna seguinte só começa quando todos os da anterior responderem.
- * Arrastar um bloco para outra coluna muda quando ele acontece.
+ * Segue os gestos que n8n/Make consagraram, porque são os que o usuário já
+ * conhece de outras ferramentas:
  *
- * Por que a posição é DERIVADA (e não guardada como x/y livre):
+ *  · arrastar um BLOCO muda quando ele acontece (coluna = ordem de execução;
+ *    mesma coluna = ao mesmo tempo);
+ *  · puxar da PORTA direita e soltar em outro bloco LIGA os dois (o alvo passa
+ *    a vir depois da origem);
+ *  · puxar da porta e soltar no VAZIO cria um passo novo ali, já ligado;
+ *  · clicar num bloco abre a configuração num painel lateral (no FlowBuilder).
  *
- * · o motor executa "blocos em sequência", então um grafo livre deixaria a
- *   pessoa desenhar um fluxo que o sistema não sabe rodar — a tela prometeria
- *   o que o produto não entrega;
- * · sem x/y no banco, não existe estado que possa divergir do que a tela
- *   mostra, e o desenho nunca fica bagunçado ou com blocos sobrepostos.
+ * FLUIDEZ: durante o arrasto nada passa pelo React. A posição vai direto no
+ * `style.transform` do elemento e a linha-fantasma no atributo `d` do path.
+ * O estado só muda no soltar — um re-render por gesto, não sessenta por
+ * segundo. Era daqui que vinha a sensação de página pesada.
  *
- * O arrasto é livre (o bloco segue o dedo/cursor) e ENCAIXA na coluna ao
- * soltar. É o comportamento que dá a sensação de canvas sem abrir mão da
- * arrumação automática.
- *
- * Usa Pointer Events, não o drag-and-drop do HTML5: o DnD nativo não funciona
- * em toque, arrasta uma "foto" fantasma que não dá para estilizar, e dispara
- * `dragleave` ao passar por cima de qualquer filho.
+ * A posição dos blocos é DERIVADA da coluna (não guardamos x/y): o motor
+ * executa colunas em sequência, então um grafo livre deixaria a pessoa
+ * desenhar algo que o sistema não sabe rodar. Ligar A→B aqui significa
+ * exatamente "B vem depois de A" — e é isso que o desenho mostra.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { KIND_VISUAL } from '../../lib/flowKinds'
+import type { StageKind } from '../../lib/types'
 import { Icon } from '../icons'
 
 export type BlocoNo = {
   key: string
   name: string
   group_index: number
-  /** Só para o rótulo do bloco: quem responde. */
+  /** Rótulo de quem responde, só para exibição. */
   quem: string
+  /** O TIPO do bloco: dá o ícone, a cor e o rótulo. Ler o fluxo inteiro sem
+   *  abrir bloco nenhum é o ponto de um canvas — todos iguais não informam. */
+  kind: StageKind
+  /** Nome traduzido do tipo (o canvas não fala com o dicionário). */
+  kindLabel: string
 }
 
-const LARGURA = 208
-const ALTURA = 84
-const GAP_X = 92          // espaço entre colunas — onde a linha aparece
-const GAP_Y = 22
-const PAD = 26
+const LARGURA = 200
+const ALTURA = 80
+const GAP_X = 96
+const GAP_Y = 20
+const PAD = 30
+const CLIQUE_MAX = 6 // px: menos que isso é clique, mais é arrasto
 
-type Arrasto = { key: string; dx: number; dy: number; x: number; y: number }
+type Drag =
+  | { tipo: 'bloco'; key: string; col: number; baseX: number; baseY: number; startX: number; startY: number; moveu: boolean; alvoCol: number | null; alvoEntre: number | null }
+  | { tipo: 'liga'; key: string; col: number; x1: number; y1: number; alvoKey: string | null; fora: boolean }
+  // Arrastar o FUNDO move o canvas — o gesto do n8n no celular, onde não há
+  // barra de rolagem para pegar nem trackpad para deslizar.
+  | { tipo: 'pan'; startX: number; startY: number; scrollLeft: number; winY: number }
 
-/** Colunas a partir do group_index, na ordem de execução. */
 function colunas(nos: BlocoNo[]): BlocoNo[][] {
   const total = nos.length ? Math.max(...nos.map((n) => n.group_index)) + 1 : 0
   return Array.from({ length: total }, (_, g) => nos.filter((n) => n.group_index === g))
 }
 
+/** Chave do bloco de encerramento — ele não é uma etapa, é o fim da linha. */
+export const KEY_ENCERRAMENTO = '__closer__'
+
 export default function FlowCanvas({
   nos,
   selecionado,
   canEdit,
+  encerrador,
   textos,
   onSelecionar,
   onMoverParaColuna,
   onNovaColunaDepois,
+  onLigar,
+  onCriarApos,
   onAdicionar,
   onRemover,
 }: {
   nos: BlocoNo[]
   selecionado: string | null
   canEdit: boolean
+  /** Quem fecha o caso. Aparece como o último bloco, fixo no fim. */
+  encerrador: { quem: string }
   textos: {
     together: string
-    waitsAll: string
     emptyName: string
     noOne: string
     addHere: string
     newColumn: string
-    dragHint: string
     remove: string
+    closer: string
+    closerHint: string
   }
-  onSelecionar: (key: string) => void
+  onSelecionar: (key: string | null) => void
   onMoverParaColuna: (key: string, coluna: number) => void
   onNovaColunaDepois: (key: string, depoisDe: number) => void
+  /** Ligou a porta da origem em outro bloco: o alvo passa a vir depois dela. */
+  onLigar: (deKey: string, paraKey: string) => void
+  /** Soltou a ligação no vazio: cria um passo novo depois da origem. */
+  onCriarApos: (deKey: string) => void
   onAdicionar: (coluna: number) => void
   onRemover: (key: string) => void
 }) {
   const areaRef = useRef<HTMLDivElement>(null)
-  const [arrasto, setArrasto] = useState<Arrasto | null>(null)
-  // Coluna sob o cursor: número = coluna existente, "N.5" = entre duas.
-  const [alvo, setAlvo] = useState<number | null>(null)
-  const [novaEntre, setNovaEntre] = useState<number | null>(null)
+  const nosRef = useRef(new Map<string, HTMLDivElement>())
+  const ghostRef = useRef<SVGPathElement>(null)
+  const colunaHLRef = useRef<HTMLDivElement>(null)
+  const entreHLRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<Drag | null>(null)
 
-  const cols = colunas(nos)
-  const alturaMaxima = Math.max(1, ...cols.map((c) => c.length))
-  const alturaArea = PAD * 2 + alturaMaxima * ALTURA + (alturaMaxima - 1) * GAP_Y
-  const larguraArea = PAD * 2 + cols.length * LARGURA + Math.max(0, cols.length - 1) * GAP_X
+  // Zoom por `zoom` CSS (afeta layout — o scroll acompanha). Os handlers
+  // dividem as coordenadas do ponteiro por ele: sem isso, com zoom 0.5 o bloco
+  // andaria o dobro do dedo.
+  const [zoom, setZoom] = useState(1)
+  const zoomRef = useRef(1)
+  zoomRef.current = zoom
+  const NIVEIS_ZOOM = [0.5, 0.65, 0.8, 1]
+
+  // Dedo é alvo grande: em ponteiro grosso a porta de ligação cresce.
+  const grosso = useMemo(
+    () => typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches,
+    [],
+  )
+
+  const cols = useMemo(() => colunas(nos), [nos])
+  const alturaMax = Math.max(1, ...cols.map((c) => c.length))
+  const alturaArea = PAD * 2 + alturaMax * ALTURA + (alturaMax - 1) * GAP_Y + 44
+  // Cabe a fileira de etapas + o "+" + o bloco de encerramento no fim.
+  const larguraArea =
+    PAD * 2 + Math.max(1, cols.length) * LARGURA + Math.max(0, cols.length - 1) * GAP_X
+    + GAP_X + 56 + LARGURA
 
   const posX = (col: number) => PAD + col * (LARGURA + GAP_X)
   const posY = (i: number) => PAD + i * (ALTURA + GAP_Y)
 
-  // Enquanto arrasta, os ouvintes ficam na JANELA: se ficassem no bloco, soltar
-  // o botão fora dele deixaria o bloco grudado no cursor para sempre.
-  useEffect(() => {
-    if (!arrasto) return
-    const mover = (e: PointerEvent) => {
-      const area = areaRef.current
-      if (!area) return
-      const r = area.getBoundingClientRect()
-      const x = e.clientX - r.left - arrasto.dx
-      const y = e.clientY - r.top - arrasto.dy
-      setArrasto((a) => (a ? { ...a, x, y } : a))
-
-      // Onde isso cairia? O centro do bloco decide, não a borda.
-      const centro = x + LARGURA / 2
-      const passo = LARGURA + GAP_X
-      const bruto = (centro - PAD) / passo
-      const col = Math.round(bruto)
-      const distancia = Math.abs(bruto - col)
-      // Perto do meio entre duas colunas → oferece criar uma coluna nova ali.
-      if (distancia > 0.32) {
-        setNovaEntre(Math.floor(bruto))
-        setAlvo(null)
-      } else {
-        setAlvo(Math.max(0, Math.min(cols.length - 1, col)))
-        setNovaEntre(null)
+  /** Bloco sob o ponto (para o alvo da ligação). */
+  function blocoEm(x: number, y: number, ignorar: string): string | null {
+    for (let c = 0; c < cols.length; c++) {
+      if (x < posX(c) || x > posX(c) + LARGURA) continue
+      for (let i = 0; i < cols[c].length; i++) {
+        if (y >= posY(i) && y <= posY(i) + ALTURA && cols[c][i].key !== ignorar) return cols[c][i].key
       }
     }
-    const soltar = () => {
-      if (novaEntre !== null) onNovaColunaDepois(arrasto.key, novaEntre)
-      else if (alvo !== null) onMoverParaColuna(arrasto.key, alvo)
-      setArrasto(null); setAlvo(null); setNovaEntre(null)
+    return null
+  }
+
+  useEffect(() => {
+    const area = areaRef.current
+    if (!area) return
+
+    const mover = (e: PointerEvent) => {
+      const d = dragRef.current
+      if (!d) return
+      const z = zoomRef.current
+      const r = area.getBoundingClientRect()
+      // Coordenadas em px de LAYOUT: com zoom, o rect vem escalado.
+      const px = (e.clientX - r.left) / z
+      const py = (e.clientY - r.top) / z
+
+      if (d.tipo === 'pan') {
+        const sc = scrollRef.current
+        if (sc) sc.scrollLeft = d.scrollLeft - (e.clientX - d.startX)
+        window.scrollTo({ top: d.winY - (e.clientY - d.startY) })
+        return
+      }
+
+      if (d.tipo === 'bloco') {
+        const dx = (e.clientX - d.startX) / z
+        const dy = (e.clientY - d.startY) / z
+        if (!d.moveu && Math.hypot(dx, dy) < CLIQUE_MAX) return
+        d.moveu = true
+        const el = nosRef.current.get(d.key)
+        if (el) {
+          el.style.transform = `translate(${dx}px, ${dy}px)`
+          el.style.zIndex = '30'
+          el.style.boxShadow = '0 18px 40px rgba(0,0,0,.3)'
+          el.style.cursor = 'grabbing'
+        }
+        // Onde cairia: centro do bloco decide.
+        const centro = d.baseX + dx + LARGURA / 2
+        const passo = LARGURA + GAP_X
+        const bruto = (centro - PAD) / passo
+        const col = Math.round(bruto)
+        const entre = Math.abs(bruto - col) > 0.34
+        d.alvoEntre = entre ? Math.floor(bruto) : null
+        d.alvoCol = entre ? null : Math.max(0, Math.min(cols.length - 1, col))
+        // Realce direto no DOM — nada de estado por frame.
+        const chl = colunaHLRef.current
+        const ehl = entreHLRef.current
+        if (chl) {
+          chl.style.display = d.alvoCol !== null ? 'block' : 'none'
+          if (d.alvoCol !== null) chl.style.left = `${posX(d.alvoCol) - 10}px`
+        }
+        if (ehl) {
+          ehl.style.display = d.alvoEntre !== null ? 'flex' : 'none'
+          if (d.alvoEntre !== null) ehl.style.left = `${posX(d.alvoEntre) + LARGURA + GAP_X / 2 - 24}px`
+        }
+      } else {
+        // Linha-fantasma da ligação, direto no atributo do path.
+        const meio = Math.max(40, Math.abs(px - d.x1) * 0.5)
+        ghostRef.current?.setAttribute('d', `M ${d.x1} ${d.y1} C ${d.x1 + meio} ${d.y1}, ${px - meio} ${py}, ${px} ${py}`)
+        const alvo = blocoEm(px, py, d.key)
+        if (alvo !== d.alvoKey) {
+          if (d.alvoKey) { const p = nosRef.current.get(d.alvoKey); if (p) p.style.outline = '' }
+          if (alvo) { const p = nosRef.current.get(alvo); if (p) p.style.outline = '3px solid var(--accent)' }
+          d.alvoKey = alvo
+        }
+        d.fora = alvo === null && px > posX(d.col) + LARGURA + 24
+      }
     }
+
+    const soltar = () => {
+      const d = dragRef.current
+      if (!d) return
+      dragRef.current = null
+      if (d.tipo === 'pan') return
+      if (d.tipo === 'bloco') {
+        const el = nosRef.current.get(d.key)
+        if (el) { el.style.transform = ''; el.style.zIndex = ''; el.style.boxShadow = ''; el.style.cursor = '' }
+        if (colunaHLRef.current) colunaHLRef.current.style.display = 'none'
+        if (entreHLRef.current) entreHLRef.current.style.display = 'none'
+        if (!d.moveu) onSelecionar(d.key)                      // foi um clique
+        else if (d.alvoEntre !== null) onNovaColunaDepois(d.key, d.alvoEntre)
+        else if (d.alvoCol !== null && d.alvoCol !== d.col) onMoverParaColuna(d.key, d.alvoCol)
+      } else {
+        ghostRef.current?.setAttribute('d', '')
+        if (d.alvoKey) {
+          const p = nosRef.current.get(d.alvoKey)
+          if (p) p.style.outline = ''
+          onLigar(d.key, d.alvoKey)
+        } else if (d.fora) {
+          onCriarApos(d.key)
+        }
+      }
+    }
+
     window.addEventListener('pointermove', mover)
     window.addEventListener('pointerup', soltar)
     window.addEventListener('pointercancel', soltar)
@@ -130,200 +242,273 @@ export default function FlowCanvas({
       window.removeEventListener('pointerup', soltar)
       window.removeEventListener('pointercancel', soltar)
     }
-  }, [arrasto, alvo, novaEntre, cols.length, onMoverParaColuna, onNovaColunaDepois])
+  }, [cols, onLigar, onCriarApos, onMoverParaColuna, onNovaColunaDepois, onSelecionar])
 
-  function pegar(e: React.PointerEvent, no: BlocoNo, col: number, i: number) {
-    if (!canEdit) return
-    const area = areaRef.current
-    if (!area) return
-    const r = area.getBoundingClientRect()
-    const x = posX(col)
-    const y = posY(i)
-    setArrasto({ key: no.key, dx: e.clientX - r.left - x, dy: e.clientY - r.top - y, x, y })
-    onSelecionar(no.key)
+  function pegarBloco(e: React.PointerEvent, key: string, col: number, i: number) {
+    if (e.button !== 0) return
+    e.preventDefault()
+    dragRef.current = {
+      tipo: 'bloco', key, col, baseX: posX(col), baseY: posY(i),
+      startX: e.clientX, startY: e.clientY, moveu: false, alvoCol: null, alvoEntre: null,
+    }
   }
 
-  /** Curva de ligação. Bézier horizontal — a mesma forma que todo editor de
-   *  nós usa, e que faz a linha "sair" e "entrar" pelas laterais. */
-  function caminho(x1: number, y1: number, x2: number, y2: number) {
-    const meio = Math.abs(x2 - x1) * 0.5
+  function pegarPorta(e: React.PointerEvent, key: string, col: number, i: number) {
+    if (!canEdit || e.button !== 0) return
+    e.preventDefault()
+    e.stopPropagation() // senão o bloco inteiro começa a andar junto
+    dragRef.current = {
+      tipo: 'liga', key, col,
+      x1: posX(col) + LARGURA, y1: posY(i) + ALTURA / 2,
+      alvoKey: null, fora: false,
+    }
+  }
+
+  function curva(x1: number, y1: number, x2: number, y2: number) {
+    const meio = Math.max(36, Math.abs(x2 - x1) * 0.5)
     return `M ${x1} ${y1} C ${x1 + meio} ${y1}, ${x2 - meio} ${y2}, ${x2} ${y2}`
+  }
+
+  const mudaZoom = (passo: 1 | -1) => {
+    const i = NIVEIS_ZOOM.indexOf(zoom)
+    const alvo = NIVEIS_ZOOM[Math.max(0, Math.min(NIVEIS_ZOOM.length - 1, i + passo))]
+    setZoom(alvo)
   }
 
   return (
     <div style={{ position: 'relative' }}>
-      <div
-        ref={areaRef}
-        style={{
-          position: 'relative',
-          minHeight: alturaArea,
-          width: Math.max(larguraArea, 100),
-          minWidth: '100%',
-          // O quadriculado é o que faz a área ler como "mesa de trabalho" e não
-          // como mais um cartão do formulário.
-          backgroundImage: 'radial-gradient(circle, var(--border) 1px, transparent 1px)',
-          backgroundSize: '22px 22px',
-          borderRadius: 18,
-          border: '1px solid var(--border)',
-          overflow: 'hidden',
-          touchAction: arrasto ? 'none' : 'auto',
-        }}
-      >
-        {/* Linhas primeiro, para passarem POR BAIXO dos blocos. */}
-        <svg
-          width={Math.max(larguraArea, 100)} height={alturaArea}
-          style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}
-        >
-          {cols.slice(0, -1).map((desta, c) =>
-            desta.map((a, ia) =>
-              cols[c + 1].map((b, ib) => {
-                const x1 = posX(c) + LARGURA
-                const y1 = posY(ia) + ALTURA / 2
-                const x2 = posX(c + 1)
-                const y2 = posY(ib) + ALTURA / 2
-                return (
-                  <path
-                    key={`${a.key}-${b.key}`}
-                    d={caminho(x1, y1, x2, y2)}
-                    fill="none"
-                    stroke="var(--border)"
-                    strokeWidth={2}
-                  />
-                )
-              }),
-            ),
-          )}
-        </svg>
-
-        {/* Faixa da coluna alvo — o realce de onde vai cair. */}
-        {arrasto && alvo !== null && (
-          <div style={{
-            position: 'absolute', left: posX(alvo) - 10, top: 8,
-            width: LARGURA + 20, height: alturaArea - 16, borderRadius: 16,
-            background: 'var(--accent-soft)', border: '2px dashed var(--accent)',
-            pointerEvents: 'none',
-          }} />
+    <div ref={scrollRef} className="app-scroll" style={{ overflowX: 'auto', paddingBottom: 4 }}>
+    <div
+      ref={areaRef}
+      onPointerDown={(e) => {
+        if (e.target !== e.currentTarget) return
+        // Fundo vazio: desmarca E começa o pan — o gesto de "andar pelo
+        // desenho" quando ele é maior que a tela (a única forma no celular).
+        onSelecionar(null)
+        dragRef.current = {
+          tipo: 'pan', startX: e.clientX, startY: e.clientY,
+          scrollLeft: scrollRef.current?.scrollLeft ?? 0, winY: window.scrollY,
+        }
+      }}
+      style={{
+        position: 'relative',
+        minHeight: alturaArea,
+        width: Math.max(larguraArea, 100),
+        minWidth: '100%',
+        backgroundImage: 'radial-gradient(circle, var(--border) 1px, transparent 1px)',
+        backgroundSize: '22px 22px',
+        borderRadius: 18,
+        border: '1px solid var(--border)',
+        touchAction: 'none',
+        contain: 'layout paint',
+        cursor: 'grab',
+        // `zoom` (e não transform): afeta o layout, então a rolagem acompanha.
+        zoom,
+      }}
+    >
+      {/* Ligações (por baixo dos blocos). */}
+      <svg width="100%" height={alturaArea} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}>
+        {cols.slice(0, -1).map((desta, c) =>
+          desta.map((a, ia) =>
+            cols[c + 1].map((b, ib) => (
+              <path
+                key={`${a.key}-${b.key}`}
+                d={curva(posX(c) + LARGURA, posY(ia) + ALTURA / 2, posX(c + 1), posY(ib) + ALTURA / 2)}
+                fill="none" stroke="var(--accent)" strokeWidth={2} opacity={0.45}
+              />
+            )),
+          ),
         )}
+        {/* Linha-fantasma enquanto liga. */}
+        <path ref={ghostRef} d="" fill="none" stroke="var(--accent)" strokeWidth={2.5} strokeDasharray="7 5" />
+      </svg>
 
-        {/* Faixa fina entre colunas: soltar aqui cria uma etapa nova no meio. */}
-        {arrasto && novaEntre !== null && (
-          <div style={{
-            position: 'absolute', left: posX(novaEntre) + LARGURA + GAP_X / 2 - 22, top: 8,
-            width: 44, height: alturaArea - 16, borderRadius: 12,
-            background: 'var(--accent-soft)', border: '2px dashed var(--accent)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'var(--accent)', fontSize: 11, fontWeight: 800, textAlign: 'center',
-            pointerEvents: 'none', lineHeight: 1.2, padding: 4,
-          }}>
-            {textos.newColumn}
-          </div>
-        )}
-
-        {/* Cabeçalho de cada coluna. */}
-        {cols.map((desta, c) => (
-          <div key={`h${c}`} style={{ position: 'absolute', left: posX(c), top: 4, width: LARGURA, textAlign: 'center' }}>
-            {desta.length > 1 && (
-              <span style={{ background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 100, padding: '2px 10px', fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em' }}>
-                {textos.together}
-              </span>
-            )}
-          </div>
-        ))}
-
-        {/* Os blocos. */}
-        {cols.map((desta, c) =>
-          desta.map((no, i) => {
-            const arrastandoEste = arrasto?.key === no.key
-            const x = arrastandoEste ? arrasto.x : posX(c)
-            const y = arrastandoEste ? arrasto.y : posY(i)
-            const ativo = selecionado === no.key
-            return (
-              <div
-                key={no.key}
-                onPointerDown={(e) => pegar(e, no, c, i)}
-                onClick={() => onSelecionar(no.key)}
-                style={{
-                  position: 'absolute', left: x, top: y, width: LARGURA, height: ALTURA,
-                  background: 'var(--surface)',
-                  border: `2px solid ${ativo ? 'var(--accent)' : 'var(--border)'}`,
-                  borderRadius: 14, padding: '10px 12px', boxSizing: 'border-box',
-                  boxShadow: arrastandoEste ? '0 16px 34px rgba(0,0,0,.28)' : 'var(--card-shadow)',
-                  cursor: canEdit ? (arrastandoEste ? 'grabbing' : 'grab') : 'pointer',
-                  // Sem transição enquanto arrasta: o bloco tem que colar no
-                  // cursor. Com ela, ele fica "nadando" atrás do dedo.
-                  transition: arrastandoEste ? 'none' : 'left .16s ease, top .16s ease',
-                  zIndex: arrastandoEste ? 20 : 2,
-                  userSelect: 'none',
-                }}
-              >
-                {/* Portas: o detalhe que faz o bloco parecer ligável. */}
-                {c > 0 && <Porta lado="esq" />}
-                {c < cols.length - 1 && <Porta lado="dir" />}
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                  <Icon name="flow" size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-                  <span style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {no.name.trim() || textos.emptyName}
-                  </span>
-                </div>
-                <div style={{ color: 'var(--text-muted)', fontSize: 11.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {no.quem || textos.noOne}
-                </div>
-
-                {canEdit && (
-                  <button
-                    type="button"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={(e) => { e.stopPropagation(); onRemover(no.key) }}
-                    title={textos.remove}
-                    style={{
-                      position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: 7,
-                      border: 'none', background: 'transparent', color: 'var(--text-muted)',
-                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                  >
-                    <Icon name="close" size={13} />
-                  </button>
-                )}
-              </div>
-            )
-          }),
-        )}
-
-        {/* Adicionar um bloco NESTA coluna (roda junto com os que já estão). */}
-        {canEdit && cols.map((desta, c) => (
-          <button
-            key={`add${c}`}
-            type="button"
-            onClick={() => onAdicionar(c)}
-            title={textos.addHere}
-            style={{
-              position: 'absolute', left: posX(c), top: posY(desta.length), width: LARGURA, height: 34,
-              border: '1.5px dashed var(--border)', background: 'transparent', borderRadius: 12,
-              color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-            }}
-          >
-            + {textos.addHere}
-          </button>
-        ))}
+      {/* Realces de alvo (controlados direto no DOM durante o arrasto). */}
+      <div ref={colunaHLRef} style={{ display: 'none', position: 'absolute', top: 8, width: LARGURA + 20, height: alturaArea - 16, borderRadius: 16, background: 'var(--accent-soft)', border: '2px dashed var(--accent)', pointerEvents: 'none' }} />
+      <div ref={entreHLRef} style={{ display: 'none', position: 'absolute', top: 8, width: 48, height: alturaArea - 16, borderRadius: 12, background: 'var(--accent-soft)', border: '2px dashed var(--accent)', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)', fontSize: 11, fontWeight: 800, textAlign: 'center', lineHeight: 1.25, padding: 4, pointerEvents: 'none' }}>
+        {textos.newColumn}
       </div>
 
-      <p style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: 10, lineHeight: 1.5 }}>
-        {textos.dragHint} · {textos.waitsAll}
-      </p>
-    </div>
-  )
-}
+      {/* Rótulo "ao mesmo tempo" nas colunas com mais de um bloco. */}
+      {cols.map((desta, c) => desta.length > 1 && (
+        <div key={`h${c}`} style={{ position: 'absolute', left: posX(c), top: 6, width: LARGURA, textAlign: 'center', pointerEvents: 'none' }}>
+          <span style={{ background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 100, padding: '2px 10px', fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em' }}>
+            {textos.together}
+          </span>
+        </div>
+      ))}
 
-/** Bolinha de conexão. Não é interativa: quem liga os blocos é a COLUNA, e uma
- *  porta clicável prometeria uma ligação livre que o motor não executa. */
-function Porta({ lado }: { lado: 'esq' | 'dir' }) {
-  return (
-    <span style={{
-      position: 'absolute', top: '50%', transform: 'translateY(-50%)',
-      [lado === 'esq' ? 'left' : 'right']: -7,
-      width: 11, height: 11, borderRadius: '50%',
-      background: 'var(--surface)', border: '2px solid var(--accent)',
-    } as React.CSSProperties} />
+      {/* Blocos. */}
+      {cols.map((desta, c) =>
+        desta.map((no, i) => {
+          const ativo = selecionado === no.key
+          return (
+            <div
+              key={no.key}
+              ref={(el) => { if (el) nosRef.current.set(no.key, el); else nosRef.current.delete(no.key) }}
+              onPointerDown={(e) => pegarBloco(e, no.key, c, i)}
+              style={{
+                position: 'absolute', left: posX(c), top: posY(i), width: LARGURA, height: ALTURA,
+                background: 'var(--surface)',
+                border: `2px solid ${ativo ? 'var(--accent)' : 'var(--border)'}`,
+                borderRadius: 14, padding: '10px 12px', boxSizing: 'border-box',
+                boxShadow: 'var(--card-shadow)',
+                cursor: canEdit ? 'grab' : 'pointer',
+                userSelect: 'none',
+                zIndex: 2,
+              }}
+            >
+              {c > 0 && (
+                <span style={{ position: 'absolute', left: -7, top: '50%', transform: 'translateY(-50%)', width: 12, height: 12, borderRadius: '50%', background: 'var(--surface)', border: '2.5px solid var(--accent)', pointerEvents: 'none' }} />
+              )}
+              {/* Porta de SAÍDA: puxar daqui liga no próximo passo. Área de
+                  toque maior que a bolinha — 12px é alvo demais pequeno. */}
+              {canEdit && (
+                <span
+                  onPointerDown={(e) => pegarPorta(e, no.key, c, i)}
+                  title={textos.newColumn}
+                  style={{ position: 'absolute', right: grosso ? -22 : -16, top: '50%', transform: 'translateY(-50%)', width: grosso ? 44 : 32, height: grosso ? 56 : 40, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'crosshair', zIndex: 3 }}
+                >
+                  <span style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--accent)', border: '3px solid var(--surface)', boxShadow: '0 0 0 2px var(--accent)' }} />
+                </span>
+              )}
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                {/* Ícone e cor vêm do TIPO: é o que deixa ler o fluxo inteiro
+                    de longe — onde se decide, onde se prioriza, onde se apura. */}
+                <Icon name={KIND_VISUAL[no.kind].icon} size={14} style={{ color: KIND_VISUAL[no.kind].cor, flexShrink: 0 }} />
+                <span style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {no.name.trim() || textos.emptyName}
+                </span>
+              </div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 11.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {no.quem || textos.noOne}
+              </div>
+              {/* O tipo por extenso no rodapé do bloco: a cor sozinha não serve
+                  para quem não distingue as quatro, e o nome cabe. */}
+              <div style={{ position: 'absolute', left: 12, bottom: 8, display: 'flex', alignItems: 'center', gap: 5, maxWidth: LARGURA - 24 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: KIND_VISUAL[no.kind].cor, flexShrink: 0 }} />
+                <span style={{ color: KIND_VISUAL[no.kind].cor, fontSize: 10.5, fontWeight: 800, letterSpacing: '.03em', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {no.kindLabel}
+                </span>
+              </div>
+
+              {canEdit && (
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); onRemover(no.key) }}
+                  title={textos.remove}
+                  style={{ position: 'absolute', top: 5, right: 5, width: 22, height: 22, borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Icon name="close" size={12} />
+                </button>
+              )}
+            </div>
+          )
+        }),
+      )}
+
+      {/* Adicionar em paralelo, embaixo de cada coluna. */}
+      {canEdit && cols.map((desta, c) => (
+        <button
+          key={`add${c}`}
+          type="button"
+          onClick={() => onAdicionar(c)}
+          style={{ position: 'absolute', left: posX(c), top: posY(desta.length) + 2, width: LARGURA, height: 30, border: '1.5px dashed var(--border)', background: 'transparent', borderRadius: 10, color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+        >
+          + {textos.addHere}
+        </button>
+      ))}
+
+      {/* "+" no FIM da cadeia: continua o fluxo sem sair do desenho. É o gesto
+          que todo editor de nós tem depois do último passo. */}
+      {canEdit && cols.length > 0 && (
+        <>
+          <svg width="100%" height={alturaArea} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+            <path
+              d={`M ${posX(cols.length - 1) + LARGURA} ${posY(0) + ALTURA / 2} H ${posX(cols.length - 1) + LARGURA + GAP_X / 2 + 4}`}
+              fill="none" stroke="var(--accent)" strokeWidth={2} strokeDasharray="5 5" opacity={0.6}
+            />
+          </svg>
+          <button
+            type="button"
+            onClick={() => onAdicionar(cols.length)}
+            title={textos.newColumn}
+            style={{
+              position: 'absolute',
+              left: posX(cols.length - 1) + LARGURA + GAP_X / 2 + 4,
+              top: posY(0) + ALTURA / 2 - 19,
+              width: 38, height: 38, borderRadius: '50%',
+              border: '2px dashed var(--accent)', background: 'var(--accent-soft)',
+              color: 'var(--accent)', fontSize: 20, fontWeight: 800, lineHeight: 1,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 2,
+            }}
+          >
+            +
+          </button>
+        </>
+      )}
+
+      {/* ENCERRAMENTO — o fim da linha, sempre no extremo direito.
+          Não é arrastável nem removível de propósito: ele não é uma etapa que
+          se reordena, é o ponto em que o caso fecha. Deixá-lo arrastável
+          sugeriria que dá para encerrar no meio da apuração. */}
+      {(() => {
+        const cx = posX(cols.length) + (canEdit && cols.length > 0 ? 56 : 0)
+        const cy = posY(0)
+        const ativo = selecionado === KEY_ENCERRAMENTO
+        return (
+          <>
+            <svg width="100%" height={alturaArea} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}>
+              {(cols[cols.length - 1] ?? []).map((a, ia) => (
+                <path
+                  key={`fim-${a.key}`}
+                  d={curva(posX(cols.length - 1) + LARGURA, posY(ia) + ALTURA / 2, cx, cy + ALTURA / 2)}
+                  fill="none" stroke="var(--green,#2bb673)" strokeWidth={2} opacity={0.5}
+                />
+              ))}
+            </svg>
+            <div
+              onPointerDown={(e) => { e.stopPropagation(); onSelecionar(KEY_ENCERRAMENTO) }}
+              title={textos.closerHint}
+              style={{
+                position: 'absolute', left: cx, top: cy, width: LARGURA, height: ALTURA,
+                background: 'var(--surface)',
+                border: `2px solid ${ativo ? 'var(--accent)' : 'var(--green,#2bb673)'}`,
+                borderRadius: 14, padding: '10px 12px', boxSizing: 'border-box',
+                boxShadow: 'var(--card-shadow)', cursor: 'pointer', userSelect: 'none', zIndex: 2,
+              }}
+            >
+              <span style={{ position: 'absolute', left: -7, top: '50%', transform: 'translateY(-50%)', width: 12, height: 12, borderRadius: '50%', background: 'var(--surface)', border: '2.5px solid var(--green,#2bb673)' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <Icon name="check" size={14} style={{ color: 'var(--green,#2bb673)', flexShrink: 0 }} />
+                <span style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 13.5 }}>{textos.closer}</span>
+              </div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 11.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {encerrador.quem || textos.noOne}
+              </div>
+            </div>
+          </>
+        )
+      })()}
+    </div>
+    </div>
+
+    {/* Controles de ZOOM — sempre visíveis, embaixo e no centro, como o n8n
+        posiciona os dele: navegar um desenho grande não pode depender de
+        achar a barra de rolagem (no celular ela nem existe). */}
+    <div style={{ position: 'absolute', left: '50%', bottom: 12, transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 2, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 100, padding: 3, boxShadow: 'var(--card-shadow)', zIndex: 5 }}>
+      <button type="button" aria-label="−" onClick={() => mudaZoom(-1)} disabled={zoom === NIVEIS_ZOOM[0]} className="app-btn"
+        style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--heading)', cursor: 'pointer', fontSize: 16, fontWeight: 800, opacity: zoom === NIVEIS_ZOOM[0] ? 0.35 : 1 }}>−</button>
+      <button type="button" onClick={() => setZoom(1)} className="app-btn"
+        style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 11.5, fontWeight: 800, minWidth: 42 }}>
+        {Math.round(zoom * 100)}%
+      </button>
+      <button type="button" aria-label="+" onClick={() => mudaZoom(1)} disabled={zoom === 1} className="app-btn"
+        style={{ width: 30, height: 30, borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--heading)', cursor: 'pointer', fontSize: 16, fontWeight: 800, opacity: zoom === 1 ? 0.35 : 1 }}>+</button>
+    </div>
+    </div>
   )
 }
