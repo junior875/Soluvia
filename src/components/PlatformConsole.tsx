@@ -277,20 +277,33 @@ export function isPlatformPath(): boolean {
   return window.location.hash.toLowerCase().startsWith('#plataforma')
 }
 
-/** O e-mail digitado já tem conta na plataforma?
+/** O e-mail digitado já tem CONTA na plataforma?
  *
  *  Muda o formulário inteiro: conta existente não ganha senha nova (vira um
  *  SEGUNDO vínculo do mesmo login) e o aviso ao superadmin é outro. A resposta
  *  vem da própria busca de pessoas do console, com debounce para não fuzilar a
- *  API a cada tecla. */
+ *  API a cada tecla.
+ *
+ *  A busca também devolve CONVITES pendentes, que ainda não têm conta (a conta
+ *  nasce no aceite) — por isso `id` e `pending` entram na conta: tratar um
+ *  convite pendente como conta esconderia o campo de senha e o servidor
+ *  responderia "defina uma senha" para um formulário que não a pede mais. */
 function useEmailComConta(email: string): boolean {
   const [existe, setExiste] = useState(false)
   useEffect(() => {
     const limpo = email.trim().toLowerCase()
     if (!limpo.includes('@') || limpo.length < 5) { setExiste(false); return }
     const t = setTimeout(() => {
-      api.get<{ email: string }[]>(`/platform/users?q=${encodeURIComponent(limpo)}`)
-        .then((rows) => setExiste(rows.some((r) => (r.email || '').toLowerCase() === limpo)))
+      api.get<{ email: string; id: string | null; pending?: boolean }[]>(
+        `/platform/users?q=${encodeURIComponent(limpo)}`,
+      )
+        .then((rows) =>
+          setExiste(
+            rows.some(
+              (r) => (r.email || '').toLowerCase() === limpo && !!r.id && r.pending !== true,
+            ),
+          ),
+        )
         .catch(() => setExiste(false))
     }, 350)
     return () => clearTimeout(t)
