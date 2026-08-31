@@ -2,6 +2,15 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { api, deleteAccount, downloadAuthedFile } from '../../lib/api'
 import type { AiMemberRow, AiUsage, ApiError } from '../../lib/types'
+
+/** Espelho do GET /storage/usage — o teto de armazenamento visto de dentro. */
+type StorageUsage = {
+  used_bytes: number
+  limit_bytes: number
+  unlimited: boolean
+  remaining_bytes: number | null
+  by_category: Record<string, number>
+}
 import { useTheme } from '../../theme/ThemeProvider'
 import { useTranslation } from '../../i18n/LanguageProvider'
 import type { Lang } from '../../i18n/translations'
@@ -68,15 +77,21 @@ export default function Settings() {
   const [deleting, setDeleting] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [ai, setAi] = useState<AiUsage | null>(null)
+  const [storage, setStorage] = useState<StorageUsage | null>(null)
   const [members, setMembers] = useState<AiMemberRow[] | null>(null)
   const [creditInputs, setCreditInputs] = useState<Record<string, string>>({})
 
   useEffect(() => { void api.get<AiUsage>('/ai/usage').then(setAi).catch(() => setAi(null)) }, [])
+  useEffect(() => { void api.get<StorageUsage>('/storage/usage').then(setStorage).catch(() => setStorage(null)) }, [])
   useEffect(() => { if (canManageUsers) void api.get<AiMemberRow[]>('/ai/members').then(setMembers).catch(() => setMembers([])) }, [canManageUsers])
 
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2200) }
   const fmtNum = (n: number) => n.toLocaleString(lang === 'pt' ? 'pt-BR' : lang === 'es' ? 'es-ES' : 'en-US')
   const pctOf = (used: number, limit: number) => (limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0)
+  const fmtBytes = (b: number) =>
+    b >= 1024 * 1024 * 1024 ? `${(b / 1024 / 1024 / 1024).toFixed(1)} GB`
+      : b >= 1024 * 1024 ? `${Math.round(b / 1024 / 1024)} MB`
+        : `${Math.max(0, Math.round(b / 1024))} KB`
 
   async function addCredit(id: string) {
     const amt = Number(creditInputs[id])
@@ -176,6 +191,51 @@ export default function Settings() {
           <Row label={t.settings.aiCompany}>
             <span style={{ color: 'var(--heading)', fontWeight: 700 }}>{fmtNum(ai.used)} / {ai.unlimited ? '∞' : fmtNum(ai.limit)} {t.settings.aiTokens}</span>
           </Row>
+          {/* A cota da EMPRESA também avisa antes de estourar — era só um
+              número, e número não grita. A barra fica âmbar aos 85% e o texto
+              diz o que fazer; esperar o 402 no meio de uma conversa com a IA
+              é o pior jeito de descobrir. */}
+          {!ai.unlimited && (
+            <div style={{ marginTop: 10 }}>
+              <TokenBar pct={pctOf(ai.used, ai.limit)} />
+              {pctOf(ai.used, ai.limit) >= 85 && (
+                <p style={{ color: pctOf(ai.used, ai.limit) >= 100 ? '#e11d48' : '#b45309', fontSize: 12.5, marginTop: 8, fontWeight: 600 }}>
+                  {pctOf(ai.used, ai.limit) >= 100 ? t.settings.aiCompanyFull : t.settings.aiCompanyWarn}
+                </p>
+              )}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Armazenamento — o teto visto de DENTRO da empresa. A cota de IA sempre
+          teve espelho aqui; a de storage não tinha nenhum, e a empresa só
+          descobria o limite quando um upload voltava 413 na frente de quem
+          estava anexando uma prova. */}
+      {storage && (
+        <Card style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <span style={{ width: 34, height: 34, borderRadius: 10, background: 'var(--accent-soft)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="download" size={18} /></span>
+            <SectionLabel>{t.settings.storageTitle}</SectionLabel>
+          </div>
+          {storage.unlimited ? (
+            <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>{fmtBytes(storage.used_bytes)} · {t.settings.storageNoLimit}</p>
+          ) : (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>
+                <span>{fmtBytes(storage.used_bytes)} / {fmtBytes(storage.limit_bytes)}</span>
+                <span>{pctOf(storage.used_bytes, storage.limit_bytes)}%</span>
+              </div>
+              <TokenBar pct={pctOf(storage.used_bytes, storage.limit_bytes)} />
+              {pctOf(storage.used_bytes, storage.limit_bytes) >= 85 ? (
+                <p style={{ color: pctOf(storage.used_bytes, storage.limit_bytes) >= 100 ? '#e11d48' : '#b45309', fontSize: 12.5, marginTop: 8, fontWeight: 600 }}>
+                  {pctOf(storage.used_bytes, storage.limit_bytes) >= 100 ? t.settings.storageFull : t.settings.storageWarn}
+                </p>
+              ) : (
+                <p style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: 8 }}>{t.settings.storageHint}</p>
+              )}
+            </>
+          )}
         </Card>
       )}
 

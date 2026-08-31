@@ -148,7 +148,11 @@ export function EvidenceUploader({
       atualizar(item.localId, { estado: 'pronto', progresso: 100, enviada: pronto })
       onConcluido?.()
     } catch (e) {
-      atualizar(item.localId, { estado: 'erro', erro: (e as Error).message || textos.falhou })
+      // O erro da API é {status, detail} — não um Error. Ler só `.message`
+      // engolia o `detail` e mostrava "falhou" genérico justamente quando o
+      // servidor tinha algo a dizer: "armazenamento cheio", "tipo não aceito".
+      const detalhe = (e as { detail?: string }).detail ?? (e as Error).message
+      atualizar(item.localId, { estado: 'erro', erro: detalhe || textos.falhou })
     }
   }
 
