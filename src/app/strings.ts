@@ -32,6 +32,10 @@ const pt = {
     subscribe: 'Assinar um plano',
     backToSite: 'Voltar ao site',
     chooseCompany: 'Escolha a empresa',
+    chooseCompanyBody: 'Sua conta participa de mais de uma empresa. O acesso e os papéis mudam conforme a escolha.',
+    currentCompany: 'Atual',
+    memberRole: 'Membro',
+    stayHere: 'Continuar onde estou',
     loadingPanel: 'Preparando seu painel…',
   },
   notif: {
@@ -794,6 +798,10 @@ const en: AppStrings = {
     subscribe: 'Choose a plan',
     backToSite: 'Back to site',
     chooseCompany: 'Choose a company',
+    chooseCompanyBody: 'Your account belongs to more than one company. Access and roles change with your choice.',
+    currentCompany: 'Current',
+    memberRole: 'Member',
+    stayHere: 'Stay where I am',
     loadingPanel: 'Preparing your panel…',
   },
   notif: {
@@ -1545,6 +1553,10 @@ const es: AppStrings = {
     subscribe: 'Elegir un plan',
     backToSite: 'Volver al sitio',
     chooseCompany: 'Elige la empresa',
+    chooseCompanyBody: 'Tu cuenta pertenece a más de una empresa. El acceso y los roles cambian según tu elección.',
+    currentCompany: 'Actual',
+    memberRole: 'Miembro',
+    stayHere: 'Quedarme donde estoy',
     loadingPanel: 'Preparando tu panel…',
   },
   notif: {

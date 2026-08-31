@@ -190,10 +190,28 @@ export default function Shell() {
           >
             <Icon name="menu" size={17} />
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, color: 'var(--heading)', fontWeight: 800, minWidth: 0 }}>
-            <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
-            <span className="pnl-topbar-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ctx.tenant_name}</span>
-          </div>
+          {/* O nome da empresa é a PORTA do hub quando a pessoa tem mais de um
+              vínculo: clica, escolhe a outra empresa/papel, sem deslogar. Com
+              um vínculo só, continua texto — não se oferece escolha que não
+              existe. */}
+          {caps.memberships.length > 1 ? (
+            <button
+              type="button"
+              className="app-btn"
+              onClick={caps.openHub}
+              title={t.states.chooseCompany}
+              style={{ display: 'flex', alignItems: 'center', gap: 9, color: 'var(--heading)', fontWeight: 800, minWidth: 0, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 100, padding: '7px 13px', cursor: 'pointer' }}
+            >
+              <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
+              <span className="pnl-topbar-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ctx.tenant_name}</span>
+              <Icon name="chevron" size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+            </button>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, color: 'var(--heading)', fontWeight: 800, minWidth: 0 }}>
+              <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
+              <span className="pnl-topbar-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ctx.tenant_name}</span>
+            </div>
+          )}
 
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
             <NotificationBell />

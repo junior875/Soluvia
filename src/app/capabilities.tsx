@@ -24,6 +24,7 @@ import type { MembershipSummary, MeResponse, PanelContext } from '../lib/types'
 import { useTheme } from '../theme/ThemeProvider'
 import { useTranslation } from '../i18n/LanguageProvider'
 import { applyServerPrefs } from '../lib/prefs'
+import { localizeRole } from '../lib/systemNames'
 import { useT } from './strings'
 import { Button, Card } from './ui'
 import { Icon } from './icons'
@@ -39,6 +40,10 @@ interface Caps {
   isContractable: (m: string) => boolean
   reload: () => Promise<void>
   logout: () => Promise<void>
+  /** Vínculos ativos desta pessoa — o hub só aparece quando há mais de um. */
+  memberships: MembershipSummary[]
+  /** Volta ao hub de empresas SEM deslogar — para entrar na outra empresa. */
+  openHub: () => void
 }
 
 const CapCtx = createContext<Caps | null>(null)
@@ -66,6 +71,9 @@ export function CapabilityProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('loading')
   const [ctx, setCtx] = useState<PanelContext | null>(null)
   const [choices, setChoices] = useState<MembershipSummary[]>([])
+  // TODOS os vínculos ativos, guardados desde o boot: é o que permite abrir o
+  // hub DEPOIS de logado (trocar de empresa) sem uma nova ida ao /auth/me.
+  const [vinculos, setVinculos] = useState<MembershipSummary[]>([])
   const [error, setError] = useState<string | null>(null)
 
   const loadContext = useCallback(async (tenantId: string) => {
@@ -98,6 +106,7 @@ export function CapabilityProvider({ children }: { children: ReactNode }) {
       return setStatus('login')
     }
     const active = me.memberships.filter((m) => m.status === 'active')
+    setVinculos(active)
     if (active.length === 0) return setStatus('error'), setError(t.states.noCompany)
     const stored = getStoredTenantId()
     const tenantId =
@@ -132,9 +141,16 @@ export function CapabilityProvider({ children }: { children: ReactNode }) {
               await apiLogout()
               goHome()
             },
+            memberships: vinculos,
+            // Reusa o estado 'select' do boot: o MESMO hub das duas portas —
+            // login e troca — para a pessoa nunca aprender duas telas.
+            openHub: () => {
+              setChoices(vinculos)
+              setStatus('select')
+            },
           }
         : null,
-    [ctx, loadContext],
+    [ctx, loadContext, vinculos],
   )
 
   // ── Estados não-prontos (mesma identidade visual) ──────────────
@@ -165,16 +181,55 @@ export function CapabilityProvider({ children }: { children: ReactNode }) {
           </Card>
         )}
         {status === 'select' && (
-          <Card style={{ maxWidth: 460, width: '100%' }}>
-            <h2 style={{ color: 'var(--heading)', fontSize: 20, fontWeight: 800, marginBottom: 14 }}>{t.states.chooseCompany}</h2>
+          <Card style={{ maxWidth: 480, width: '100%' }}>
+            <h2 style={{ color: 'var(--heading)', fontSize: 20, fontWeight: 800, marginBottom: 4 }}>{t.states.chooseCompany}</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 16 }}>{t.states.chooseCompanyBody}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {choices.map((m) => (
-                <button key={m.id} onClick={() => void loadContext(m.tenant_id)} className="app-btn" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--heading)', cursor: 'pointer', fontWeight: 700 }}>
-                  <span>{m.tenant_name}</span>
-                  <Icon name="chevron" size={18} />
-                </button>
-              ))}
+              {choices.map((m) => {
+                const atual = ctx !== null && ctx.tenant_id === m.tenant_id
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => {
+                      // Trocar de empresa também troca de TELA: a rota atual
+                      // (um caso aberto, um construtor) pode nem existir lá.
+                      window.location.hash = 'painel'
+                      void loadContext(m.tenant_id)
+                    }}
+                    className="app-btn"
+                    style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '14px 16px', borderRadius: 14, border: `1.5px solid ${atual ? 'var(--accent)' : 'var(--border)'}`, background: atual ? 'var(--accent-soft)' : 'var(--surface-2)', cursor: 'pointer', textAlign: 'left' }}
+                  >
+                    <span style={{ width: 40, height: 40, minWidth: 40, borderRadius: 12, background: atual ? 'var(--accent)' : 'var(--surface)', border: '1px solid var(--border)', color: atual ? '#fff' : 'var(--accent)', fontWeight: 800, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {(m.tenant_name || '?').trim().charAt(0).toUpperCase()}
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', color: 'var(--heading)', fontWeight: 800, fontSize: 15 }}>
+                        {m.tenant_name}
+                        {atual && <span style={{ marginLeft: 8, color: 'var(--accent)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em' }}>{t.states.currentCompany}</span>}
+                      </span>
+                      {/* O PAPEL em cada empresa: é o que diferencia os dois
+                          vínculos quando os nomes não bastam. */}
+                      <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12.5, marginTop: 2 }}>
+                        {(m.roles ?? []).map(localizeRole).join(', ') || t.states.memberRole}
+                      </span>
+                    </span>
+                    <Icon name="chevron" size={17} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                  </button>
+                )
+              })}
             </div>
+            {/* Aberto de DENTRO (trocando): dá para desistir e ficar onde está.
+                No login não há "onde está" — o botão só existe com contexto. */}
+            {ctx !== null && (
+              <button
+                type="button"
+                onClick={() => setStatus('ready')}
+                className="app-btn"
+                style={{ marginTop: 14, width: '100%', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 700, fontSize: 13 }}
+              >
+                {t.states.stayHere}
+              </button>
+            )}
           </Card>
         )}
       </ShellLess>
