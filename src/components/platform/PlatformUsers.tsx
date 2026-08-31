@@ -23,7 +23,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import type { ApiError } from '../../lib/types'
-import { Avatar, Button, Card, Chip, EmptyState, Field, Input, Select, Skeleton } from '../../app/ui'
+import { Avatar, Button, Card, Chip, EmptyState, Field, Input, Modal, Select, Skeleton } from '../../app/ui'
 
 export type PlatformUserMembership = {
   membership_id: string
@@ -84,6 +84,15 @@ export type UsersTextos = {
   inviteExpired: string
   resendInvite: string
   pendingHint: string
+  deleteUser: string
+  deleteTitle: string
+  deleteHard: string
+  deleteAnon: string
+  deleteFrees: (email: string) => string
+  deleteMemberships: (n: number) => string
+  deletePending: (n: number) => string
+  deleteConfirm: string
+  deleteDone: (email: string) => string
 }
 
 /** Tom do Chip por estado do vínculo — os mesmos tons que o painel usa. */
@@ -113,6 +122,39 @@ export default function PlatformUsers({
   const [novo, setNovo] = useState(vazio)
   const [criando, setCriando] = useState(false)
   const timer = useRef<number | undefined>(undefined)
+
+  // Exclusão: a prévia do impacto vem ANTES do botão de confirmar. Apagar
+  // gente não pode ser um clique só, e o que acontece muda conforme a pessoa
+  // tenha assinado alguma coisa.
+  type Previa = {
+    user_id: string; email: string; full_name: string | null
+    memberships: number; signatures: number
+    pending_assignments: { case_id: string; stage: string }[]
+    mode: 'hard' | 'anonymize'
+  }
+  const [previa, setPrevia] = useState<Previa | null>(null)
+
+  async function abrirExclusao(userId: string) {
+    setOcupado(userId)
+    try {
+      setPrevia(await api.get<Previa>(`/platform/users/${userId}/deletion-preview`))
+    } catch (e) {
+      onToast((e as ApiError).detail ?? 'Erro')
+    } finally { setOcupado(null) }
+  }
+
+  async function confirmarExclusao() {
+    if (!previa) return
+    setOcupado(previa.user_id)
+    try {
+      await api.delete(`/platform/users/${previa.user_id}`)
+      onToast(textos.deleteDone(previa.email))
+      setPrevia(null)
+      await buscar(termo.trim())
+    } catch (e) {
+      onToast((e as ApiError).detail ?? 'Erro')
+    } finally { setOcupado(null) }
+  }
 
   const buscar = useCallback(
     (q: string) =>
@@ -326,6 +368,18 @@ export default function PlatformUsers({
                   {confirmando === `ativo:${contaId}` ? textos.confirm : u.is_active ? textos.deactivate : textos.activate}
                 </Button>
               )}
+              {/* EXCLUIR — a única ação que LIBERA o e-mail para um cadastro
+                  novo em outra empresa. Abre a prévia primeiro: excluir gente
+                  não pode ser um clique só, e o impacto muda conforme a pessoa
+                  tenha assinado alguma coisa. */}
+              {!u.is_platform_admin && (
+                <Button variant="outline"
+                  style={{ padding: '8px 14px', fontSize: 13, borderColor: '#e11d48', color: '#e11d48' }}
+                  loading={ocupado === contaId}
+                  onClick={() => void abrirExclusao(contaId)}>
+                  {textos.deleteUser}
+                </Button>
+              )}
               </>
               )}
             </div>
@@ -374,6 +428,52 @@ export default function PlatformUsers({
         </Card>
         )
       })}
+
+      {/* PRÉVIA DA EXCLUSÃO — o que vai acontecer, antes de acontecer.
+          Dois desfechos possíveis, e a diferença não é detalhe: quem nunca
+          assinou some de verdade; quem assinou tem o e-mail liberado, mas os
+          registros ficam — apagá-los faria as assinaturas dela passarem a
+          exibir "adulterado" no verificador público. */}
+      <Modal
+        open={previa !== null}
+        onClose={() => setPrevia(null)}
+        title={textos.deleteTitle}
+        kicker={previa?.email ?? ''}
+        maxWidth={560}
+      >
+        {previa && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <p style={{ color: 'var(--text)', fontSize: 14, lineHeight: 1.6, margin: 0 }}>
+              {previa.mode === 'hard' ? textos.deleteHard : textos.deleteAnon}
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px' }}>
+              <span style={{ color: 'var(--heading)', fontSize: 13, fontWeight: 700 }}>
+                {textos.deleteFrees(previa.email)}
+              </span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>
+                {textos.deleteMemberships(previa.memberships)}
+              </span>
+              {previa.pending_assignments.length > 0 && (
+                <span style={{ color: '#d97706', fontSize: 12.5, fontWeight: 700 }}>
+                  {textos.deletePending(previa.pending_assignments.length)}
+                </span>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <Button variant="ghost" onClick={() => setPrevia(null)}>{textos.cancel}</Button>
+              <Button
+                loading={ocupado === previa.user_id}
+                onClick={() => void confirmarExclusao()}
+                style={{ background: '#e11d48', borderColor: '#e11d48' }}
+              >
+                {textos.deleteConfirm}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
