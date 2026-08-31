@@ -61,6 +61,16 @@ export function getStoredTenantId(): string | null {
   }
 }
 
+/** Esquece a última empresa usada — SEM derrubar a sessão.
+ *
+ *  O boot do painel entra direto na empresa guardada, e é isso que se quer no
+ *  dia a dia. Mas quando a lista de empresas da pessoa acabou de mudar (ela
+ *  aceitou um convite e agora tem duas), entrar direto na antiga esconderia
+ *  justamente a novidade: sem a preferência guardada, o boot abre o hub. */
+export function forgetStoredTenantId(): void {
+  setCurrentTenantId(null)
+}
+
 export function onTokenChange(listener: (token: string | null) => void): () => void {
   listeners.add(listener)
   return () => listeners.delete(listener)

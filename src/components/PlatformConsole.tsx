@@ -32,6 +32,8 @@ const L = {
     cAdmin: 'Admin da empresa', cAdminName: 'Nome do admin', cEmail: 'E-mail', cPassword: 'Senha (mín. 8)',
     create: 'Criar empresa', companyCreated: 'Empresa criada.', addUser: 'Adicionar usuário', uName: 'Nome',
     uRole: 'Papel', add: 'Adicionar', userAdded: 'Usuário adicionado.', autoSlug: '(gerado do nome)',
+    existingNote: 'Este e-mail já tem conta na plataforma. Vai virar um segundo vínculo: a senha atual continua valendo e, no login, a pessoa escolhe a empresa.',
+    attachedOk: 'Vínculo adicionado — o login da pessoa continua o mesmo.',
     resend: 'Reenviar convite', resending: 'Enviando…', resendOk: 'Convite reenviado por e-mail.',
     gateAnonTitle: 'Entre para acessar o console', gateAnonBody: 'Esta área exige uma conta de plataforma Soluqtion.', gateSignIn: 'Entrar',
     gateForbiddenTitle: 'Esta conta não é de plataforma', gateForbiddenBody: 'Você está numa conta de empresa. Saia e entre com a conta Soluqtion.',
@@ -110,6 +112,8 @@ const L = {
     cAdmin: 'Company admin', cAdminName: 'Admin name', cEmail: 'Email', cPassword: 'Password (min. 8)',
     create: 'Create company', companyCreated: 'Company created.', addUser: 'Add user', uName: 'Name',
     uRole: 'Role', add: 'Add', userAdded: 'User added.', autoSlug: '(from the name)',
+    existingNote: 'This email already has an account. It becomes a second membership: the current password stays valid and the person picks the company at login.',
+    attachedOk: 'Membership added — the person keeps the same login.',
     resend: 'Resend invite', resending: 'Sending…', resendOk: 'Invitation re-sent by email.',
     gateAnonTitle: 'Sign in to access the console', gateAnonBody: 'This area requires a Soluqtion platform account.', gateSignIn: 'Sign in',
     gateForbiddenTitle: 'This account is not a platform account', gateForbiddenBody: 'You are on a company account. Sign out and use the Soluqtion account.',
@@ -188,6 +192,8 @@ const L = {
     cAdmin: 'Admin de la empresa', cAdminName: 'Nombre del admin', cEmail: 'Correo', cPassword: 'Contraseña (mín. 8)',
     create: 'Crear empresa', companyCreated: 'Empresa creada.', addUser: 'Agregar usuario', uName: 'Nombre',
     uRole: 'Rol', add: 'Agregar', userAdded: 'Usuario agregado.', autoSlug: '(generado del nombre)',
+    existingNote: 'Este correo ya tiene cuenta. Será un segundo vínculo: la contraseña actual sigue valiendo y la persona elige la empresa al entrar.',
+    attachedOk: 'Vínculo agregado — el acceso de la persona sigue igual.',
     resend: 'Reenviar invitación', resending: 'Enviando…', resendOk: 'Invitación reenviada por correo.',
     gateAnonTitle: 'Inicia sesión para acceder a la consola', gateAnonBody: 'Esta área exige una cuenta de plataforma Soluqtion.', gateSignIn: 'Entrar',
     gateForbiddenTitle: 'Esta cuenta no es de plataforma', gateForbiddenBody: 'Estás en una cuenta de empresa. Sal y entra con la cuenta Soluqtion.',
@@ -271,6 +277,27 @@ export function isPlatformPath(): boolean {
   return window.location.hash.toLowerCase().startsWith('#plataforma')
 }
 
+/** O e-mail digitado já tem conta na plataforma?
+ *
+ *  Muda o formulário inteiro: conta existente não ganha senha nova (vira um
+ *  SEGUNDO vínculo do mesmo login) e o aviso ao superadmin é outro. A resposta
+ *  vem da própria busca de pessoas do console, com debounce para não fuzilar a
+ *  API a cada tecla. */
+function useEmailComConta(email: string): boolean {
+  const [existe, setExiste] = useState(false)
+  useEffect(() => {
+    const limpo = email.trim().toLowerCase()
+    if (!limpo.includes('@') || limpo.length < 5) { setExiste(false); return }
+    const t = setTimeout(() => {
+      api.get<{ email: string }[]>(`/platform/users?q=${encodeURIComponent(limpo)}`)
+        .then((rows) => setExiste(rows.some((r) => (r.email || '').toLowerCase() === limpo)))
+        .catch(() => setExiste(false))
+    }, 350)
+    return () => clearTimeout(t)
+  }, [email])
+  return existe
+}
+
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 20 }
 const fld: CSSProperties = { width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', color: 'var(--heading)', fontSize: 14, boxSizing: 'border-box', fontFamily: 'inherit' }
 const btnAccent: CSSProperties = { background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '10px 20px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }
@@ -309,6 +336,9 @@ export default function PlatformConsole() {
   const [nf, setNf] = useState(emptyNew)
   const emptyMember = { full_name: '', email: '', password: '', role_id: '' }
   const [mf, setMf] = useState(emptyMember)
+  // Conta existente → sem campo de senha, aviso de segundo vínculo.
+  const memberJaTemConta = useEmailComConta(mf.email)
+  const adminJaTemConta = useEmailComConta(nf.admin_email)
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2600) }
 
   useEffect(() => {
@@ -343,7 +373,8 @@ export default function PlatformConsole() {
     try {
       const d = await api.post<PlatformTenantDetail>('/platform/tenants', {
         name: nf.name.trim(), slug: nf.slug.trim() || null, plan_id: nf.plan_id || null,
-        admin_name: nf.admin_name.trim(), admin_email: nf.admin_email.trim(), admin_password: nf.admin_password,
+        admin_name: nf.admin_name.trim(), admin_email: nf.admin_email.trim(),
+        admin_password: adminJaTemConta ? null : nf.admin_password,
       })
       setShowNew(false); setNf(emptyNew); load(); setDetail(d); setLimitEdit(String(d.ai_token_limit)); setStorageEdit(String(Math.round((d.storage_limit_bytes || 0) / 1024 / 1024))); setSeatsEdit(d.max_users_override != null ? String(d.max_users_override) : ''); flash(tr.companyCreated)
     } catch (e) { flash((e as ApiError).detail ?? 'Erro') } finally { setBusy(false) }
@@ -353,9 +384,10 @@ export default function PlatformConsole() {
     setBusy(true)
     try {
       const d = await api.post<PlatformTenantDetail>(`/platform/tenants/${detail.id}/members`, {
-        full_name: mf.full_name.trim(), email: mf.email.trim(), password: mf.password, role_id: mf.role_id || null,
+        full_name: mf.full_name.trim(), email: mf.email.trim(),
+        password: memberJaTemConta ? null : mf.password, role_id: mf.role_id || null,
       })
-      setDetail(d); setMf(emptyMember); load(); flash(tr.userAdded)
+      setDetail(d); setMf(emptyMember); load(); flash(memberJaTemConta ? tr.attachedOk : tr.userAdded)
     } catch (e) { flash((e as ApiError).detail ?? 'Erro') } finally { setBusy(false) }
   }
 
@@ -843,13 +875,20 @@ export default function PlatformConsole() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <input style={fld} placeholder={tr.uName} value={mf.full_name} onChange={(e) => setMf({ ...mf, full_name: e.target.value })} />
                 <input style={fld} type="email" placeholder={tr.cEmail} value={mf.email} onChange={(e) => setMf({ ...mf, email: e.target.value })} />
-                <PasswordInput style={fld} placeholder={tr.cPassword} value={mf.password} onChange={(e) => setMf({ ...mf, password: e.target.value })} />
-                <select style={fld} value={mf.role_id} onChange={(e) => setMf({ ...mf, role_id: e.target.value })}>
+                {!memberJaTemConta && (
+                  <PasswordInput style={fld} placeholder={tr.cPassword} value={mf.password} onChange={(e) => setMf({ ...mf, password: e.target.value })} />
+                )}
+                <select style={{ ...fld, gridColumn: memberJaTemConta ? 'span 2' : undefined }} value={mf.role_id} onChange={(e) => setMf({ ...mf, role_id: e.target.value })}>
                   <option value="">{tr.uRole}</option>
                   {detail.roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
               </div>
-              <button disabled={busy || !mf.full_name.trim() || !mf.email.trim() || mf.password.length < 8} onClick={() => void addMember()} style={{ ...btnAccent, marginTop: 10, opacity: busy || !mf.full_name.trim() || !mf.email.trim() || mf.password.length < 8 ? 0.6 : 1 }}>{tr.add}</button>
+              {memberJaTemConta && (
+                <div style={{ marginTop: 8, background: 'var(--accent-soft)', border: '1px solid var(--border)', color: 'var(--heading)', borderRadius: 10, padding: '10px 12px', fontSize: 12.5 }}>
+                  {tr.existingNote}
+                </div>
+              )}
+              <button disabled={busy || !mf.full_name.trim() || !mf.email.trim() || (!memberJaTemConta && mf.password.length < 8)} onClick={() => void addMember()} style={{ ...btnAccent, marginTop: 10, opacity: busy || !mf.full_name.trim() || !mf.email.trim() || (!memberJaTemConta && mf.password.length < 8) ? 0.6 : 1 }}>{tr.add}</button>
             </div>
           </div>
         </div>
@@ -873,8 +912,15 @@ export default function PlatformConsole() {
               <div style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', marginTop: 6 }}>{tr.cAdmin}</div>
               <input style={fld} placeholder={tr.cAdminName} value={nf.admin_name} onChange={(e) => setNf({ ...nf, admin_name: e.target.value })} />
               <input style={fld} type="email" placeholder={tr.cEmail} value={nf.admin_email} onChange={(e) => setNf({ ...nf, admin_email: e.target.value })} />
-              <PasswordInput style={fld} placeholder={tr.cPassword} value={nf.admin_password} onChange={(e) => setNf({ ...nf, admin_password: e.target.value })} />
-              <button disabled={busy || !nf.name.trim() || !nf.admin_name.trim() || !nf.admin_email.trim() || nf.admin_password.length < 8} onClick={() => void createCompany()} style={{ ...btnAccent, marginTop: 6, opacity: busy || !nf.name.trim() || !nf.admin_name.trim() || !nf.admin_email.trim() || nf.admin_password.length < 8 ? 0.6 : 1 }}>{tr.create}</button>
+              {!adminJaTemConta && (
+                <PasswordInput style={fld} placeholder={tr.cPassword} value={nf.admin_password} onChange={(e) => setNf({ ...nf, admin_password: e.target.value })} />
+              )}
+              {adminJaTemConta && (
+                <div style={{ background: 'var(--accent-soft)', border: '1px solid var(--border)', color: 'var(--heading)', borderRadius: 10, padding: '10px 12px', fontSize: 12.5 }}>
+                  {tr.existingNote}
+                </div>
+              )}
+              <button disabled={busy || !nf.name.trim() || !nf.admin_name.trim() || !nf.admin_email.trim() || (!adminJaTemConta && nf.admin_password.length < 8)} onClick={() => void createCompany()} style={{ ...btnAccent, marginTop: 6, opacity: busy || !nf.name.trim() || !nf.admin_name.trim() || !nf.admin_email.trim() || (!adminJaTemConta && nf.admin_password.length < 8) ? 0.6 : 1 }}>{tr.create}</button>
             </div>
           </div>
         </div>
