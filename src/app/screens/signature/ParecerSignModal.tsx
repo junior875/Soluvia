@@ -1,5 +1,5 @@
 // Modal de assinatura do PARECER: rubrica (canvas) + localização (consentimento
-// explícito) + CPF opcional. Não faz POST — devolve os dados via onConfirm para
+// explícito) + CPF. Não faz POST — devolve os dados via onConfirm para
 // o Cases enviar junto do parecer. Reaproveita SignaturePad + GeolocationConsentModal.
 import { useEffect, useRef, useState } from 'react'
 import type { SigGeo } from '../../../lib/types'
@@ -8,6 +8,7 @@ import { Icon } from '../../icons'
 import { useT } from '../../strings'
 import RubricField, { type RubricFieldHandle } from './RubricField'
 import GeolocationConsentModal from './GeolocationConsentModal'
+import { cpfValido, maskCpf } from '../../../lib/cpf'
 
 interface Props {
   open: boolean
@@ -22,19 +23,13 @@ interface Props {
   /** Pré-preenche a rubrica gerada. Vem por prop porque este modal também roda
    *  na página pública, fora do CapabilityProvider (lá começa vazio). */
   defaultName?: string
+  /** true no PARECER, cuja assinatura o backend recusa sem CPF válido (422).
+   *  Fica de fora no fluxo público: exigir CPF de denunciante seria barreira
+   *  de identificação — decisão do canal, não deste modal. */
+  requireCpf?: boolean
 }
 
-function maskCpf(v: string): string {
-  const d = v.replace(/\D/g, '').slice(0, 11)
-  const p = [d.slice(0, 3), d.slice(3, 6), d.slice(6, 9), d.slice(9, 11)].filter(Boolean)
-  let out = p[0] ?? ''
-  if (p[1]) out += '.' + p[1]
-  if (p[2]) out += '.' + p[2]
-  if (p[3]) out += '-' + p[3]
-  return out
-}
-
-export default function ParecerSignModal({ open, busy, onClose, onConfirm, title, kicker, cta, defaultName }: Props) {
+export default function ParecerSignModal({ open, busy, onClose, onConfirm, title, kicker, cta, defaultName, requireCpf }: Props) {
   const t = useT()
   const rubricRef = useRef<RubricFieldHandle>(null)
   const [image, setImage] = useState<string | null>(null)
@@ -49,6 +44,10 @@ export default function ParecerSignModal({ open, busy, onClose, onConfirm, title
     // Mensagem neutra: agora a rubrica também pode ser gerada do nome, então
     // "desenhe sua rubrica" deixou de descrever as duas formas.
     if (!image) { setErr(t.sig.rubricRequired); return }
+    if (requireCpf && !cpf.trim()) { setErr(t.sig.cpfRequired); return }
+    // CPF digitado errado é recusado nos DOIS fluxos: opcional não é licença
+    // para guardar um número que não fecha os dígitos verificadores.
+    if (cpf.trim() && !cpfValido(cpf)) { setErr(t.sig.cpfInvalid); return }
     setErr(null)
     onConfirm({ signature_image: image, geo, cpf: cpf.trim() || null })
   }
@@ -81,8 +80,8 @@ export default function ParecerSignModal({ open, busy, onClose, onConfirm, title
             </div>
           </Field>
 
-          {/* CPF opcional */}
-          <Field label={t.sig.cpf}>
+          {/* CPF: obrigatório no parecer (o backend recusa sem), opcional no público */}
+          <Field label={requireCpf ? t.sig.cpfRequiredLabel : t.sig.cpf}>
             <Input value={cpf} onChange={(e) => setCpf(maskCpf(e.target.value))} placeholder="000.000.000-00" inputMode="numeric" autoComplete="off" />
           </Field>
 

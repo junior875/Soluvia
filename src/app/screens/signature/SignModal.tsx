@@ -1,4 +1,4 @@
-// Ato de assinar: rubrica (canvas) + CPF opcional (mascarado) + localização com
+// Ato de assinar: rubrica (canvas) + CPF OBRIGATÓRIO (mascarado) + localização com
 // consentimento explícito. Monta o corpo e chama POST /signature/documents/{id}/sign.
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../../../lib/api'
@@ -10,6 +10,7 @@ import { useT } from '../../strings'
 import RubricField, { type RubricFieldHandle } from './RubricField'
 import GeolocationConsentModal from './GeolocationConsentModal'
 import { sigProfileKey } from '../../../lib/storageKeys'
+import { cpfValido, maskCpf } from '../../../lib/cpf'
 
 // Perfil do signatário salvo NESTE dispositivo (localStorage), POR USUÁRIO.
 // Guarda só a imagem da rubrica — nunca o CPF, nunca a localização — e é apagado
@@ -25,16 +26,8 @@ interface Props {
   onSigned: (sig: Signature) => void
 }
 
-// Máscara de CPF: 000.000.000-00. Mantemos só dígitos e formatamos.
-function maskCpf(v: string): string {
-  const d = v.replace(/\D/g, '').slice(0, 11)
-  const p = [d.slice(0, 3), d.slice(3, 6), d.slice(6, 9), d.slice(9, 11)].filter(Boolean)
-  let out = p[0] ?? ''
-  if (p[1]) out += '.' + p[1]
-  if (p[2]) out += '.' + p[2]
-  if (p[3]) out += '-' + p[3]
-  return out
-}
+// Máscara + validação vêm de lib/cpf — o mesmo algoritmo do backend, que é
+// quem dá a garantia (422 sem CPF válido). Aqui só se aponta o erro mais cedo.
 
 export default function SignModal({ open, documentId, fieldId, onClose, onSigned }: Props) {
   const t = useT()
@@ -82,13 +75,17 @@ export default function SignModal({ open, documentId, fieldId, onClose, onSigned
     // nulo, e a assinatura ainda assim entra na cadeia. Como a rubrica gerada só
     // existe depois do debounce + carga das fontes, essa janela é real.
     if (sigType === 'rubric' && !image) { setErr(t.sig.rubricRequired); return }
+    // CPF é obrigatório e conferido AQUI, com o cartão ainda na mão — o
+    // backend recusa de qualquer forma (422), mas o erro cedo é mais gentil.
+    if (!cpf.trim()) { setErr(t.sig.cpfRequired); return }
+    if (!cpfValido(cpf)) { setErr(t.sig.cpfInvalid); return }
     setErr(null); setBusy(true)
     try {
       const body: SignRequest = {
         field_id: fieldId ?? null,
         level: 'advanced',
         signature_type: sigType,
-        cpf: cpf.trim() ? cpf.trim() : null,
+        cpf: cpf.trim(),
         geo,
         signature_image: sigType === 'rubric' ? image : null,
       }
@@ -160,8 +157,8 @@ export default function SignModal({ open, documentId, fieldId, onClose, onSigned
             </div>
           )}
 
-          {/* CPF opcional */}
-          <Field label={t.sig.cpf}>
+          {/* CPF obrigatório: o backend recusa o ato sem ele (422) */}
+          <Field label={t.sig.cpfRequiredLabel}>
             <Input
               value={cpf}
               onChange={(e) => setCpf(maskCpf(e.target.value))}

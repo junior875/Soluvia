@@ -561,6 +561,9 @@ export default function Cases({ module = 'etica' }: CasesProps) {
         // para selar, e assinar o vazio geraria uma prova de nada.
         onConfirm={(sig) => { if (parecerPronto) void doSubmitParecer(parecerPronto, sig) }}
         defaultName={ctx.user.full_name}
+        // O backend recusa a assinatura do parecer sem CPF válido (422); pedir
+        // aqui evita a viagem de erro depois de desenhada a rubrica.
+        requireCpf
       />
 
       {toast && createPortal(
