@@ -36,6 +36,8 @@ const pt = {
     currentCompany: 'Atual',
     memberRole: 'Membro',
     stayHere: 'Continuar onde estou',
+    platformConsole: 'Console da plataforma',
+    platformConsoleHint: 'Visão de todas as empresas',
     loadingPanel: 'Preparando seu painel…',
   },
   notif: {
@@ -802,6 +804,8 @@ const en: AppStrings = {
     currentCompany: 'Current',
     memberRole: 'Member',
     stayHere: 'Stay where I am',
+    platformConsole: 'Platform console',
+    platformConsoleHint: 'View across all companies',
     loadingPanel: 'Preparing your panel…',
   },
   notif: {
@@ -1557,6 +1561,8 @@ const es: AppStrings = {
     currentCompany: 'Actual',
     memberRole: 'Miembro',
     stayHere: 'Quedarme donde estoy',
+    platformConsole: 'Consola de la plataforma',
+    platformConsoleHint: 'Vista de todas las empresas',
     loadingPanel: 'Preparando tu panel…',
   },
   notif: {

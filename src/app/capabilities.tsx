@@ -74,6 +74,9 @@ export function CapabilityProvider({ children }: { children: ReactNode }) {
   // TODOS os vínculos ativos, guardados desde o boot: é o que permite abrir o
   // hub DEPOIS de logado (trocar de empresa) sem uma nova ida ao /auth/me.
   const [vinculos, setVinculos] = useState<MembershipSummary[]>([])
+  // Superadmin que TAMBÉM é gente de empresa: o console é mais um destino do
+  // hub, não um desvio — o mesmo desenho do seletor de login.
+  const [ehPlataforma, setEhPlataforma] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const loadContext = useCallback(async (tenantId: string) => {
@@ -107,6 +110,7 @@ export function CapabilityProvider({ children }: { children: ReactNode }) {
     }
     const active = me.memberships.filter((m) => m.status === 'active')
     setVinculos(active)
+    setEhPlataforma(me.is_platform_admin === true)
     if (active.length === 0) return setStatus('error'), setError(t.states.noCompany)
     const stored = getStoredTenantId()
     const tenantId =
@@ -185,6 +189,23 @@ export function CapabilityProvider({ children }: { children: ReactNode }) {
             <h2 style={{ color: 'var(--heading)', fontSize: 20, fontWeight: 800, marginBottom: 4 }}>{t.states.chooseCompany}</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 16 }}>{t.states.chooseCompanyBody}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {ehPlataforma && (
+                <button
+                  type="button"
+                  onClick={() => { window.location.hash = 'plataforma' }}
+                  className="app-btn"
+                  style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '14px 16px', borderRadius: 14, border: '1.5px solid var(--accent)', background: 'var(--accent-soft)', cursor: 'pointer', textAlign: 'left' }}
+                >
+                  <span style={{ width: 40, height: 40, minWidth: 40, borderRadius: 12, background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name="settings" size={19} />
+                  </span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: 'block', color: 'var(--heading)', fontWeight: 800, fontSize: 15 }}>{t.states.platformConsole}</span>
+                    <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12.5, marginTop: 2 }}>{t.states.platformConsoleHint}</span>
+                  </span>
+                  <Icon name="chevron" size={17} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                </button>
+              )}
               {choices.map((m) => {
                 const atual = ctx !== null && ctx.tenant_id === m.tenant_id
                 return (

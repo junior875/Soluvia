@@ -40,6 +40,10 @@ const L = {
     storageQuota: 'Armazenamento de provas', storageWarn: 'Ao atingir o teto, os canais de denúncia e SAC param de aceitar ANEXOS — o relato continua entrando, mas sem foto, vídeo ou documento.',
     uNoneBody: 'Ajuste a busca ou crie uma pessoa nova.',
     uNewUser: 'Nova pessoa', uCompany: 'Empresa', uName2: 'Nome', create2: 'Criar', uCancel: 'Cancelar',
+    uCreatedInvited: 'Convite enviado — a pessoa recebe o código por e-mail e escolhe a própria senha.',
+    uNoRole: 'Sem papel definido',
+    uPasswordOptional: 'Senha (opcional)',
+    uPasswordOptionalHint: 'Deixe em branco: a pessoa recebe um e-mail com o código, abre o link e escolhe a senha dela. Só preencha se precisar entregar o acesso pronto.',
     navSection: 'Console', tab_empresas: 'Empresas', tab_pessoas: 'Pessoas', tab_sistema: 'Sistema',
     tab_armazenamento: 'Armazenamento', tab_tokens: 'Tokens de IA',
     tab_financeiro: 'Custos e entradas',
@@ -120,6 +124,10 @@ const L = {
     storageQuota: 'Evidence storage', storageWarn: 'Once the cap is reached, the whistleblowing and SAC channels stop accepting ATTACHMENTS — reports still come in, but with no photo, video or document.',
     uNoneBody: 'Adjust the search or create a new person.',
     uNewUser: 'New person', uCompany: 'Company', uName2: 'Name', create2: 'Create', uCancel: 'Cancel',
+    uCreatedInvited: 'Invite sent — the person gets the code by email and picks their own password.',
+    uNoRole: 'No role set',
+    uPasswordOptional: 'Password (optional)',
+    uPasswordOptionalHint: 'Leave it blank: the person gets an email with the code, opens the link and picks their own password. Fill it in only if you must hand over ready-made access.',
     navSection: 'Console', tab_empresas: 'Companies', tab_pessoas: 'People', tab_sistema: 'System',
     tab_armazenamento: 'Storage', tab_tokens: 'AI tokens',
     tab_financeiro: 'Costs & revenue',
@@ -200,6 +208,10 @@ const L = {
     storageQuota: 'Almacenamiento de pruebas', storageWarn: 'Al alcanzar el tope, los canales de denuncias y SAC dejan de aceptar ADJUNTOS — los relatos siguen entrando, pero sin foto, video ni documento.',
     uNoneBody: 'Ajusta la búsqueda o crea una persona nueva.',
     uNewUser: 'Nueva persona', uCompany: 'Empresa', uName2: 'Nombre', create2: 'Crear', uCancel: 'Cancelar',
+    uCreatedInvited: 'Invitación enviada — la persona recibe el código por correo y elige su propia contraseña.',
+    uNoRole: 'Sin rol definido',
+    uPasswordOptional: 'Contraseña (opcional)',
+    uPasswordOptionalHint: 'Déjala en blanco: la persona recibe un correo con el código, abre el enlace y elige su contraseña. Complétala solo si necesitas entregar el acceso listo.',
     navSection: 'Consola', tab_empresas: 'Empresas', tab_pessoas: 'Personas', tab_sistema: 'Sistema',
     tab_armazenamento: 'Almacenamiento', tab_tokens: 'Tokens de IA',
     tab_financeiro: 'Costos e ingresos',
@@ -387,7 +399,9 @@ export default function PlatformConsole() {
       const d = await api.post<PlatformTenantDetail>('/platform/tenants', {
         name: nf.name.trim(), slug: nf.slug.trim() || null, plan_id: nf.plan_id || null,
         admin_name: nf.admin_name.trim(), admin_email: nf.admin_email.trim(),
-        admin_password: adminJaTemConta ? null : nf.admin_password,
+        // Vazio vira null: é o que manda o convite por e-mail em vez de o
+        // superadmin escolher a senha do admin do cliente.
+        admin_password: adminJaTemConta || !nf.admin_password.trim() ? null : nf.admin_password,
       })
       setShowNew(false); setNf(emptyNew); load(); setDetail(d); setLimitEdit(String(d.ai_token_limit)); setStorageEdit(String(Math.round((d.storage_limit_bytes || 0) / 1024 / 1024))); setSeatsEdit(d.max_users_override != null ? String(d.max_users_override) : ''); flash(tr.companyCreated)
     } catch (e) { flash((e as ApiError).detail ?? 'Erro') } finally { setBusy(false) }
@@ -396,11 +410,22 @@ export default function PlatformConsole() {
     if (!detail) return
     setBusy(true)
     try {
-      const d = await api.post<PlatformTenantDetail>(`/platform/tenants/${detail.id}/members`, {
-        full_name: mf.full_name.trim(), email: mf.email.trim(),
-        password: memberJaTemConta ? null : mf.password, role_id: mf.role_id || null,
-      })
-      setDetail(d); setMf(emptyMember); load(); flash(memberJaTemConta ? tr.attachedOk : tr.userAdded)
+      const r = await api.post<{ mode: string; tenant: PlatformTenantDetail }>(
+        `/platform/tenants/${detail.id}/members`,
+        {
+          full_name: mf.full_name.trim(), email: mf.email.trim(),
+          // Vazio vira null de propósito: é o que faz o convite sair por
+          // e-mail em vez de o superadmin inventar a senha de um cliente.
+          password: memberJaTemConta || !mf.password.trim() ? null : mf.password,
+          role_id: mf.role_id || null,
+        },
+      )
+      setDetail(r.tenant); setMf(emptyMember); load()
+      flash(
+        r.mode === 'attached' ? tr.attachedOk
+          : r.mode === 'invited' ? tr.uCreatedInvited
+            : tr.userAdded,
+      )
     } catch (e) { flash((e as ApiError).detail ?? 'Erro') } finally { setBusy(false) }
   }
 
@@ -584,6 +609,10 @@ export default function PlatformConsole() {
               newUser: tr.uNewUser, company: tr.uCompany, name: tr.uName2,
               email: tr.cEmail, create: tr.create2,
               cancel: tr.uCancel, created: tr.userAdded,
+              createdInvited: tr.uCreatedInvited, createdAttached: tr.attachedOk,
+              passwordOptional: tr.uPasswordOptional,
+              passwordOptionalHint: tr.uPasswordOptionalHint,
+              role: tr.uRole, noRole: tr.uNoRole,
               pendingInvite: tr.uPendingInvite, inviteExpired: tr.uInviteExpired,
               resendInvite: tr.uResendInvite, pendingHint: tr.uPendingHint,
               deleteUser: tr.uDeleteUser, deleteTitle: tr.uDeleteTitle,
@@ -889,19 +918,26 @@ export default function PlatformConsole() {
                 <input style={fld} placeholder={tr.uName} value={mf.full_name} onChange={(e) => setMf({ ...mf, full_name: e.target.value })} />
                 <input style={fld} type="email" placeholder={tr.cEmail} value={mf.email} onChange={(e) => setMf({ ...mf, email: e.target.value })} />
                 {!memberJaTemConta && (
-                  <PasswordInput style={fld} placeholder={tr.cPassword} value={mf.password} onChange={(e) => setMf({ ...mf, password: e.target.value })} />
+                  <PasswordInput style={fld} placeholder={tr.uPasswordOptional} value={mf.password} onChange={(e) => setMf({ ...mf, password: e.target.value })} />
                 )}
                 <select style={{ ...fld, gridColumn: memberJaTemConta ? 'span 2' : undefined }} value={mf.role_id} onChange={(e) => setMf({ ...mf, role_id: e.target.value })}>
                   <option value="">{tr.uRole}</option>
                   {detail.roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
               </div>
-              {memberJaTemConta && (
-                <div style={{ marginTop: 8, background: 'var(--accent-soft)', border: '1px solid var(--border)', color: 'var(--heading)', borderRadius: 10, padding: '10px 12px', fontSize: 12.5 }}>
-                  {tr.existingNote}
-                </div>
-              )}
-              <button disabled={busy || !mf.full_name.trim() || !mf.email.trim() || (!memberJaTemConta && mf.password.length < 8)} onClick={() => void addMember()} style={{ ...btnAccent, marginTop: 10, opacity: busy || !mf.full_name.trim() || !mf.email.trim() || (!memberJaTemConta && mf.password.length < 8) ? 0.6 : 1 }}>{tr.add}</button>
+              <div style={{ marginTop: 8, background: 'var(--accent-soft)', border: '1px solid var(--border)', color: 'var(--heading)', borderRadius: 10, padding: '10px 12px', fontSize: 12.5 }}>
+                {memberJaTemConta ? tr.existingNote : tr.uPasswordOptionalHint}
+              </div>
+              {(() => {
+                // Senha só atrapalha quando vem pela metade: vazia manda o
+                // convite, cheia entrega o acesso pronto, e 3 letras não fazem
+                // nem uma coisa nem outra.
+                const senhaIncompleta = !memberJaTemConta && mf.password.trim() !== '' && mf.password.length < 8
+                const travado = busy || !mf.full_name.trim() || !mf.email.trim() || senhaIncompleta
+                return (
+                  <button disabled={travado} onClick={() => void addMember()} style={{ ...btnAccent, marginTop: 10, opacity: travado ? 0.6 : 1 }}>{tr.add}</button>
+                )
+              })()}
             </div>
           </div>
         </div>
@@ -926,14 +962,18 @@ export default function PlatformConsole() {
               <input style={fld} placeholder={tr.cAdminName} value={nf.admin_name} onChange={(e) => setNf({ ...nf, admin_name: e.target.value })} />
               <input style={fld} type="email" placeholder={tr.cEmail} value={nf.admin_email} onChange={(e) => setNf({ ...nf, admin_email: e.target.value })} />
               {!adminJaTemConta && (
-                <PasswordInput style={fld} placeholder={tr.cPassword} value={nf.admin_password} onChange={(e) => setNf({ ...nf, admin_password: e.target.value })} />
+                <PasswordInput style={fld} placeholder={tr.uPasswordOptional} value={nf.admin_password} onChange={(e) => setNf({ ...nf, admin_password: e.target.value })} />
               )}
-              {adminJaTemConta && (
-                <div style={{ background: 'var(--accent-soft)', border: '1px solid var(--border)', color: 'var(--heading)', borderRadius: 10, padding: '10px 12px', fontSize: 12.5 }}>
-                  {tr.existingNote}
-                </div>
-              )}
-              <button disabled={busy || !nf.name.trim() || !nf.admin_name.trim() || !nf.admin_email.trim() || (!adminJaTemConta && nf.admin_password.length < 8)} onClick={() => void createCompany()} style={{ ...btnAccent, marginTop: 6, opacity: busy || !nf.name.trim() || !nf.admin_name.trim() || !nf.admin_email.trim() || (!adminJaTemConta && nf.admin_password.length < 8) ? 0.6 : 1 }}>{tr.create}</button>
+              <div style={{ background: 'var(--accent-soft)', border: '1px solid var(--border)', color: 'var(--heading)', borderRadius: 10, padding: '10px 12px', fontSize: 12.5 }}>
+                {adminJaTemConta ? tr.existingNote : tr.uPasswordOptionalHint}
+              </div>
+              {(() => {
+                const senhaIncompleta = !adminJaTemConta && nf.admin_password.trim() !== '' && nf.admin_password.length < 8
+                const travado = busy || !nf.name.trim() || !nf.admin_name.trim() || !nf.admin_email.trim() || senhaIncompleta
+                return (
+                  <button disabled={travado} onClick={() => void createCompany()} style={{ ...btnAccent, marginTop: 6, opacity: travado ? 0.6 : 1 }}>{tr.create}</button>
+                )
+              })()}
             </div>
           </div>
         </div>

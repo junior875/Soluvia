@@ -16,6 +16,7 @@ const L = {
     kicker: 'Acessar a Soluvia', close: 'Fechar', signIn: 'Entrar', signingIn: 'Entrando…',
     email: 'E-mail', password: 'Senha', chooseCompany: 'Em qual empresa você quer entrar?',
     chooseCompanyBody: 'Sua identidade é única; o acesso muda conforme a empresa.', member: 'membro',
+    platformConsole: 'Console da plataforma', platformConsoleHint: 'todas as empresas',
     noAccount: 'Ainda não tem conta?', subscribe: 'Assinar um plano',
     errNoCompany: 'Sua conta ainda não faz parte de nenhuma empresa ativa. Assine um plano para começar.',
     errInvalid: 'E-mail ou senha inválidos.',
@@ -32,6 +33,7 @@ const L = {
     kicker: 'Access Soluvia', close: 'Close', signIn: 'Sign in', signingIn: 'Signing in…',
     email: 'Email', password: 'Password', chooseCompany: 'Which company do you want to enter?',
     chooseCompanyBody: 'Your identity is unique; access changes per company.', member: 'member',
+    platformConsole: 'Platform console', platformConsoleHint: 'all companies',
     noAccount: "Don't have an account yet?", subscribe: 'Subscribe to a plan',
     errNoCompany: 'Your account is not part of any active company yet. Subscribe to a plan to get started.',
     errInvalid: 'Invalid email or password.',
@@ -48,6 +50,7 @@ const L = {
     kicker: 'Acceder a Soluvia', close: 'Cerrar', signIn: 'Entrar', signingIn: 'Entrando…',
     email: 'Correo', password: 'Contraseña', chooseCompany: '¿En qué empresa quieres entrar?',
     chooseCompanyBody: 'Tu identidad es única; el acceso cambia según la empresa.', member: 'miembro',
+    platformConsole: 'Consola de la plataforma', platformConsoleHint: 'todas las empresas',
     noAccount: '¿Aún no tienes cuenta?', subscribe: 'Suscribir un plan',
     errNoCompany: 'Tu cuenta aún no forma parte de ninguna empresa activa. Suscribe un plan para empezar.',
     errInvalid: 'Correo o contraseña inválidos.',
@@ -104,6 +107,9 @@ export default function LoginModal() {
   const [error, setError] = useState<string | null>(null)
   // Quando a pessoa tem mais de uma empresa, mostramos o seletor.
   const [choices, setChoices] = useState<MembershipSummary[] | null>(null)
+  // O seletor ganha o Console da plataforma no topo quando quem entrou é o
+  // superadmin — para ele o console é um destino a mais, não um desvio.
+  const [plataformaNoHub, setPlataformaNoHub] = useState(false)
   // Fluxo de recuperação de senha: 'login' | 'forgot' | 'reset'.
   const [view, setView] = useState<'login' | 'forgot' | 'reset'>('login')
   const [code, setCode] = useState('')
@@ -161,13 +167,23 @@ export default function LoginModal() {
     setLoading(true)
     try {
       const tok = await login(email.trim(), password)
-      // Superadmin Soluqtion: vai direto ao console de plataforma (sem tenant).
-      // Admin de plataforma opera FORA de qualquer empresa, então um destino
-      // de painel guardado não serve para ele — descarta em vez de carregar
-      // para o próximo login de outra pessoa nesta aba.
-      if (tok.is_platform_admin) { limparDestino(); window.location.hash = 'plataforma'; return }
+      // Um destino de painel guardado não serve para o admin de plataforma, que
+      // opera FORA de qualquer empresa — descarta em vez de carregar para o
+      // próximo login de outra pessoa nesta aba.
+      if (tok.is_platform_admin) limparDestino()
       const me = await api.get<MeResponse>('/auth/me')
       const active = me.memberships.filter((m) => m.status === 'active')
+      if (tok.is_platform_admin) {
+        // O superadmin também pode ser gente de empresa. Se ele tem vínculos,
+        // a pergunta "onde eu entro?" é a mesma de qualquer pessoa com mais de
+        // um lugar — e o console é só mais um destino, listado primeiro. Sem
+        // vínculo nenhum não há o que perguntar: vai direto ao console.
+        if (active.length === 0) { window.location.hash = 'plataforma'; return }
+        setPlataformaNoHub(true)
+        setChoices(active)
+        return
+      }
+      setPlataformaNoHub(false)
       if (active.length === 0) {
         setError(tr.errNoCompany)
       } else if (active.length === 1) {
@@ -255,6 +271,28 @@ export default function LoginModal() {
               {tr.chooseCompanyBody}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {plataformaNoHub && (
+                <button
+                  onClick={() => { window.location.hash = 'plataforma'; setOpen(false) }}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '14px 16px',
+                    borderRadius: 14,
+                    border: '1.5px solid var(--accent)',
+                    background: 'var(--accent-soft)',
+                    color: 'var(--heading)',
+                    cursor: 'pointer',
+                    fontWeight: 800,
+                  }}
+                >
+                  <span>{tr.platformConsole}</span>
+                  <span style={{ fontSize: 12.5, color: 'var(--text-muted)', fontWeight: 500 }}>
+                    {tr.platformConsoleHint}
+                  </span>
+                </button>
+              )}
               {choices.map((m) => (
                 <button
                   key={m.id}

@@ -80,6 +80,12 @@ export type UsersTextos = {
   create: string
   cancel: string
   created: string
+  createdInvited: string
+  createdAttached: string
+  passwordOptional: string
+  passwordOptionalHint: string
+  role: string
+  noRole: string
   pendingInvite: string
   inviteExpired: string
   resendInvite: string
@@ -118,10 +124,23 @@ export default function PlatformUsers({
   const [confirmando, setConfirmando] = useState<string | null>(null)
   const [senhaDe, setSenhaDe] = useState<string | null>(null)
   const [senha, setSenha] = useState('')
-  const vazio = { tenant_id: '', full_name: '', email: '', password: '' }
+  const vazio = { tenant_id: '', full_name: '', email: '', password: '', role_id: '' }
   const [novo, setNovo] = useState(vazio)
   const [criando, setCriando] = useState(false)
+  // Papéis da empresa ESCOLHIDA. Cada empresa tem os seus (os de sistema mais
+  // os que ela criou), então a lista só faz sentido depois da escolha — e
+  // precisa ser recarregada a cada troca, senão oferece papel de outra empresa.
+  const [papeis, setPapeis] = useState<{ id: string; name: string }[]>([])
   const timer = useRef<number | undefined>(undefined)
+
+  useEffect(() => {
+    if (!novo.tenant_id) { setPapeis([]); return }
+    let vivo = true
+    api.get<{ roles: { id: string; name: string }[] }>(`/platform/tenants/${novo.tenant_id}`)
+      .then((d) => { if (vivo) setPapeis(d.roles ?? []) })
+      .catch(() => { if (vivo) setPapeis([]) })
+    return () => { vivo = false }
+  }, [novo.tenant_id])
 
   // Exclusão: a prévia do impacto vem ANTES do botão de confirmar. Apagar
   // gente não pode ser um clique só, e o que acontece muda conforme a pessoa
@@ -195,13 +214,20 @@ export default function PlatformUsers({
   async function criarPessoa() {
     setOcupado('novo')
     try {
-      await api.post(`/platform/tenants/${novo.tenant_id}/members`, {
+      const r = await api.post<{ mode: string }>(`/platform/tenants/${novo.tenant_id}/members`, {
         full_name: novo.full_name.trim() || novo.email.trim(),
         email: novo.email.trim(),
-        password: novo.password,
-        role_id: null,
+        // Sem senha: o servidor manda o convite por e-mail e a pessoa escolhe
+        // a dela. O campo só é preenchido no caso raro de entregar o acesso
+        // pronto — por isso vai `null` em vez de string vazia.
+        password: novo.password.trim() ? novo.password : null,
+        role_id: novo.role_id || null,
       })
-      onToast(textos.created)
+      onToast(
+        r.mode === 'invited' ? textos.createdInvited
+          : r.mode === 'attached' ? textos.createdAttached
+            : textos.created,
+      )
       setNovo(vazio)
       setCriando(false)
       setTermo('')
@@ -220,7 +246,13 @@ export default function PlatformUsers({
     window.setTimeout(() => setConfirmando((c) => (c === chave ? null : c)), 4000)
   }
 
-  const podeCriar = !!novo.tenant_id && !!novo.email.trim() && novo.password.length >= 8
+  // A senha deixou de ser exigência: sem ela o convite vai por e-mail e quem
+  // entra escolhe a própria. Se o superadmin digitar alguma, aí sim ela precisa
+  // ser válida — meia senha não serve para ninguém.
+  const podeCriar =
+    !!novo.tenant_id
+    && !!novo.email.trim()
+    && (novo.password.trim() === '' || novo.password.length >= 8)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -244,9 +276,21 @@ export default function PlatformUsers({
         {criando && (
           <div style={{ borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12, alignItems: 'end' }}>
             <Field label={textos.company}>
-              <Select value={novo.tenant_id} onChange={(e) => setNovo({ ...novo, tenant_id: e.target.value })}>
+              {/* Trocar de empresa zera o papel: o id escolhido pertence à
+                  empresa anterior e o servidor recusaria com 404. */}
+              <Select value={novo.tenant_id} onChange={(e) => setNovo({ ...novo, tenant_id: e.target.value, role_id: '' })}>
                 <option value="">—</option>
                 {empresas.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+              </Select>
+            </Field>
+            <Field label={textos.role}>
+              <Select
+                value={novo.role_id}
+                disabled={!novo.tenant_id || papeis.length === 0}
+                onChange={(e) => setNovo({ ...novo, role_id: e.target.value })}
+              >
+                <option value="">{novo.tenant_id ? textos.noRole : '—'}</option>
+                {papeis.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </Select>
             </Field>
             <Field label={textos.name}>
@@ -255,12 +299,19 @@ export default function PlatformUsers({
             <Field label={textos.email}>
               <Input type="email" value={novo.email} onChange={(e) => setNovo({ ...novo, email: e.target.value })} />
             </Field>
-            <Field label={textos.newPassword}>
+            <Field label={textos.passwordOptional}>
               <Input value={novo.password} onChange={(e) => setNovo({ ...novo, password: e.target.value })} />
             </Field>
             <Button disabled={!podeCriar} loading={ocupado === 'novo'} onClick={() => void criarPessoa()}>
               {textos.create}
             </Button>
+            {/* A regra do campo vazio dita em voz alta: sem senha, o convite
+                vai por e-mail e a pessoa escolhe a dela. Deixar isso implícito
+                fazia o superadmin inventar senha por precaução — e passar a
+                conhecer a senha de um cliente. */}
+            <p style={{ gridColumn: '1 / -1', color: 'var(--text-muted)', fontSize: 12.5, margin: 0 }}>
+              {textos.passwordOptionalHint}
+            </p>
           </div>
         )}
       </Card>
