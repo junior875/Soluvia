@@ -14,7 +14,6 @@ import LoginModal from './components/LoginModal'
 import Panel from './components/Panel'
 import PlatformConsole from './components/PlatformConsole'
 import CheckoutReturn from './components/CheckoutReturn'
-import Onboarding from './components/Onboarding'
 import LegalDocs from './components/LegalDocs'
 import PublicReport, { isPublicReportPath } from './components/PublicReport'
 import AcceptInvite, { isAcceptInvitePath } from './components/AcceptInvite'
@@ -446,7 +445,12 @@ export default function App() {
       <CheckoutReturn />
       <LegalDocs />
       <PublicTracker />
-      <Onboarding />
+      {/* O onboarding ("Welcome to Soluvia", escolher tema/idioma) NAO mora
+          aqui. Quem chega no site e VISITANTE, e a primeira coisa que ele via
+          era um assistente de preferencias de uma conta que ele nem tem —
+          cobrindo a apresentacao do produto inteira antes de qualquer palavra.
+          Quem monta o onboarding e `capabilities.tsx`, e so quando a CONTA
+          ainda nao passou por ele (`user.onboarded === false`). */}
     </>
   )
 }
