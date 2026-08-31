@@ -741,7 +741,9 @@ export default function PlatformConsole() {
             <div style={{ padding: 30, textAlign: 'center', color: 'var(--text-muted)' }}>{tr.none}</div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+              {/* minWidth: no celular a tabela ROLA para o lado em vez de
+                  esmagar seis colunas até virar confete ilegível. */}
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 560 }}>
                 <thead>
                   <tr style={{ textAlign: 'left', color: 'var(--text-muted)', fontSize: 12, textTransform: 'uppercase', letterSpacing: '.04em' }}>
                     <th style={{ padding: '10px 16px' }}>{tr.tenants}</th>
@@ -914,7 +916,8 @@ export default function PlatformConsole() {
             {/* Adicionar usuário à empresa */}
             <div style={{ marginTop: 18, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
               <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 10 }}>{tr.addUser}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {/* auto-fit: no celular os campos empilham em vez de dividir 160px */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 8 }}>
                 <input style={fld} placeholder={tr.uName} value={mf.full_name} onChange={(e) => setMf({ ...mf, full_name: e.target.value })} />
                 <input style={fld} type="email" placeholder={tr.cEmail} value={mf.email} onChange={(e) => setMf({ ...mf, email: e.target.value })} />
                 {!memberJaTemConta && (
