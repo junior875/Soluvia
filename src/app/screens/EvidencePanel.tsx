@@ -15,6 +15,7 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { api } from '../../lib/api'
 import type { ApiError } from '../../lib/types'
+import FilePreview from './FilePreview'
 
 export type Prova = {
   id: string
@@ -27,6 +28,10 @@ export type Prova = {
   assignment_id?: string | null
   /** Nome da etapa que juntou a prova — a ORIGEM que a tela mostra. */
   stage_name?: string | null
+  /** O navegador exibe este tipo? Vem do servidor (fonte única da lista).
+   *  Sem o campo (resposta antiga em cache), imagem/vídeo abrem e documento
+   *  não — o comportamento que valia antes do visualizador. */
+  previewable?: boolean
 }
 
 export type Acesso = {
@@ -137,15 +142,13 @@ export default function EvidencePanel({
     setOcupado(prova.id)
     try {
       const r = await api.post<{ url: string }>(`/cases/${caseId}/attachments/${prova.id}/view-url`, {})
-      // Documento não tem visualizador próprio aqui: o navegador já sabe abrir
-      // PDF e reproduzir áudio, e uma aba nova faz isso melhor do que um <iframe>
-      // que herdaria o nosso contexto.
-      if (prova.kind === 'document') { window.open(r.url, '_blank', 'noopener,noreferrer'); return }
-      // Pergunta ao navegador se ele sabe tocar isto ANTES de montar o player.
-      // `canPlayType` devolve '' para o que ele não reconhece — é assim que o
-      // .mkv se anuncia em Chrome, Firefox e Safari. Sem esta pergunta, a
-      // pessoa encara um player parado até o `onError` disparar (e em alguns
-      // navegadores ele nem dispara).
+      // Tudo que é visualizável abre AQUI DENTRO (FilePreview): PDF, áudio e
+      // texto incluídos. A aba nova morreu por dois motivos concretos — o
+      // Chrome de Android baixa o PDF em vez de exibir, e para docx/zip
+      // "abrir numa aba" sempre foi um download disfarçado de visualização.
+      // Pergunta ao navegador se ele sabe tocar o vídeo ANTES de montar o
+      // player: `canPlayType` devolve '' para .mkv e afins, e sem isso a
+      // pessoa encara um player parado em 0:00.
       let naoToca = false
       if (prova.kind === 'video') {
         const teste = document.createElement('video')
@@ -157,6 +160,9 @@ export default function EvidencePanel({
       onError((e as ApiError).detail ?? textos.failed)
     } finally { setOcupado(null) }
   }
+
+  /** O navegador exibe? Fonte: o servidor. Fallback = comportamento antigo. */
+  const daParaVer = (p: Prova) => p.previewable ?? p.kind !== 'document'
 
   async function baixar(prova: Prova) {
     setOcupado(prova.id)
@@ -230,9 +236,15 @@ export default function EvidencePanel({
               </div>
             </div>
             <div style={{ display: 'flex', gap: 7, flexShrink: 0 }}>
-              <button type="button" style={botao} disabled={ocupado === p.id} onClick={() => void abrir(p)}>
-                {textos.view}
-              </button>
+              {/* "Ver" só quando o navegador exibe de verdade. Para docx/zip,
+                  "ver" sempre foi baixar com outro nome — o botão prometia uma
+                  prévia que não existe e ainda registrava "abriu" na auditoria
+                  de quem, na prática, baixou. */}
+              {daParaVer(p) && (
+                <button type="button" style={botao} disabled={ocupado === p.id} onClick={() => void abrir(p)}>
+                  {textos.view}
+                </button>
+              )}
               {canDownload && (
                 <button type="button" style={botao} disabled={ocupado === p.id} onClick={() => void baixar(p)}>
                   {textos.download}
@@ -298,65 +310,42 @@ export default function EvidencePanel({
       </div>
 
       {aberta && (
-        <div
-          onClick={() => { setAberta(null); setSemCodec(false) }}
-          style={{ position: 'fixed', inset: 0, zIndex: 12000, background: 'rgba(6,10,18,.82)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-        >
-          <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: '92vw', maxHeight: '92vh', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#fff' }}>
-              <span style={{ fontWeight: 700, fontSize: 14.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {aberta.prova.filename}
-              </span>
-              <button
-                type="button"
-                onClick={() => { setAberta(null); setSemCodec(false) }}
-                style={{ marginLeft: 'auto', background: 'rgba(255,255,255,.14)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
-              >
-                {textos.close}
-              </button>
+        // O visualizador único do site: imagem, vídeo (com aviso de codec),
+        // áudio, PDF via pdf.js e texto. O caso do vídeo sem codec chega já
+        // decidido (semCodec, via canPlayType no clique).
+        semCodec && aberta.prova.kind === 'video' ? (
+          <div
+            onClick={() => { setAberta(null); setSemCodec(false) }}
+            style={{ position: 'fixed', inset: 0, zIndex: 12000, background: 'rgba(6,10,18,.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          >
+            <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 12, padding: '26px 24px', maxWidth: 460, textAlign: 'center' }}>
+              <div style={{ fontSize: 30, marginBottom: 10 }} aria-hidden>🎞️</div>
+              <p style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{textos.noCodecTitle}</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: 13.5, lineHeight: 1.55 }}>
+                {canDownload ? textos.noCodecBody : textos.noCodecNoPerm}
+              </p>
+              {canDownload && (
+                <button
+                  type="button"
+                  onClick={() => void baixar(aberta.prova)}
+                  style={{ marginTop: 16, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '10px 22px', fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  {textos.download}
+                </button>
+              )}
             </div>
-
-            {aberta.prova.kind === 'image' ? (
-              <img src={aberta.url} alt={aberta.prova.filename} style={{ maxWidth: '92vw', maxHeight: '82vh', borderRadius: 12, objectFit: 'contain' }} />
-            ) : aberta.prova.kind === 'video' && !semCodec ? (
-              // `controlsList="nodownload"` tira o item "baixar" do menu do
-              // player. Não é segurança — quem tem a URL tem o arquivo —, mas
-              // evita que quem só pode VER baixe sem perceber que baixou.
-              //
-              // O `onError` é o que importa aqui: navegador nenhum reproduz
-              // Matroska (.mkv) de forma confiável, e vários também não abrem
-              // .avi ou .wmv. Sem ele, o player ficava parado em 0:00 sem
-              // explicar nada — o pior estado possível para uma prova, porque
-              // parece defeito do sistema e não limitação do formato.
-              <video
-                src={aberta.url}
-                controls
-                controlsList="nodownload"
-                onError={() => setSemCodec(true)}
-                style={{ maxWidth: '92vw', maxHeight: '82vh', borderRadius: 12, background: '#000' }}
-              />
-            ) : (
-              <div style={{ background: 'var(--surface)', borderRadius: 12, padding: '26px 24px', maxWidth: 460, textAlign: 'center' }}>
-                <div style={{ fontSize: 30, marginBottom: 10 }} aria-hidden>🎞️</div>
-                <p style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 15, marginBottom: 6 }}>
-                  {textos.noCodecTitle}
-                </p>
-                <p style={{ color: 'var(--text-muted)', fontSize: 13.5, lineHeight: 1.55 }}>
-                  {canDownload ? textos.noCodecBody : textos.noCodecNoPerm}
-                </p>
-                {canDownload && (
-                  <button
-                    type="button"
-                    onClick={() => void baixar(aberta.prova)}
-                    style={{ marginTop: 16, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '10px 22px', fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}
-                  >
-                    {textos.download}
-                  </button>
-                )}
-              </div>
-            )}
           </div>
-        </div>
+        ) : (
+          <FilePreview
+            url={aberta.url}
+            filename={aberta.prova.filename}
+            contentType={aberta.prova.content_type}
+            canDownload={canDownload}
+            onClose={() => { setAberta(null); setSemCodec(false) }}
+            onDownload={() => void baixar(aberta.prova)}
+            textos={textos}
+          />
+        )
       )}
     </div>
   )
