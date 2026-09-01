@@ -471,6 +471,8 @@ export interface PanelContext {
   roles: RoleBadge[]
   enabled_modules: string[]
   contractable_modules: string[]
+  /** Permissões recebidas desde a última vez que a pessoa abriu o manual. */
+  manual_new_permissions?: string[]
   usage: { plan_name: string; max_users: number; active_users: number; seats_available: number }
 }
 

@@ -791,7 +791,7 @@ export default function FlowBuilder() {
 
                   {/* 1 · O QUE essa pessoa faz — primeiro, porque define o bloco. */}
                   <Sec num="1" titulo={t.flow.doesWhat}>
-                    <div role="radiogroup" aria-label={t.flow.doesWhat} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                    <div role="radiogroup" aria-label={t.flow.doesWhat} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(136px, 1fr))', gap: 8 }}>
                       {STAGE_KINDS.map((k) => {
                         const on = s.kind === k
                         const kv = KIND_VISUAL[k]
@@ -801,6 +801,11 @@ export default function FlowBuilder() {
                             onClick={() => setKind(s.key, k)} className="app-btn"
                             style={{
                               cursor: canEdit ? 'pointer' : 'default', textAlign: 'left',
+                              // `whiteSpace: normal` desfaz o nowrap global de
+                              // `.app-btn`; `minWidth: 0` é o que permite ao
+                              // item do grid encolher abaixo do conteúdo em
+                              // vez de empurrar a coluna para fora do painel.
+                              whiteSpace: 'normal', minWidth: 0, overflowWrap: 'anywhere',
                               display: 'flex', flexDirection: 'column', gap: 6, minHeight: 84,
                               border: `1.5px solid ${on ? kv.cor : 'var(--border)'}`,
                               background: on ? 'var(--surface)' : 'var(--surface-2)',
@@ -810,7 +815,7 @@ export default function FlowBuilder() {
                           >
                             {on && <span style={{ position: 'absolute', top: 8, right: 8, color: kv.cor, display: 'flex' }}><Icon name="check" size={13} /></span>}
                             <span style={{ color: on ? kv.cor : 'var(--text-muted)', display: 'flex' }}><Icon name={kv.icon} size={17} /></span>
-                            <span style={{ fontSize: 13, fontWeight: 800, color: on ? 'var(--heading)' : 'var(--text)' }}>{t.flow.kinds[k]}</span>
+                            <span style={{ fontSize: 13, fontWeight: 800, color: on ? 'var(--heading)' : 'var(--text)', paddingRight: on ? 16 : 0 }}>{t.flow.kinds[k]}</span>
                             <span style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>{t.flow.kindHints[k]}</span>
                           </button>
                         )
@@ -1107,7 +1112,18 @@ function Painel({ icone, titulo, etiqueta, onFechar, rodape, children }: {
   rodape?: ReactNode
   children: ReactNode
 }) {
-  const estreito = typeof window !== 'undefined' && window.innerWidth < 720
+  const [estreito, setEstreito] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 720)
+  useEffect(() => {
+    const medir = () => setEstreito(window.innerWidth < 720)
+    medir()
+    window.addEventListener('resize', medir)
+    window.addEventListener('orientationchange', medir)
+    return () => {
+      window.removeEventListener('resize', medir)
+      window.removeEventListener('orientationchange', medir)
+    }
+  }, [])
   return createPortal(
     <>
       {/* SEM véu, de propósito — duas razões:
@@ -1140,7 +1156,7 @@ function Painel({ icone, titulo, etiqueta, onFechar, rodape, children }: {
             <div style={{ color: 'var(--heading)', fontWeight: 800, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {titulo}
             </div>
-            <div style={{ color: 'var(--text-muted)', fontSize: 11.5, fontWeight: 700, letterSpacing: '.03em', textTransform: 'uppercase', marginTop: 1 }}>
+            <div style={{ color: 'var(--text-muted)', fontSize: 11.5, fontWeight: 700, letterSpacing: '.03em', textTransform: 'uppercase', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {etiqueta}
             </div>
           </div>

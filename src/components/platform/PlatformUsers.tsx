@@ -274,7 +274,7 @@ export default function PlatformUsers({
         <p style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: 10 }}>{textos.hint}</p>
 
         {criando && (
-          <div style={{ borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12, alignItems: 'end' }}>
+          <div className="app-form-novo" style={{ borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12, alignItems: 'end' }}>
             <Field label={textos.company}>
               {/* Trocar de empresa zera o papel: o id escolhido pertence à
                   empresa anterior e o servidor recusaria com 404. */}

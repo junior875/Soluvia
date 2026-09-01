@@ -79,7 +79,14 @@ export default function Shell() {
   const badges = useBadges()
   // Aba → número. As três abas "pessoais" têm badge; as demais são telas de
   // trabalho, não de aviso.
-  const badgeDe: Record<string, number> = { mine: badges.mine, watching: badges.watching }
+  // O manual entra na lista por um motivo diferente das outras: o número não
+  // conta trabalho parado, conta CAPÍTULO NOVO — quem ganhou uma permissão
+  // precisa saber que passou a poder fazer algo que antes nem via.
+  const badgeDe: Record<string, number> = {
+    mine: badges.mine,
+    watching: badges.watching,
+    manual: caps.manualNovas.length,
+  }
   // Nav recolhida. Fica GUARDADA: quem trabalha no construtor de fluxo quer a
   // largura toda e não vai reclicar a cada visita. Só no desktop — no celular
   // a nav já é uma gaveta.
@@ -102,7 +109,13 @@ export default function Shell() {
   useEffect(() => {
     const sync = () => {
       const id = currentScreenId()
-      setActive(okIds.has(id) ? id : 'overview')
+      // Chegar com um CASO na mão (`?caso=` / `?protocolo=`) abre a tela mesmo
+      // sem a permissão do canal: quem tem ficha numa etapa está autorizado
+      // naquele caso, e o servidor confere isso caso a caso. Sem esta exceção
+      // o botão Abrir de "Meus atendimentos" devolvia a pessoa à visão geral.
+      const comCaso = /[?&](caso|protocolo)=/.test(window.location.hash)
+      const permitido = okIds.has(id) || (comCaso && (id === 'cases' || id === 'sac'))
+      setActive(permitido ? id : 'overview')
       setDrawer(false)
     }
     sync()

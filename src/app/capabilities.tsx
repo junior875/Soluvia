@@ -44,6 +44,8 @@ interface Caps {
   memberships: MembershipSummary[]
   /** Volta ao hub de empresas SEM deslogar — para entrar na outra empresa. */
   openHub: () => void
+  /** Permissões ganhas desde a última visita ao manual — vira o número na nav. */
+  manualNovas: string[]
 }
 
 const CapCtx = createContext<Caps | null>(null)
@@ -139,6 +141,7 @@ export function CapabilityProvider({ children }: { children: ReactNode }) {
             ctx,
             can: (code) => hasPermission(ctx.permissions, code),
             hasModule: (m) => ctx.enabled_modules.includes(m),
+            manualNovas: ctx.manual_new_permissions ?? [],
             isContractable: (m) => ctx.contractable_modules.includes(m),
             reload: () => loadContext(ctx.tenant_id),
             logout: async () => {

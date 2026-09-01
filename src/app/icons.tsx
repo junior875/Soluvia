@@ -37,6 +37,7 @@ export type IconName =
   | 'chart'
   | 'headset'
   | 'vault'
+  | 'book'
 
 const PATHS: Record<IconName, JSX.Element> = {
   vault: (
@@ -143,6 +144,12 @@ const PATHS: Record<IconName, JSX.Element> = {
     <>
       <path d="M6 3h9l4 4v14H6z" />
       <path d="M9 12h7M9 16h7M9 8h3" />
+    </>
+  ),
+  book: (
+    <>
+      <path d="M12 6.5C10.5 5 8.6 4.3 6 4.3H3.6v13.4H6c2.6 0 4.5.7 6 2.2 1.5-1.5 3.4-2.2 6-2.2h2.4V4.3H18c-2.6 0-4.5.7-6 2.2Z" />
+      <path d="M12 6.5v13.4" />
     </>
   ),
   sun: (

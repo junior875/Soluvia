@@ -7,6 +7,8 @@ import type { ApiError, PlanOut, PlatformOverview, PlatformTenantDetail, Platfor
 import { useTranslation } from '../i18n/LanguageProvider'
 import PrefSwitcher from './PrefSwitcher'
 import { Icon, type IconName } from '../app/icons'
+import { ManualView } from '../app/manual/ManualView'
+import { CAPITULOS_PLATAFORMA } from '../app/manual/conteudoPlataforma'
 import { Button, Card, EmptyState } from '../app/ui'
 import PlatformHealth from './platform/PlatformHealth'
 import PlatformUsers from './platform/PlatformUsers'
@@ -44,7 +46,10 @@ const L = {
     uNoRole: 'Sem papel definido',
     uPasswordOptional: 'Senha (opcional)',
     uPasswordOptionalHint: 'Deixe em branco: a pessoa recebe um e-mail com o código, abre o link e escolhe a senha dela. Só preencha se precisar entregar o acesso pronto.',
-    navSection: 'Console', tab_empresas: 'Empresas', tab_pessoas: 'Pessoas', tab_sistema: 'Sistema',
+    navSection: 'Console', tab_empresas: 'Empresas', tab_pessoas: 'Pessoas', tab_sistema: 'Sistema', tab_manual: 'Manual',
+    mToc: 'Sumário', mHide: 'Esconder o sumário', mShow: 'Mostrar o sumário',
+    mOpen: 'Abrir', mLocked: 'Não contratado', mReq: 'obrigatório', mOpt: 'opcional',
+    mEmpty: 'Nada para mostrar', mEmptyBody: 'O manual do console está vazio.',
     tab_armazenamento: 'Armazenamento', tab_tokens: 'Tokens de IA',
     tab_financeiro: 'Custos e entradas',
     fTitulo: 'Custos e entradas', fSub: 'O que está contratado, o que entrou de verdade e o que custa manter.',
@@ -128,7 +133,10 @@ const L = {
     uNoRole: 'No role set',
     uPasswordOptional: 'Password (optional)',
     uPasswordOptionalHint: 'Leave it blank: the person gets an email with the code, opens the link and picks their own password. Fill it in only if you must hand over ready-made access.',
-    navSection: 'Console', tab_empresas: 'Companies', tab_pessoas: 'People', tab_sistema: 'System',
+    navSection: 'Console', tab_empresas: 'Companies', tab_pessoas: 'People', tab_sistema: 'System', tab_manual: 'Manual',
+    mToc: 'Contents', mHide: 'Hide contents', mShow: 'Show contents',
+    mOpen: 'Open', mLocked: 'Not included', mReq: 'required', mOpt: 'optional',
+    mEmpty: 'Nothing to show', mEmptyBody: 'The console manual is empty.',
     tab_armazenamento: 'Storage', tab_tokens: 'AI tokens',
     tab_financeiro: 'Costs & revenue',
     fTitulo: 'Costs & revenue', fSub: 'What is contracted, what actually came in, and what it costs to run.',
@@ -212,7 +220,10 @@ const L = {
     uNoRole: 'Sin rol definido',
     uPasswordOptional: 'Contraseña (opcional)',
     uPasswordOptionalHint: 'Déjala en blanco: la persona recibe un correo con el código, abre el enlace y elige su contraseña. Complétala solo si necesitas entregar el acceso listo.',
-    navSection: 'Consola', tab_empresas: 'Empresas', tab_pessoas: 'Personas', tab_sistema: 'Sistema',
+    navSection: 'Consola', tab_empresas: 'Empresas', tab_pessoas: 'Personas', tab_sistema: 'Sistema', tab_manual: 'Manual',
+    mToc: 'Contenido', mHide: 'Ocultar el contenido', mShow: 'Mostrar el contenido',
+    mOpen: 'Abrir', mLocked: 'No contratado', mReq: 'obligatorio', mOpt: 'opcional',
+    mEmpty: 'Nada que mostrar', mEmptyBody: 'El manual de la consola está vacío.',
     tab_armazenamento: 'Almacenamiento', tab_tokens: 'Tokens de IA',
     tab_financeiro: 'Costos e ingresos',
     fTitulo: 'Costos e ingresos', fSub: 'Lo contratado, lo que entró de verdad y lo que cuesta mantener.',
@@ -270,7 +281,7 @@ const L = {
   },
 }
 
-type AbaId = 'empresas' | 'pessoas' | 'financeiro' | 'armazenamento' | 'tokens' | 'sistema'
+type AbaId = 'empresas' | 'pessoas' | 'financeiro' | 'armazenamento' | 'tokens' | 'sistema' | 'manual'
 
 /** As seções do console. Ícones do mesmo conjunto que a nav do painel usa. */
 const ABAS: { id: AbaId; icon: IconName }[] = [
@@ -283,7 +294,50 @@ const ABAS: { id: AbaId; icon: IconName }[] = [
   { id: 'armazenamento', icon: 'download' },
   { id: 'tokens', icon: 'spark' },
   { id: 'sistema', icon: 'settings' },
+  // O manual do console. Sem filtro por permissão, ao contrário do manual da
+  // empresa: aqui o acesso é um só — não existe o que recortar.
+  { id: 'manual', icon: 'book' },
 ]
+
+/** O manual do console: documento inteiro, sem recorte por permissão. */
+function ManualPlataforma({ tr }: { tr: Record<string, string> }) {
+  const [aberto, setAberto] = useState(true)
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button
+          type="button" onClick={() => setAberto((v) => !v)} className="app-btn"
+          style={{
+            border: '1px solid var(--border)', background: 'var(--surface)',
+            color: 'var(--heading)', borderRadius: 100, padding: '7px 15px',
+            fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', gap: 7,
+          }}
+        >
+          <Icon name="menu" size={15} />
+          {aberto ? tr.mHide : tr.mShow}
+        </button>
+      </div>
+      <ManualView
+        capitulos={CAPITULOS_PLATAFORMA}
+        gate={null}
+        aberto={aberto}
+        onAberto={setAberto}
+        rotulos={{
+          toc: tr.mToc,
+          hideToc: tr.mHide,
+          showToc: tr.mShow,
+          openScreen: tr.mOpen,
+          locked: tr.mLocked,
+          required: tr.mReq,
+          optional: tr.mOpt,
+          emptyTitle: tr.mEmpty,
+          emptyBody: tr.mEmptyBody,
+        }}
+      />
+    </>
+  )
+}
 
 export function isPlatformPath(): boolean {
   return window.location.hash.toLowerCase().startsWith('#plataforma')
@@ -707,6 +761,10 @@ export default function PlatformConsole() {
           </>
         )}
 
+        {aba === 'manual' && (
+          <ManualPlataforma tr={tr as unknown as Record<string, string>} />
+        )}
+
         {aba === 'sistema' && (
           <PlatformHealth
             card={card}
@@ -785,7 +843,7 @@ export default function PlatformConsole() {
       {/* Detalhe da empresa */}
       {detail && (
         <div onClick={() => setDetail(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--scrim)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto', padding: '40px 16px' }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 640, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 22, padding: 26 }}>
+          <div onClick={(e) => e.stopPropagation()} className="app-modal" style={{ width: '100%', maxWidth: 640, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 22, padding: 26 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
               <div>
                 <div style={{ color: 'var(--heading)', fontWeight: 900, fontSize: 22 }}>{detail.name}</div>
@@ -949,7 +1007,7 @@ export default function PlatformConsole() {
       {/* Nova empresa */}
       {showNew && (
         <div onClick={() => setShowNew(false)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--scrim)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto', padding: '40px 16px' }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 22, padding: 26 }}>
+          <div onClick={(e) => e.stopPropagation()} className="app-modal" style={{ width: '100%', maxWidth: 520, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 22, padding: 26 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div style={{ color: 'var(--heading)', fontWeight: 900, fontSize: 20 }}>{tr.newCompany}</div>
               <button onClick={() => setShowNew(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 26, cursor: 'pointer', lineHeight: 1 }}>×</button>

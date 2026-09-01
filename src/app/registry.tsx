@@ -18,6 +18,7 @@ import Billing from './screens/Billing'
 import Audit from './screens/Audit'
 import Announcements from './screens/Announcements'
 import Settings from './screens/Settings'
+import Manual from './screens/Manual'
 
 export interface Requirement {
   anyOf?: string[]
@@ -116,6 +117,10 @@ export const SCREENS: ScreenDef[] = [
     requires: { anyOf: ['admin.notify'] },
   },
   { id: 'settings', navKey: 'settings', icon: 'settings', group: 'admin', Component: Settings },
+  // O manual: SEM `requires`, de propósito. Quem tem pouco acesso é justamente
+  // quem mais precisa saber o que consegue fazer — e o filtro por permissão
+  // acontece dentro da tela, capítulo a capítulo.
+  { id: 'manual', navKey: 'manual', icon: 'book', group: 'admin', Component: Manual },
 ]
 
 export type ScreenState = 'ok' | 'locked' | 'hidden'

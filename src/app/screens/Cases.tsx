@@ -107,10 +107,16 @@ export default function Cases({ module = 'etica' }: CasesProps) {
     // o caso do e-mail simplesmente não está nesta empresa.
     if (cases === null) return
     const query = window.location.hash.split('?')[1]
-    const protocolo = query ? new URLSearchParams(query).get('protocolo') : null
-    if (!protocolo) return
-    const alvo = cases.find((c) => c.protocol === protocolo)
+    const params = query ? new URLSearchParams(query) : null
+    const caso = params?.get('caso')
+    const protocolo = params?.get('protocolo')
+    if (!caso && !protocolo) return
     window.history.replaceState(null, '', window.location.hash.split('?')[0])
+    // `caso` já é o id: abre sem procurar na lista. É o caminho de quem tem
+    // ficha numa etapa mas não lê o canal inteiro — para essa pessoa a lista
+    // chega vazia, e procurar o protocolo dentro dela nunca encontraria nada.
+    if (caso) { void openCase(caso); return }
+    const alvo = cases.find((c) => c.protocol === protocolo)
     if (alvo) void openCase(alvo.id)
     else flash(tx.notFoundProtocol)
     // Só na chegada da lista: reagir a `openCase` reabriria o modal a cada render.

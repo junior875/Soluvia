@@ -52,10 +52,12 @@ export default function MyCases() {
     iso === null ? null : Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
 
   function abrir(f: Ficha) {
-    // Mesma rota do e-mail e do sininho: a tela de casos lê `protocolo` e abre
-    // o caso. Um caminho só para chegar no caso, vindo de onde vier.
+    // Mesma rota do e-mail e do sininho — mas com o ID do caso, e não só o
+    // protocolo. O protocolo precisa da LISTA do canal para virar id, e quem
+    // responde uma etapa sem ler o canal inteiro não recebe lista nenhuma:
+    // clicava em Abrir e caía na visão geral, com a ficha ainda esperando.
     const tela = f.module === 'sac' ? 'sac' : 'cases'
-    window.location.hash = `painel/${tela}?protocolo=${f.protocol}`
+    window.location.hash = `painel/${tela}?caso=${f.case_id}`
   }
 
   if (fichas === null) {
