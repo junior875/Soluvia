@@ -21,6 +21,8 @@ type Badges = {
   // A cadeia de configuração: canal → formulário → fluxo → divulgação.
   // O servidor só manda número > 0 para quem PODE dar aquele passo.
   setup_channels?: number; setup_form?: number; setup_flow?: number; setup_announce?: number
+  // O alarde do SAC: demandas abertas, para todo mundo que pode ve-las.
+  sac_open?: number
 }
 
 /** De quanto em quanto tempo perguntar pelos números da nav (mesmo ritmo do
@@ -98,6 +100,9 @@ export default function Shell() {
     formbuilder: badges.setup_form ?? 0,
     flowbuilder: badges.setup_flow ?? 0,
     announcements: badges.setup_announce ?? 0,
+    // O prazo de 7 dias corre para a EQUIPE: a aba SAC carrega o numero de
+    // demandas abertas para todo mundo com acesso ao modulo.
+    sac: badges.sac_open ?? 0,
   }
   // Nav recolhida. Fica GUARDADA: quem trabalha no construtor de fluxo quer a
   // largura toda e não vai reclicar a cada visita. Só no desktop — no celular
