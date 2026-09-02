@@ -178,10 +178,11 @@ export default function Settings() {
           open={editorAberto}
           onClose={() => setEditorAberto(false)}
           onSaved={(url) => { setFotoUrl(url); flash(t.settings.saved) }}
+          atualUrl={fotoUrl}
           textos={{
             title: t.settings.photoTitle, pick: t.settings.photoPick, zoom: t.settings.photoZoom,
             save: t.settings.save, saving: t.settings.saving ?? '…', hint: t.settings.photoDragHint,
-            fail: t.settings.saveFail ?? t.settings.saved,
+            fail: t.settings.saveFail ?? t.settings.saved, novaFoto: t.settings.photoNew,
           }}
         />
 

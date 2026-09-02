@@ -1173,7 +1173,8 @@ export default function PlatformConsole() {
         open={editorFoto}
         onClose={() => setEditorFoto(false)}
         onSaved={(url) => { setMinhaFoto(url); setToast(tr.photoSaved); setTimeout(() => setToast(null), 2200) }}
-        textos={{ title: tr.photoTitle, pick: tr.photoPick, zoom: 'Zoom', save: tr.save, saving: '…', hint: tr.photoHint, fail: 'Erro' }}
+        atualUrl={minhaFoto}
+        textos={{ title: tr.photoTitle, pick: tr.photoPick, zoom: 'Zoom', save: tr.save, saving: '…', hint: tr.photoHint, fail: 'Erro', novaFoto: tr.photoPick }}
       />
 
       {toast && (

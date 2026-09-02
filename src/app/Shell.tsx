@@ -224,10 +224,11 @@ export default function Shell() {
           open={editorFoto}
           onClose={() => setEditorFoto(false)}
           onSaved={(url) => setFotoUrl(url)}
+          atualUrl={fotoUrl}
           textos={{
             title: t.settings.photoTitle, pick: t.settings.photoPick, zoom: t.settings.photoZoom,
             save: t.settings.save, saving: t.settings.saving, hint: t.settings.photoDragHint,
-            fail: t.settings.saveFail,
+            fail: t.settings.saveFail, novaFoto: t.settings.photoNew,
           }}
         />
       </aside>

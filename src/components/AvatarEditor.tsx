@@ -15,12 +15,15 @@ import { Button, Modal } from '../app/ui'
 const QUADRO = 288          // lado do palco visível (px CSS)
 const SAIDA = 256           // lado do arquivo final
 
-export default function AvatarEditor({ open, onClose, onSaved, textos }: {
+export default function AvatarEditor({ open, onClose, onSaved, textos, atualUrl }: {
   open: boolean
   onClose: () => void
   /** Recebe a URL nova para a tela atualizar sem re-buscar tudo. */
   onSaved: (url: string) => void
-  textos: { title: string; pick: string; zoom: string; save: string; saving: string; hint: string; fail: string }
+  textos: { title: string; pick: string; zoom: string; save: string; saving: string; hint: string; fail: string; novaFoto?: string }
+  /** A foto ATUAL: o editor abre com ela carregada, para quem só quer
+   *  reenquadrar — trocar é o botão de nova foto. */
+  atualUrl?: string | null
 }) {
   const [img, setImg] = useState<HTMLImageElement | null>(null)
   const [zoom, setZoom] = useState(1)
@@ -46,6 +49,20 @@ export default function AvatarEditor({ open, onClose, onSaved, textos }: {
     el.onload = () => { setImg(el); setZoom(1); setOff({ x: 0, y: 0 }); URL.revokeObjectURL(url) }
     el.src = url
   }
+
+  // Abriu com foto existente? Ela entra no palco para reenquadrar. O
+  // crossOrigin é o que impede o canvas de "sujar" (o CORS do bucket já
+  // permite GET do site); se a busca falhar, cai no seletor vazio — pior
+  // seria um editor que não abre.
+  useEffect(() => {
+    if (!open) { setImg(null); setZoom(1); setOff({ x: 0, y: 0 }); setErro(null); return }
+    if (!atualUrl || img) return
+    const el = new Image()
+    el.crossOrigin = 'anonymous'
+    el.onload = () => { setImg(el); setZoom(1); setOff({ x: 0, y: 0 }) }
+    el.src = atualUrl
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, atualUrl])
 
   /** A escala-base cobre o quadro (cover); o zoom multiplica em cima. */
   const escalaDe = (el: HTMLImageElement, lado: number, z: number) =>
@@ -195,7 +212,7 @@ export default function AvatarEditor({ open, onClose, onSaved, textos }: {
         <div style={{ display: 'flex', gap: 8 }}>
           {img && (
             <label style={{ display: 'inline-flex' }}>
-              <Button variant="ghost" onClick={() => { /* o label captura o clique */ }}>{textos.pick}</Button>
+              <Button variant="ghost" onClick={() => { /* o label captura o clique */ }}>{textos.novaFoto ?? textos.pick}</Button>
               <input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }}
                 onChange={(e) => escolher(e.target.files?.[0] ?? null)} />
             </label>
