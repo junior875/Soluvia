@@ -275,7 +275,7 @@ export default function People() {
         ) : (
           members.map((m) => (
             <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px', borderRadius: 14, flexWrap: 'wrap', rowGap: 10 }} className="app-card--hover">
-              <Avatar name={m.full_name ?? m.invited_email} />
+              <Avatar name={m.full_name ?? m.invited_email} src={m.avatar_url} />
               <div style={{ flex: '1 1 160px', minWidth: 0 }}>
                 <div style={{ color: 'var(--heading)', fontWeight: 600, fontSize: 14.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.full_name ?? m.invited_email}</div>
                 <div style={{ color: 'var(--text-muted)', fontSize: 12.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.email ?? m.invited_email}</div>

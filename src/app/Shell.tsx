@@ -197,7 +197,7 @@ export default function Shell() {
 
         <div style={{ padding: 16, borderTop: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Avatar name={ctx.user.full_name} />
+            <Avatar name={ctx.user.full_name} src={ctx.user.avatar_url} />
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ctx.user.full_name}</div>
               <div style={{ color: 'var(--text-muted)', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ctx.user.email}</div>

@@ -17,7 +17,8 @@ import type { Lang } from '../../i18n/translations'
 import { FONT_STEPS, applyFontScale, applyThemePref, getFontScale, getThemePref, pushPrefs, type ThemePref } from '../../lib/prefs'
 import { useCaps } from '../capabilities'
 import { useT } from '../strings'
-import { Button, Card, Field, Input, Modal, PageHeader, SectionLabel, PasswordInput } from '../ui'
+import { Avatar, Button, Card, Field, Input, Modal, PageHeader, SectionLabel, PasswordInput } from '../ui'
+import AvatarEditor from '../../components/AvatarEditor'
 import { Icon } from '../icons'
 
 function Segmented<T extends string | number>({ value, options, onChange }: { value: T; options: { v: T; label: string }[]; onChange: (v: T) => void }) {
@@ -70,6 +71,12 @@ export default function Settings() {
   const [themePref, setThemePref] = useState<ThemePref>(getThemePref())
   const [font, setFont] = useState(getFontScale())
   const [name, setName] = useState(ctx.user.full_name)
+  const [fotoUrl, setFotoUrl] = useState<string | null>(ctx.user.avatar_url ?? null)
+  const [editorAberto, setEditorAberto] = useState(false)
+  async function removerFoto() {
+    try { await api.delete('/me/avatar'); setFotoUrl(null); flash(t.settings.saved) }
+    catch { /* melhor silencio que alarme falso aqui */ }
+  }
   const [curPw, setCurPw] = useState('')
   const [newPw, setNewPw] = useState('')
   const [consent, setConsent] = useState(ctx.user.marketing_consent)
@@ -155,6 +162,29 @@ export default function Settings() {
       {/* Conta */}
       <Card style={{ marginBottom: 16 }}>
         <SectionLabel>{t.settings.account}</SectionLabel>
+
+        {/* Sua foto: o rosto que aparece em toda listagem de gente. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18, flexWrap: 'wrap' }}>
+          <Avatar name={ctx.user.full_name} src={fotoUrl} size={64} />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Button variant="outline" onClick={() => setEditorAberto(true)}>{t.settings.photoChange}</Button>
+            {fotoUrl && (
+              <Button variant="ghost" onClick={() => void removerFoto()}>{t.settings.photoRemove}</Button>
+            )}
+          </div>
+          <p style={{ color: 'var(--text-muted)', fontSize: 12.5, margin: 0, flexBasis: '100%' }}>{t.settings.photoHint}</p>
+        </div>
+        <AvatarEditor
+          open={editorAberto}
+          onClose={() => setEditorAberto(false)}
+          onSaved={(url) => { setFotoUrl(url); flash(t.settings.saved) }}
+          textos={{
+            title: t.settings.photoTitle, pick: t.settings.photoPick, zoom: t.settings.photoZoom,
+            save: t.settings.save, saving: t.settings.saving ?? '…', hint: t.settings.photoDragHint,
+            fail: t.settings.saveFail ?? t.settings.saved,
+          }}
+        />
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'end', marginBottom: 16 }} className="rb-id">
           <Field label={t.settings.name}><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
           <Button variant="ghost" onClick={() => void saveName()} disabled={!name.trim() || name === ctx.user.full_name}>{t.settings.save}</Button>

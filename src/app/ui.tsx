@@ -298,10 +298,21 @@ export function EmptyState({ icon, title, body, action }: { icon: IconName; titl
 }
 
 // ── Avatar ─────────────────────────────────────────────────────
-export function Avatar({ name, color }: { name: string; color?: string }) {
+export function Avatar({ name, color, src, size = 36 }: { name: string; color?: string; src?: string | null; size?: number }) {
   const initials = name.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('')
+  // Foto quando existe; inicial quando não — e se a URL temporária vencer no
+  // meio da sessão, o onError devolve a inicial em vez de um ícone quebrado.
+  const [quebrou, setQuebrou] = useState(false)
+  if (src && !quebrou) {
+    return (
+      <img
+        src={src} alt={name} onError={() => setQuebrou(true)}
+        style={{ width: size, height: size, minWidth: size, borderRadius: size * 0.3, objectFit: 'cover', display: 'block' }}
+      />
+    )
+  }
   return (
-    <span style={{ width: 36, height: 36, minWidth: 36, borderRadius: 11, background: color ?? 'var(--navy)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13.5 }}>
+    <span style={{ width: size, height: size, minWidth: size, borderRadius: size * 0.3, background: color ?? 'var(--navy)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size * 0.375 }}>
       {initials || '?'}
     </span>
   )

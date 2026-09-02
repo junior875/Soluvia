@@ -82,6 +82,7 @@ export interface MeResponse {
   full_name: string
   is_platform_admin: boolean
   memberships: MembershipSummary[]
+  avatar_url?: string | null
 }
 
 export interface PermissionOut {
@@ -442,6 +443,7 @@ export interface MemberRow {
   full_name: string | null
   email: string | null
   roles: MemberRole[]
+  avatar_url?: string | null
 }
 
 export interface RoleBadge {
@@ -456,6 +458,7 @@ export interface PanelContext {
     email: string
     full_name: string
     is_platform_admin: boolean
+    avatar_url?: string | null
     theme: string
     language: string
     font_scale: number
