@@ -433,10 +433,18 @@ export async function completeCheckout(sessionId: string): Promise<SignupRespons
 
 /** Baixa um arquivo autenticado (export LGPD) disparando o download no navegador. */
 export async function downloadAuthedFile(path: string): Promise<void> {
-  const resp = await fetch(`${BASE_URL}${path}`, {
+  const baixar = () => fetch(`${BASE_URL}${path}`, {
     credentials: 'include',
     headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
   })
+  let resp = await baixar()
+  // O mesmo 401→refresh→retry de toda chamada da API. Este caminho fazia um
+  // fetch cru, e o sintoma era o clássico "deu 401, cliquei de novo e foi":
+  // o token de 15 min tinha vencido, o PRIMEIRO clique morria, e era outra
+  // chamada qualquer que renovava a sessão para o segundo funcionar.
+  if (resp.status === 401 && (await doRefresh())) {
+    resp = await baixar()
+  }
   if (!resp.ok) {
     const err: ApiError = { status: resp.status, detail: `Falha no download (${resp.status})` }
     throw err
