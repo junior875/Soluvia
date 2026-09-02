@@ -172,8 +172,18 @@ export function CapabilityProvider({ children }: { children: ReactNode }) {
             // Reusa o estado 'select' do boot: o MESMO hub das duas portas —
             // login e troca — para a pessoa nunca aprender duas telas.
             openHub: () => {
+              // A lista do boot é um retrato: quem ganhou vínculo com a sessão
+              // aberta não via a empresa nova. Mostra o que já se tem (sem
+              // tela vazia) e corrige com o dado fresco ao chegar.
               setChoices(vinculos)
               setStatus('select')
+              void api.get<MeResponse>('/auth/me')
+                .then((me) => {
+                  const ativos = me.memberships.filter((m) => m.status === 'active')
+                  setVinculos(ativos)
+                  setChoices(ativos)
+                })
+                .catch(() => { /* fica o retrato: melhor que hub vazio */ })
             },
             // Trocar de empresa também troca de TELA (a rota atual pode nem
             // existir lá) — mesma regra do hub.

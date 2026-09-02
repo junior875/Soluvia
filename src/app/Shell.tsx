@@ -9,6 +9,7 @@ import { LANGS } from '../i18n/translations'
 import { useCaps } from './capabilities'
 import { useT } from './strings'
 import { SCREENS, evaluate, type ScreenState } from './registry'
+import type { MembershipSummary, MeResponse } from '../lib/types'
 import { currentScreenId, goScreen } from './nav'
 import { Avatar, IconButton } from './ui'
 import { DuoIcon, Icon } from './icons'
@@ -106,16 +107,25 @@ export default function Shell() {
   const [menuPerfil, setMenuPerfil] = useState(false)
   type UsoBarra = { rotulo: string; texto: string; pct: number | null }
   const [usoMenu, setUsoMenu] = useState<{ barras: UsoBarra[]; renova?: string } | null>(null)
+  /** As empresas da pessoa, RECÉM-BUSCADAS ao abrir o menu.
+   *
+   *  `caps.memberships` é um retrato tirado no boot e nunca mais atualizado:
+   *  quem ganha vínculo numa segunda empresa com a sessão já aberta (o caso
+   *  comum — alguém adiciona a pessoa pelo console enquanto ela trabalha)
+   *  continuava vendo só a empresa antiga, sem nada explicando o sumiço. */
+  const [empresasMenu, setEmpresasMenu] = useState<MembershipSummary[] | null>(null)
   // O uso so e buscado quando o menu ABRE — dois GETs por clique, nao por boot.
   useEffect(() => {
     if (!menuPerfil) return
     void (async () => {
       const fmt = (n: number) => n.toLocaleString()
       const mb = (b: number) => b >= 1024 ** 3 ? (b / 1024 ** 3).toFixed(1) + ' GB' : Math.round(b / 1024 ** 2) + ' MB'
-      const [ia, st] = await Promise.all([
+      const [ia, st, me] = await Promise.all([
         api.get<{ my_used: number; my_limit: number; renews_at?: string }>('/ai/usage').catch(() => null),
         api.get<{ used_bytes: number; limit_bytes: number; unlimited: boolean }>('/storage/usage').catch(() => null),
+        api.get<MeResponse>('/auth/me').catch(() => null),
       ])
+      if (me) setEmpresasMenu(me.memberships.filter((m) => m.status === 'active'))
       const barras: UsoBarra[] = []
       if (ia) {
         barras.push({
@@ -307,11 +317,14 @@ export default function Shell() {
                 )}
 
                 {/* Empresas: a troca mora AQUI agora (saiu do topo). */}
-                {caps.memberships.length > 1 && (
+                {/* Sempre visível, mesmo com uma empresa só: a lista com o ✓
+                    diz "o sistema conhece estas" — a seção sumindo por
+                    completo passava a impressão de menu quebrado. */}
+                {(empresasMenu ?? caps.memberships).length > 0 && (
                   <>
                     <div style={{ height: 1, background: 'var(--border)', margin: '6px 4px' }} />
                     <div style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em', padding: '6px 12px 4px' }}>{t.settings.menuCompanies}</div>
-                    {caps.memberships.map((m) => {
+                    {(empresasMenu ?? caps.memberships).map((m) => {
                       const atual = m.tenant_id === ctx.tenant_id
                       return (
                         <MenuItem
