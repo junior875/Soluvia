@@ -117,8 +117,11 @@ export default function Announcements() {
     if (!EMAIL_OK.test(email) || salvandoContato) return
     setSalvandoContato(true)
     try {
-      const c = await api.post<{ id: string; email: string; name: string }>(
-        '/announcements/contacts', { name: novoNome.trim(), email },
+      // O canal selecionado vai junto: cadastrar o contato dispara o CONVITE
+      // individual daquele canal (template do sistema) — o padrão transacional
+      // que chega onde a divulgação em massa cai no spam.
+      const c = await api.post<{ id: string; email: string; name: string; invited?: boolean }>(
+        '/announcements/contacts', { name: novoNome.trim(), email, channel_id: canalId || null },
       )
       setContatos((cs) => {
         const sem = (cs ?? []).filter((x) => x.email !== c.email)
@@ -128,7 +131,7 @@ export default function Announcements() {
       // Recém-cadastrado já entra MARCADO: a pessoa o cadastrou para avisar.
       setMarcados((m) => new Set(m).add(c.email))
       setNovoNome(''); setNovoEmail('')
-      flash(tx.contactSaved)
+      flash(c.invited ? tx.contactSavedInvited : tx.contactSaved)
     } catch (e) {
       flash((e as ApiError).detail ?? tx.errLoad)
     } finally { setSalvandoContato(false) }

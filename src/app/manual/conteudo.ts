@@ -1621,6 +1621,23 @@ export const CAPITULOS: ManualCapitulo[] = [
           },
         ],
       },
+      {
+        id: 'spam',
+        titulo: t3('Garanta o recebimento: olhe o spam e salve o remetente', 'Guarantee delivery: check spam and save the sender', 'Garantiza la recepción: mira el spam y guarda el remitente'),
+        corpo: [t3(
+          'No <b>primeiro contato</b>, olhe a pasta Spam: filtros desconfiam de remetente novo — principalmente nos avisos de divulgação. Se encontrar uma mensagem da plataforma lá: <b>1)</b> marque <b>“Não é spam”</b>; <b>2)</b> <b>adicione o remetente aos contatos</b>. Feitos os dois, o recebimento das notificações passa a ser garantido — o provedor não questiona remetente que está na sua agenda.',
+          'On <b>first contact</b>, check the Spam folder: filters distrust a new sender — especially for announcement e-mails. If you find a platform message there: <b>1)</b> mark it <b>“Not spam”</b>; <b>2)</b> <b>add the sender to your contacts</b>. With both done, delivery of the notifications becomes guaranteed — providers do not question a sender who is in your address book.',
+          'En el <b>primer contacto</b>, mira la carpeta de Spam: los filtros desconfían de un remitente nuevo — sobre todo en los avisos de divulgación. Si encuentras un mensaje de la plataforma allí: <b>1)</b> márcalo como <b>“No es spam”</b>; <b>2)</b> <b>agrega el remitente a tus contactos</b>. Con ambos hechos, la recepción de las notificaciones queda garantizada — el proveedor no cuestiona a un remitente que está en tu agenda.',
+        )],
+        figuras: [{
+          src: '82-gmail-nao-e-spam',
+          legenda: t3(
+            '<b>O aviso que o Gmail mostra.</b> Se o motivo for “você cancelou sua inscrição”, foi o cancelamento que mandou a mensagem ao spam — <b>Não é spam</b> desfaz para as próximas, e salvar o remetente nos contatos fecha a garantia.',
+            '<b>The notice Gmail shows.</b> If the reason is “you unsubscribed”, the unsubscription is what sent the message to spam — <b>Not spam</b> undoes it for the next ones, and saving the sender to contacts seals the guarantee.',
+            '<b>El aviso que muestra Gmail.</b> Si el motivo es “cancelaste tu suscripción”, fue la cancelación lo que envió el mensaje al spam — <b>No es spam</b> lo deshace para los próximos, y guardar el remitente en contactos cierra la garantía.',
+          ),
+        }],
+      },
     ],
   },
 
