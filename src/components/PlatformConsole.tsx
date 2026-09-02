@@ -35,6 +35,7 @@ const L = {
     reset: 'Zerar uso', suspend: 'Suspender', reactivate: 'Reativar', close: 'Fechar',
     secVisao: 'Visão geral', secPlano: 'Plano & vagas', secStorage: 'Armazenamento', secIa: 'IA',
     secPessoas: 'Pessoas', secCanais: 'Canais', secAcoes: 'Ações',
+    aiRenews: 'Renova automaticamente em',
     dangerTitle: 'Zona de risco',
     dangerBody: 'Suspender tira TODA a empresa do ar na hora: ninguém entra e os links públicos param. Reativar devolve tudo como estava.',
     confirmSuspend: 'Suspender esta empresa agora? Ninguém dela conseguirá entrar.',
@@ -131,6 +132,7 @@ const L = {
     reset: 'Reset usage', suspend: 'Suspend', reactivate: 'Reactivate', close: 'Close',
     secVisao: 'Overview', secPlano: 'Plan & seats', secStorage: 'Storage', secIa: 'AI',
     secPessoas: 'People', secCanais: 'Channels', secAcoes: 'Actions',
+    aiRenews: 'Renews automatically on',
     dangerTitle: 'Danger zone',
     dangerBody: 'Suspending takes the WHOLE company offline immediately: nobody signs in and public links stop. Reactivating brings everything back.',
     confirmSuspend: 'Suspend this company now? Nobody in it will be able to sign in.',
@@ -227,6 +229,7 @@ const L = {
     reset: 'Reiniciar uso', suspend: 'Suspender', reactivate: 'Reactivar', close: 'Cerrar',
     secVisao: 'Visión general', secPlano: 'Plan y cupos', secStorage: 'Almacenamiento', secIa: 'IA',
     secPessoas: 'Personas', secCanais: 'Canales', secAcoes: 'Acciones',
+    aiRenews: 'Se renueva automáticamente el',
     dangerTitle: 'Zona de riesgo',
     dangerBody: 'Suspender saca a TODA la empresa del aire de inmediato: nadie entra y los enlaces públicos se detienen. Reactivar lo devuelve todo.',
     confirmSuspend: '¿Suspender esta empresa ahora? Nadie de ella podrá entrar.',
@@ -424,6 +427,7 @@ export default function PlatformConsole() {
   // isso, so quem tem vinculo em empresa achava onde carregar a foto.
   const [meuNome, setMeuNome] = useState('')
   const [minhaFoto, setMinhaFoto] = useState<string | null>(null)
+  const [minhaFotoOriginal, setMinhaFotoOriginal] = useState<string | null>(null)
   const [editorFoto, setEditorFoto] = useState(false)
   /** A seção aberta no painel da empresa. O modal antigo despejava tudo num
    *  bloco só — plano, storage, IA, membros e o botão de suspender no meio.
@@ -481,11 +485,12 @@ export default function PlatformConsole() {
   useEffect(() => {
     if (!open) return
     api
-      .get<{ email: string; is_platform_admin: boolean; full_name?: string; avatar_url?: string | null }>('/auth/me')
+      .get<{ email: string; is_platform_admin: boolean; full_name?: string; avatar_url?: string | null; avatar_original_url?: string | null }>('/auth/me')
       .then((r) => {
         setAcesso(r.is_platform_admin ? { estado: 'ok' } : { estado: 'forbidden', email: r.email })
         setMeuNome(r.full_name || r.email)
         setMinhaFoto(r.avatar_url ?? null)
+        setMinhaFotoOriginal(r.avatar_original_url ?? null)
       })
       .catch(() => setAcesso({ estado: 'anon' }))
   }, [open])
@@ -1062,7 +1067,21 @@ export default function PlatformConsole() {
 
               {secao === 'ia' && (<div style={{ background: 'var(--surface-2)', borderRadius: 14, padding: 16 }}>
               <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>{tr.aiQuota}</div>
-              <div style={{ color: 'var(--heading)', fontSize: 14, marginBottom: 4 }}>{num(detail.ai_tokens_used, lang)} / {detail.ai_token_limit === 0 ? '∞' : num(detail.ai_token_limit, lang)}</div>
+              <div style={{ color: 'var(--heading)', fontSize: 14, marginBottom: 6 }}>{num(detail.ai_tokens_used, lang)} / {detail.ai_token_limit === 0 ? '∞' : num(detail.ai_token_limit, lang)}</div>
+              {/* Semáforo do consumo: verde folgado, âmbar apertando, vermelho no fim. */}
+              {detail.ai_token_limit > 0 && (() => {
+                const pct = Math.min(100, (detail.ai_tokens_used / detail.ai_token_limit) * 100)
+                return (
+                  <div style={{ height: 6, borderRadius: 100, background: 'var(--surface)', overflow: 'hidden', marginBottom: 6 }}>
+                    <div style={{ width: `${pct}%`, height: '100%', borderRadius: 100, background: pct >= 90 ? '#e11d48' : pct >= 70 ? '#f59e0b' : '#16a34a' }} />
+                  </div>
+                )
+              })()}
+              {detail.ai_renews_at && (
+                <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 8 }}>
+                  {tr.aiRenews} <b style={{ color: 'var(--heading)' }}>{new Date(detail.ai_renews_at + 'T00:00:00').toLocaleDateString()}</b>
+                </div>
+              )}
               {/* De ONDE sai o que se aloca: o livre da carteira da plataforma.
                   Sem este número, definir a cota era prometer no escuro. */}
               {livreNaCarteira != null && (
@@ -1196,8 +1215,8 @@ export default function PlatformConsole() {
       <AvatarEditor
         open={editorFoto}
         onClose={() => setEditorFoto(false)}
-        onSaved={(url) => { setMinhaFoto(url); setToast(tr.photoSaved); setTimeout(() => setToast(null), 2200) }}
-        atualUrl={minhaFoto}
+        onSaved={(url, orig) => { setMinhaFoto(url); if (orig) setMinhaFotoOriginal(orig); setToast(tr.photoSaved); setTimeout(() => setToast(null), 2200) }}
+        atualUrl={minhaFotoOriginal ?? minhaFoto}
         textos={{ title: tr.photoTitle, pick: tr.photoPick, zoom: 'Zoom', save: tr.save, saving: '…', hint: tr.photoHint, fail: 'Erro', novaFoto: tr.photoPick }}
       />
 

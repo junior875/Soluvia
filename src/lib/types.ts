@@ -59,6 +59,7 @@ export interface PlatformChannelRow {
 }
 
 export interface PlatformTenantDetail extends PlatformTenantRow {
+  ai_renews_at?: string | null
   corporate_domain: string | null
   timezone: string | null
   billing_cycle: string | null
@@ -83,6 +84,7 @@ export interface MeResponse {
   is_platform_admin: boolean
   memberships: MembershipSummary[]
   avatar_url?: string | null
+  avatar_original_url?: string | null
 }
 
 export interface PermissionOut {
@@ -444,6 +446,7 @@ export interface MemberRow {
   email: string | null
   roles: MemberRole[]
   avatar_url?: string | null
+  avatar_original_url?: string | null
 }
 
 export interface RoleBadge {
@@ -459,6 +462,7 @@ export interface PanelContext {
     full_name: string
     is_platform_admin: boolean
     avatar_url?: string | null
+    avatar_original_url?: string | null
     theme: string
     language: string
     font_scale: number

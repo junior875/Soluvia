@@ -19,7 +19,7 @@ export default function AvatarEditor({ open, onClose, onSaved, textos, atualUrl 
   open: boolean
   onClose: () => void
   /** Recebe a URL nova para a tela atualizar sem re-buscar tudo. */
-  onSaved: (url: string) => void
+  onSaved: (url: string, originalUrl?: string | null) => void
   textos: { title: string; pick: string; zoom: string; save: string; saving: string; hint: string; fail: string; novaFoto?: string }
   /** A foto ATUAL: o editor abre com ela carregada, para quem só quer
    *  reenquadrar — trocar é o botão de nova foto. */
@@ -29,6 +29,10 @@ export default function AvatarEditor({ open, onClose, onSaved, textos, atualUrl 
   const [zoom, setZoom] = useState(1)
   const [off, setOff] = useState({ x: 0, y: 0 })
   const [salvando, setSalvando] = useState(false)
+  /** O arquivo ESCOLHIDO agora, em base64 — vai junto no salvar como
+   *  original. Reenquadrar a foto que já está lá não reenvia nada. */
+  const [originalNovo, setOriginalNovo] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const [erro, setErro] = useState<string | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const palcoRef = useRef<HTMLDivElement>(null)
@@ -50,6 +54,11 @@ export default function AvatarEditor({ open, onClose, onSaved, textos, atualUrl 
     const el = new Image()
     el.onload = () => { setImg(el); setZoom(1); setOff({ x: 0, y: 0 }); URL.revokeObjectURL(url) }
     el.src = url
+    // Guarda o arquivo cru para subir como ORIGINAL: é dele que o editor
+    // parte nas próximas vezes, sem recortar o recorte.
+    const leitor = new FileReader()
+    leitor.onload = () => setOriginalNovo(String(leitor.result))
+    leitor.readAsDataURL(file)
   }
 
   // Abriu com foto existente? Ela entra no palco para reenquadrar. O
@@ -57,7 +66,7 @@ export default function AvatarEditor({ open, onClose, onSaved, textos, atualUrl 
   // permite GET do site); se a busca falhar, cai no seletor vazio — pior
   // seria um editor que não abre.
   useEffect(() => {
-    if (!open) { setImg(null); setZoom(1); setOff({ x: 0, y: 0 }); setErro(null); return }
+    if (!open) { setImg(null); setZoom(1); setOff({ x: 0, y: 0 }); setErro(null); setOriginalNovo(null); return }
     if (!atualUrl || img) return
     const el = new Image()
     el.crossOrigin = 'anonymous'
@@ -139,8 +148,11 @@ export default function AvatarEditor({ open, onClose, onSaved, textos, atualUrl 
         img.height * esc,
       )
       const b64 = saida.toDataURL('image/png')
-      const r = await api.post<{ avatar_url: string }>('/me/avatar', { image_base64: b64 })
-      onSaved(r.avatar_url)
+      const r = await api.post<{ avatar_url: string; avatar_original_url?: string | null }>('/me/avatar', {
+        image_base64: b64,
+        ...(originalNovo ? { original_base64: originalNovo } : {}),
+      })
+      onSaved(r.avatar_url, r.avatar_original_url ?? null)
       onClose()
     } catch (e) {
       setErro((e as ApiError).detail ?? textos.fail)
@@ -150,12 +162,18 @@ export default function AvatarEditor({ open, onClose, onSaved, textos, atualUrl 
   return (
     <Modal open={open} onClose={onClose} title={textos.title} maxWidth={380}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+        {/* UM input só, escondido: um <button> dentro de <label> engole o
+            clique e o seletor nunca abria. Os botões chamam .click() nele. */}
+        <input
+          ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp"
+          style={{ display: 'none' }}
+          onChange={(e) => { escolher(e.target.files?.[0] ?? null); e.target.value = '' }}
+        />
         {!img ? (
-          <label style={{ width: QUADRO, height: QUADRO, borderRadius: '50%', border: '2px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13.5, textAlign: 'center', padding: 20, boxSizing: 'border-box' }}>
+          <button type="button" onClick={() => inputRef.current?.click()}
+            style={{ width: QUADRO, height: QUADRO, borderRadius: '50%', border: '2px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13.5, textAlign: 'center', padding: 20, boxSizing: 'border-box', background: 'none' }}>
             {textos.pick}
-            <input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }}
-              onChange={(e) => escolher(e.target.files?.[0] ?? null)} />
-          </label>
+          </button>
         ) : (
           <>
             {/* O palco: canvas quadrado + máscara circular por cima. */}
@@ -213,11 +231,7 @@ export default function AvatarEditor({ open, onClose, onSaved, textos, atualUrl 
         {erro && <p style={{ color: '#d9534f', fontSize: 13, margin: 0 }}>{erro}</p>}
         <div style={{ display: 'flex', gap: 8 }}>
           {img && (
-            <label style={{ display: 'inline-flex' }}>
-              <Button variant="ghost" onClick={() => { /* o label captura o clique */ }}>{textos.novaFoto ?? textos.pick}</Button>
-              <input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }}
-                onChange={(e) => escolher(e.target.files?.[0] ?? null)} />
-            </label>
+            <Button variant="ghost" onClick={() => inputRef.current?.click()}>{textos.novaFoto ?? textos.pick}</Button>
           )}
           <Button onClick={() => void salvar()} loading={salvando} disabled={!img}>
             {salvando ? textos.saving : textos.save}

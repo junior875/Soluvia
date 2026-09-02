@@ -100,9 +100,12 @@ export default function Shell() {
   const [drawer, setDrawer] = useState(false)
   // A foto da pessoa: nasce do contexto e atualiza na hora ao salvar no editor.
   const [fotoUrl, setFotoUrl] = useState<string | null>(ctx.user.avatar_url ?? null)
+  // O editor parte do ORIGINAL: reenquadrar o recorte encolheria a foto.
+  const [fotoOriginal, setFotoOriginal] = useState<string | null>(ctx.user.avatar_original_url ?? null)
   const [editorFoto, setEditorFoto] = useState(false)
   const [menuPerfil, setMenuPerfil] = useState(false)
-  const [usoMenu, setUsoMenu] = useState<{ ia?: string; storage?: string } | null>(null)
+  type UsoBarra = { rotulo: string; texto: string; pct: number | null }
+  const [usoMenu, setUsoMenu] = useState<{ barras: UsoBarra[]; renova?: string } | null>(null)
   // O uso so e buscado quando o menu ABRE — dois GETs por clique, nao por boot.
   useEffect(() => {
     if (!menuPerfil) return
@@ -110,12 +113,27 @@ export default function Shell() {
       const fmt = (n: number) => n.toLocaleString()
       const mb = (b: number) => b >= 1024 ** 3 ? (b / 1024 ** 3).toFixed(1) + ' GB' : Math.round(b / 1024 ** 2) + ' MB'
       const [ia, st] = await Promise.all([
-        api.get<{ my_used: number; my_limit: number }>('/ai/usage').catch(() => null),
+        api.get<{ my_used: number; my_limit: number; renews_at?: string }>('/ai/usage').catch(() => null),
         api.get<{ used_bytes: number; limit_bytes: number; unlimited: boolean }>('/storage/usage').catch(() => null),
       ])
+      const barras: UsoBarra[] = []
+      if (ia) {
+        barras.push({
+          rotulo: 'IA',
+          texto: fmt(ia.my_used) + (ia.my_limit > 0 ? ' / ' + fmt(ia.my_limit) : ''),
+          pct: ia.my_limit > 0 ? Math.min(100, (ia.my_used / ia.my_limit) * 100) : null,
+        })
+      }
+      if (st) {
+        barras.push({
+          rotulo: t.settings.storageTitle,
+          texto: mb(st.used_bytes) + ' / ' + (st.unlimited ? '∞' : mb(st.limit_bytes)),
+          pct: st.unlimited || st.limit_bytes <= 0 ? null : Math.min(100, (st.used_bytes / st.limit_bytes) * 100),
+        })
+      }
       setUsoMenu({
-        ia: ia ? fmt(ia.my_used) + (ia.my_limit > 0 ? ' / ' + fmt(ia.my_limit) : '') : undefined,
-        storage: st ? mb(st.used_bytes) + ' / ' + (st.unlimited ? '∞' : mb(st.limit_bytes)) : undefined,
+        barras,
+        renova: ia?.renews_at ? new Date(ia.renews_at + 'T00:00:00').toLocaleDateString() : undefined,
       })
     })()
   }, [menuPerfil])
@@ -261,17 +279,28 @@ export default function Shell() {
                 <MenuItem icone="settings" rotulo={(t.nav as unknown as Record<string, string>).settings} onClick={() => { setMenuPerfil(false); goScreen('settings') }} />
 
                 {/* Uso: os dois números que a pessoa mais pergunta. */}
-                {usoMenu && (
-                  <div style={{ margin: '6px 4px', padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 12 }}>
-                    <div style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>{t.settings.menuUsage}</div>
-                    {usoMenu.ia && (
-                      <div style={{ color: 'var(--heading)', fontSize: 12.5, marginBottom: 3 }}>
-                        IA · {usoMenu.ia}
-                      </div>
-                    )}
-                    {usoMenu.storage && (
-                      <div style={{ color: 'var(--heading)', fontSize: 12.5 }}>
-                        {t.settings.storageTitle} · {usoMenu.storage}
+                {usoMenu && usoMenu.barras.length > 0 && (
+                  <div style={{ margin: '6px 4px', padding: '11px 13px', background: 'var(--surface-2)', borderRadius: 12 }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 9 }}>{t.settings.menuUsage}</div>
+                    {usoMenu.barras.map((b, i) => {
+                      // Semáforo: verde folgado, âmbar apertando (>=70), vermelho
+                      // no fim (>=90). Sem limite, a barra some — não há o que medir.
+                      const cor = b.pct === null ? 'var(--accent)' : b.pct >= 90 ? '#e11d48' : b.pct >= 70 ? '#f59e0b' : '#16a34a'
+                      return (
+                        <div key={b.rotulo} style={{ marginTop: i ? 10 : 0 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 11.5, marginBottom: 4 }}>
+                            <span style={{ color: 'var(--heading)', fontWeight: 700 }}>{b.rotulo}</span>
+                            <span style={{ color: 'var(--text-muted)' }}>{b.texto}</span>
+                          </div>
+                          <div style={{ height: 6, borderRadius: 100, background: 'var(--surface)', overflow: 'hidden' }}>
+                            <div style={{ width: `${b.pct ?? 100}%`, height: '100%', borderRadius: 100, background: cor, opacity: b.pct === null ? 0.35 : 1, transition: 'width .3s' }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                    {usoMenu.renova && (
+                      <div style={{ color: 'var(--text-muted)', fontSize: 11.5, marginTop: 9 }}>
+                        {t.settings.menuRenews} <b style={{ color: 'var(--heading)' }}>{usoMenu.renova}</b>
                       </div>
                     )}
                   </div>
@@ -307,8 +336,8 @@ export default function Shell() {
         <AvatarEditor
           open={editorFoto}
           onClose={() => setEditorFoto(false)}
-          onSaved={(url) => setFotoUrl(url)}
-          atualUrl={fotoUrl}
+          onSaved={(url, orig) => { setFotoUrl(url); if (orig) setFotoOriginal(orig) }}
+          atualUrl={fotoOriginal ?? fotoUrl}
           textos={{
             title: t.settings.photoTitle, pick: t.settings.photoPick, zoom: t.settings.photoZoom,
             save: t.settings.save, saving: t.settings.saving, hint: t.settings.photoDragHint,

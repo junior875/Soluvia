@@ -72,9 +72,10 @@ export default function Settings() {
   const [font, setFont] = useState(getFontScale())
   const [name, setName] = useState(ctx.user.full_name)
   const [fotoUrl, setFotoUrl] = useState<string | null>(ctx.user.avatar_url ?? null)
+  const [fotoOriginal, setFotoOriginal] = useState<string | null>(ctx.user.avatar_original_url ?? null)
   const [editorAberto, setEditorAberto] = useState(false)
   async function removerFoto() {
-    try { await api.delete('/me/avatar'); setFotoUrl(null); flash(t.settings.saved) }
+    try { await api.delete('/me/avatar'); setFotoUrl(null); setFotoOriginal(null); flash(t.settings.saved) }
     catch { /* melhor silencio que alarme falso aqui */ }
   }
   const [curPw, setCurPw] = useState('')
@@ -177,8 +178,8 @@ export default function Settings() {
         <AvatarEditor
           open={editorAberto}
           onClose={() => setEditorAberto(false)}
-          onSaved={(url) => { setFotoUrl(url); flash(t.settings.saved) }}
-          atualUrl={fotoUrl}
+          onSaved={(url, orig) => { setFotoUrl(url); if (orig) setFotoOriginal(orig); flash(t.settings.saved) }}
+          atualUrl={fotoOriginal ?? fotoUrl}
           textos={{
             title: t.settings.photoTitle, pick: t.settings.photoPick, zoom: t.settings.photoZoom,
             save: t.settings.save, saving: t.settings.saving ?? '…', hint: t.settings.photoDragHint,
