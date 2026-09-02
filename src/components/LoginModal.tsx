@@ -7,6 +7,7 @@ import { PasswordInput } from '../app/ui'
 import { api } from '../lib/api'
 import type { ApiError, MembershipSummary, MeResponse } from '../lib/types'
 import { useTranslation } from '../i18n/LanguageProvider'
+import { Icon } from '../app/icons'
 import { localizeRole } from '../lib/systemNames'
 import PrefSwitcher from './PrefSwitcher'
 import { consumirDestino, espiarDestino, limparDestino } from '../app/destino'
@@ -88,6 +89,49 @@ const primaryBtn: CSSProperties = {
   cursor: 'pointer',
   fontFamily: 'inherit',
   boxShadow: '0 10px 28px var(--accent-shadow,rgba(242,146,30,.3))',
+}
+
+// ── Escolha de empresa ────────────────────────────────────────────
+// O mesmo desenho do hub que aparece DEPOIS do login (capabilities.tsx):
+// avatar, nome e papel empilhados, seta à direita. É a mesma decisão sendo
+// tomada nos dois lugares — não faria sentido ter duas caras.
+const linhaEmpresa = (destaque: boolean): CSSProperties => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 13,
+  padding: '14px 16px',
+  borderRadius: 14,
+  border: `1.5px solid ${destaque ? 'var(--accent)' : 'var(--border)'}`,
+  background: destaque ? 'var(--accent-soft)' : 'var(--surface-2)',
+  cursor: 'pointer',
+  textAlign: 'left',
+})
+const avatarEmpresa: CSSProperties = {
+  width: 40,
+  height: 40,
+  minWidth: 40,
+  borderRadius: 12,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+}
+const nomeEmpresa: CSSProperties = {
+  display: 'block',
+  color: 'var(--heading)',
+  fontWeight: 800,
+  fontSize: 15,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+}
+const papelEmpresa: CSSProperties = {
+  display: 'block',
+  color: 'var(--text-muted)',
+  fontSize: 12.5,
+  marginTop: 2,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
 }
 
 const goToPanel = () => {
@@ -292,46 +336,40 @@ export default function LoginModal() {
               {plataformaNoHub && (
                 <button
                   onClick={() => { window.location.hash = 'plataforma'; setOpen(false) }}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '14px 16px',
-                    borderRadius: 14,
-                    border: '1.5px solid var(--accent)',
-                    background: 'var(--accent-soft)',
-                    color: 'var(--heading)',
-                    cursor: 'pointer',
-                    fontWeight: 800,
-                  }}
+                  className="app-btn"
+                  style={linhaEmpresa(true)}
                 >
-                  <span>{tr.platformConsole}</span>
-                  <span style={{ fontSize: 12.5, color: 'var(--text-muted)', fontWeight: 500 }}>
-                    {tr.platformConsoleHint}
+                  <span style={{ ...avatarEmpresa, background: 'var(--accent)', color: '#fff' }}>
+                    <Icon name="settings" size={19} />
                   </span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={nomeEmpresa}>{tr.platformConsole}</span>
+                    <span style={papelEmpresa}>{tr.platformConsoleHint}</span>
+                  </span>
+                  <Icon name="chevron" size={17} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                 </button>
               )}
               {choices.map((m) => (
                 <button
                   key={m.id}
                   onClick={() => void enterTenant(m.tenant_id)}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '14px 16px',
-                    borderRadius: 14,
-                    border: '1px solid var(--border)',
-                    background: 'var(--surface-2)',
-                    color: 'var(--heading)',
-                    cursor: 'pointer',
-                    fontWeight: 700,
-                  }}
+                  className="app-btn"
+                  style={linhaEmpresa(false)}
                 >
-                  <span>{m.tenant_name}</span>
-                  <span style={{ fontSize: 12.5, color: 'var(--text-muted)', fontWeight: 500 }}>
-                    {m.roles.map(localizeRole).join(', ') || tr.member}
+                  {/* A inicial da empresa: com três ou quatro vínculos, é o que
+                      se acha primeiro na lista — antes de ler nome nenhum. */}
+                  <span style={{ ...avatarEmpresa, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--accent)', fontWeight: 800, fontSize: 16 }}>
+                    {(m.tenant_name || '?').trim().charAt(0).toUpperCase()}
                   </span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={nomeEmpresa}>{m.tenant_name}</span>
+                    {/* O PAPEL em cada empresa: é o que diferencia os vínculos
+                        quando os nomes não bastam. */}
+                    <span style={papelEmpresa}>
+                      {m.roles.map(localizeRole).join(', ') || tr.member}
+                    </span>
+                  </span>
+                  <Icon name="chevron" size={17} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                 </button>
               ))}
             </div>
