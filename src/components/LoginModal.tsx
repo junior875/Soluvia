@@ -9,7 +9,7 @@ import type { ApiError, MembershipSummary, MeResponse } from '../lib/types'
 import { useTranslation } from '../i18n/LanguageProvider'
 import { localizeRole } from '../lib/systemNames'
 import PrefSwitcher from './PrefSwitcher'
-import { consumirDestino, limparDestino } from '../app/destino'
+import { consumirDestino, espiarDestino, limparDestino } from '../app/destino'
 
 const L = {
   pt: {
@@ -139,7 +139,13 @@ export default function LoginModal() {
 
   useEffect(() => {
     const sync = () => {
-      const isOpen = window.location.hash.toLowerCase().startsWith('#entrar')
+      const hash = window.location.hash.toLowerCase()
+      // `#entrar?redefinir=1` vem do botão do e-mail de redefinição: a pessoa
+      // já tem o código na mão, então cai direto no passo de digitá-lo. Mandá-la
+      // para "esqueci minha senha" dispararia um código NOVO e invalidaria o
+      // que ela acabou de receber.
+      if (hash.includes('redefinir=1')) setView('reset')
+      const isOpen = hash.startsWith('#entrar')
       setOpen(isOpen)
       if (isOpen) {
         setError(null)
@@ -189,7 +195,19 @@ export default function LoginModal() {
       } else if (active.length === 1) {
         await enterTenant(active[0].tenant_id)
       } else {
-        setChoices(active) // seletor de empresa
+        // O destino guardado pode NOMEAR a empresa (`empresa=<slug>`, posto
+        // nos links dos e-mails de caso). Mostrar o hub aqui jogava a pergunta
+        // "em qual empresa?" para alguém que veio de um e-mail que já sabia a
+        // resposta — e a escolha errada perdia o caso de vista.
+        const destino = espiarDestino()
+        const query = destino?.split('?')[1]
+        const slugDoLink = query ? new URLSearchParams(query).get('empresa') : null
+        const doLink = slugDoLink ? active.find((m) => m.tenant_slug === slugDoLink) : null
+        if (doLink) {
+          await enterTenant(doLink.tenant_id)
+        } else {
+          setChoices(active) // seletor de empresa
+        }
       }
     } catch (err) {
       const detail = (err as ApiError).detail

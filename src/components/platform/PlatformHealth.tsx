@@ -14,7 +14,7 @@ import type { ApiError } from '../../lib/types'
 
 export type Saude = {
   environment: string
-  email: { configured: boolean; sender: string }
+  email: { configured: boolean; sender: string; sent?: { total: number; ultimos_30d: number; hoje: number } }
   storage: { configured: boolean; bucket: string | null; region: string; ephemeral_warning: boolean }
   reminders: { enabled: boolean; interval_minutes: number; cases_awaiting_triage: number }
   ai: { configured: boolean }
@@ -35,6 +35,9 @@ export type HealthTextos = {
   awaitingTriage: string
   environment: string
   loading: string
+  sentTotal: string
+  sent30d: string
+  sentToday: string
 }
 
 export default function PlatformHealth({
@@ -87,7 +90,22 @@ export default function PlatformHealth({
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 14 }}>
-      {bloco(textos.email, saude.email.configured, linha(textos.sender, saude.email.sender))}
+      {bloco(
+        textos.email,
+        saude.email.configured,
+        <>
+          {linha(textos.sender, saude.email.sender)}
+          {/* A contabilização que faltava: total entregue, 30 dias e hoje.
+              Simulação de dev fica fora — o número fecha com a fatura. */}
+          {saude.email.sent && (
+            <>
+              {linha(textos.sentTotal, saude.email.sent.total.toLocaleString())}
+              {linha(textos.sent30d, saude.email.sent.ultimos_30d.toLocaleString())}
+              {linha(textos.sentToday, saude.email.sent.hoje.toLocaleString())}
+            </>
+          )}
+        </>,
+      )}
 
       {bloco(
         textos.storage,

@@ -14,6 +14,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../icons'
 import { useT } from '../strings'
 import { Button, Card, SectionLabel } from '../ui'
+import ChipUsoIA from '../../components/ChipUsoIA'
+import { useTranslation } from '../../i18n/LanguageProvider'
 
 export type ChatMsg = { role: 'you' | 'ai'; content: string }
 export type ChatSummary = { chat_id: string; title: string; messages: number }
@@ -21,7 +23,7 @@ export type ChatSummary = { chat_id: string; title: string; messages: number }
 export default function FlowAgentChat({
   msgs, busy, input, setInput, onSend, agentModule,
   chats, chatId, onOpenChat, onNewChat, onDeleteChat,
-  missing, warnings = [], rejected = [], canUndo = false, onUndo,
+  missing, warnings = [], rejected = [], podeDesfazer = 0, onUndo,
 }: {
   msgs: ChatMsg[]
   busy: boolean
@@ -40,15 +42,17 @@ export default function FlowAgentChat({
   warnings?: string[]
   /** Operações que o aplicador recusou (nome inexistente, bloco fora da lista). */
   rejected?: string[]
-  /** O último turno mexeu no canvas — dá para voltar. */
-  canUndo?: boolean
+  /** Quantos passos dá para voltar (a pilha guarda 3). */
+  podeDesfazer?: number
   onUndo?: () => void
 }) {
   const t = useT()
+  const { lang } = useTranslation()
   const tx = t.flow.ai
   const isSac = agentModule === 'sac'
   const scrollRef = useRef<HTMLDivElement>(null)
   const [wi, setWi] = useState(0)
+  const [detalhes, setDetalhes] = useState(false)
 
   // Rola SÓ o container do chat. `scrollIntoView` rolaria a página junto, e
   // enviar com Enter faria a tela inteira descer.
@@ -67,6 +71,28 @@ export default function FlowAgentChat({
     <Card style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 300px)', minHeight: 440 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <SectionLabel>{tx.title}</SectionLabel>
+        <ChipUsoIA lang={lang} versao={msgs.length} />
+        {podeDesfazer > 0 && (
+          // Uma seta, no cabeçalho — não uma faixa. A faixa de "apliquei,
+          // quer desfazer?" ocupava uma linha inteira a cada turno e, somada
+          // às outras três, empurrava a conversa e o campo de escrever para
+          // fora da tela.
+          <button
+            type="button" onClick={onUndo} className="app-btn" title={tx.undo}
+            aria-label={tx.undo}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer',
+              border: '1px solid var(--accent-border)', background: 'var(--accent-soft)',
+              color: 'var(--accent)', borderRadius: 100, padding: '4px 10px',
+              fontSize: 11.5, fontWeight: 800,
+            }}
+          >
+            <span style={{ display: 'flex', transform: 'rotate(180deg)' }}>
+              <Icon name="chevron" size={12} />
+            </span>
+            {tx.undo}{podeDesfazer > 1 ? ` (${podeDesfazer})` : ''}
+          </button>
+        )}
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 11px', borderRadius: 100, background: 'var(--accent-soft)', border: '1px solid var(--accent-border)', color: 'var(--accent)', fontSize: 11.5, fontWeight: 800, whiteSpace: 'nowrap' }}>
           <img src={isSac ? '/sac-icon.svg' : '/canal-denuncias-icon.png'} alt="" className="module-logo" style={{ width: 14, height: 14, objectFit: 'contain' }} />
           {isSac ? tx.agentSac : tx.agentEtica}
@@ -142,43 +168,64 @@ export default function FlowAgentChat({
       {/* Faixa de estado do último turno: desfazer, o que o agente não pôde
           aplicar, o que falta e como o fluxo vai rodar. Fixa acima do campo —
           não some ao rolar a conversa. */}
-      {canUndo && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--accent-border)', background: 'var(--accent-soft)', borderRadius: 12, padding: '8px 12px', marginTop: 8 }}>
-          <span style={{ color: 'var(--text)', fontSize: 12.5, flex: 1 }}>{tx.appliedNote}</span>
-          <button type="button" className="app-btn" onClick={onUndo}
-            style={{ cursor: 'pointer', border: '1px solid var(--accent)', background: 'var(--surface)', color: 'var(--accent)', borderRadius: 100, padding: '5px 13px', fontSize: 12.5, fontWeight: 800 }}>
-            {tx.undo}
+      {/* UMA linha de estado, não quatro faixas.
+          O agente devolve, no mesmo turno, o que recusou, o que falta definir
+          e como o fluxo vai rodar. Cada um virava um bloco com borda, título e
+          lista — e os quatro somados comiam o painel: a conversa encolhia e o
+          campo de escrever saía da tela. Agora é uma linha com as contagens,
+          que abre quem quiser ler. */}
+      {(rejected.length > 0 || missing.length > 0 || warnings.length > 0) && (
+        <div style={{ marginTop: 8 }}>
+          <button
+            type="button" onClick={() => setDetalhes((v) => !v)} className="app-btn"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, width: '100%', cursor: 'pointer',
+              border: '1px solid var(--border)', background: 'var(--surface-2)',
+              borderRadius: 12, padding: '7px 11px', color: 'var(--text)',
+              fontSize: 12.5, fontWeight: 700, textAlign: 'left', whiteSpace: 'normal',
+            }}
+          >
+            {rejected.length > 0 && (
+              <span style={{ color: '#e11d48', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Icon name="close" size={11} /> {rejected.length}
+              </span>
+            )}
+            {missing.length > 0 && (
+              <span style={{ color: '#d97706', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Icon name="bell" size={11} /> {missing.length}
+              </span>
+            )}
+            {warnings.length > 0 && (
+              <span style={{ color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Icon name="flow" size={11} /> {warnings.length}
+              </span>
+            )}
+            <span style={{ flex: 1, minWidth: 0, color: 'var(--text-muted)', fontWeight: 600 }}>
+              {missing.length > 0 ? tx.missingTitle : rejected.length > 0 ? tx.rejectedTitle : tx.logicTitle}
+            </span>
+            <span style={{ display: 'flex', flexShrink: 0, transform: detalhes ? 'rotate(180deg)' : 'none', color: 'var(--text-muted)' }}>
+              <Icon name="chevron" size={13} />
+            </span>
           </button>
-        </div>
-      )}
-      {rejected.length > 0 && (
-        <div style={{ border: '1px solid #e11d48', background: 'rgba(225,29,72,.07)', borderRadius: 12, padding: '10px 12px', marginTop: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: '#e11d48', fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.03em', marginBottom: 6 }}>
-            <Icon name="close" size={12} /> {tx.rejectedTitle}
-          </div>
-          <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text)', fontSize: 12.5, lineHeight: 1.6 }}>
-            {rejected.map((m, i) => <li key={i}>{m}</li>)}
-          </ul>
-        </div>
-      )}
-      {missing.length > 0 && (
-        <div style={{ border: '1px solid #d97706', background: 'rgba(217,119,6,.08)', borderRadius: 12, padding: '10px 12px', marginTop: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: '#d97706', fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.03em', marginBottom: 6 }}>
-            <Icon name="bell" size={13} /> {tx.missingTitle}
-          </div>
-          <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text)', fontSize: 12.5, lineHeight: 1.6 }}>
-            {missing.map((m, i) => <li key={i}>{m}</li>)}
-          </ul>
-        </div>
-      )}
-      {warnings.length > 0 && (
-        <div style={{ border: '1px solid var(--border)', background: 'var(--surface-2)', borderRadius: 12, padding: '10px 12px', marginTop: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--text-muted)', fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.03em', marginBottom: 6 }}>
-            <Icon name="flow" size={13} /> {tx.logicTitle}
-          </div>
-          <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text)', fontSize: 12.5, lineHeight: 1.6 }}>
-            {warnings.map((m, i) => <li key={i}>{m}</li>)}
-          </ul>
+
+          {detalhes && (
+            <div className="app-scroll" style={{ maxHeight: 168, overflowY: 'auto', marginTop: 6, display: 'grid', gap: 6 }}>
+              {[
+                { itens: rejected, cor: '#e11d48', titulo: tx.rejectedTitle },
+                { itens: missing, cor: '#d97706', titulo: tx.missingTitle },
+                { itens: warnings, cor: 'var(--text-muted)', titulo: tx.logicTitle },
+              ].filter((g) => g.itens.length > 0).map((g) => (
+                <div key={g.titulo} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '8px 11px' }}>
+                  <div style={{ color: g.cor, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 4 }}>
+                    {g.titulo}
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: 16, color: 'var(--text)', fontSize: 12.3, lineHeight: 1.55 }}>
+                    {g.itens.map((m, k) => <li key={k}>{m}</li>)}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

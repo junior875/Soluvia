@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom'
 import { api } from '../../lib/api'
 import type { ApiError, ChannelOut, MemberRow } from '../../lib/types'
 import { useT } from '../strings'
+import ChipUsoIA from '../../components/ChipUsoIA'
 import { useTranslation } from '../../i18n/LanguageProvider'
 import { Button, Card, EmptyState, Input, Modal, PageHeader, SectionLabel, Select, Skeleton } from '../ui'
 import { Icon } from '../icons'
@@ -219,7 +220,12 @@ export default function FormBuilder() {
 
   async function save(publish = false, overrideLang?: Lang) {
     if (!form || !channelId) return
-    const saveLang = overrideLang ?? lang
+    // O idioma que vai no salvamento é o do CONTEÚDO em `form`, que é sempre o
+    // base — a tradução vive em `previewForm`, à parte. Mandar o idioma do
+    // seletor (que é de pré-visualização) fazia o servidor entender "reescrevi
+    // este form em inglês": trocava o base e apagava as traduções bem na hora
+    // de publicar.
+    const saveLang = overrideLang ?? ((form.base_lang as Lang) || 'pt')
     setBusy(true)
     try {
       // Chave estável e válida (<=60, só [a-z0-9_], única). Preserva a key do
@@ -609,6 +615,7 @@ function AIChat({ t, msgs, aiBusy, aiInput, setAiInput, onSend, agentModule, cha
   chats: ChatSummary[]; chatId: string | null
   onOpenChat: (id: string) => void; onNewChat: () => void; onDeleteChat: (id: string) => void
 }) {
+  const { lang } = useTranslation()
   const isSac = agentModule === 'sac'
   const scrollRef = useRef<HTMLDivElement>(null)
   const [wi, setWi] = useState(0)
@@ -628,6 +635,7 @@ function AIChat({ t, msgs, aiBusy, aiInput, setAiInput, onSend, agentModule, cha
     <Card style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 260px)', minHeight: 460 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <SectionLabel>{t.fb.ai.title}</SectionLabel>
+        <ChipUsoIA lang={lang} versao={msgs.length} />
         {/* Deixa explícito QUEM está atendendo — antes não havia como saber que
             o agente muda conforme o módulo do canal. */}
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 11px', borderRadius: 100, background: 'var(--accent-soft)', border: '1px solid var(--accent-border)', color: 'var(--accent)', fontSize: 11.5, fontWeight: 800, whiteSpace: 'nowrap' }}>

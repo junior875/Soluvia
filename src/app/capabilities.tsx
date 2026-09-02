@@ -102,12 +102,18 @@ export function CapabilityProvider({ children }: { children: ReactNode }) {
     setError(null)
     if (!getAccessToken()) {
       const ok = await refreshSession()
-      if (!ok) return setStatus('login')
+      // Guardar ANTES de mostrar o login: neste instante o endereço ainda é o
+      // do e-mail (`#painel/cases?caso=…`), e é a última chance de saber para
+      // onde a pessoa ia. Sem isto, só sobrevivia o destino de quem JÁ estava
+      // logado e teve a sessão expirada no meio — o clique vindo da caixa de
+      // entrada, que é o caso comum, terminava sempre no painel genérico.
+      if (!ok) { guardarDestino(); return setStatus('login') }
     }
     let me: MeResponse
     try {
       me = await api.get<MeResponse>('/auth/me')
     } catch {
+      guardarDestino()
       return setStatus('login')
     }
     const active = me.memberships.filter((m) => m.status === 'active')
@@ -121,7 +127,19 @@ export function CapabilityProvider({ children }: { children: ReactNode }) {
         : active.length === 1
           ? active[0].tenant_id
           : null
+    // O e-mail sabe de qual empresa é o caso (`empresa=<slug>` no link). Com
+    // 2+ vínculos o boot parava no hub e a escolha ENGOLIA o destino — a
+    // pessoa clicava em "abrir e dar meu parecer" e terminava na visão geral
+    // de outra empresa. Se o link nomeia a empresa e a pessoa tem vínculo
+    // nela, entra direto — na empresa certa, na tela certa.
     if (!tenantId) {
+      const query = window.location.hash.split('?')[1]
+      const slugDoLink = query ? new URLSearchParams(query).get('empresa') : null
+      const doLink = slugDoLink ? active.find((m) => m.tenant_slug === slugDoLink) : null
+      if (doLink) {
+        await loadContext(doLink.tenant_id)
+        return
+      }
       setChoices(active)
       return setStatus('select')
     }

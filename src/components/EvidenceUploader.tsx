@@ -97,6 +97,7 @@ export function EvidenceUploader({
   textos,
   onChange,
   onConcluido,
+  onSubindo,
 }: {
   /** Pede ao servidor a autorização para ESTE arquivo. */
   pedirAutorizacao: (file: File) => Promise<Autorizacao>
@@ -113,29 +114,43 @@ export function EvidenceUploader({
   onChange: (ids: string[]) => void
   /** Chamado quando um arquivo fica pronto — quem lista anexos precisa saber. */
   onConcluido?: () => void
+  /** Há arquivo SUBINDO agora. Quem tem botão de enviar precisa saber:
+   *  `onChange` só entrega os ids dos que TERMINARAM, então um formulário
+   *  enviado no meio do upload partia sem a prova — e a pessoa via "relato
+   *  enviado" acreditando que o anexo tinha ido junto. */
+  onSubindo?: (subindo: boolean) => void
 }) {
   const [itens, setItens] = useState<Item[]>([])
   const [arrastando, setArrastando] = useState(false)
   const [mostrarFormatos, setMostrarFormatos] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  /** Avisa o pai sobre ids prontos E sobre haver upload em curso. */
+  const avisar = useCallback(
+    (lista: Item[]) => {
+      onChange(lista.filter((i) => i.enviada).map((i) => i.enviada!.id))
+      onSubindo?.(lista.some((i) => i.estado === 'enviando'))
+    },
+    [onChange, onSubindo],
+  )
+
   const publicar = useCallback(
     (lista: Item[]) => {
       setItens(lista)
-      onChange(lista.filter((i) => i.enviada).map((i) => i.enviada!.id))
+      avisar(lista)
     },
-    [onChange],
+    [avisar],
   )
 
   const atualizar = useCallback(
     (localId: string, patch: Partial<Item>) => {
       setItens((atual) => {
         const proximo = atual.map((i) => (i.localId === localId ? { ...i, ...patch } : i))
-        onChange(proximo.filter((i) => i.enviada).map((i) => i.enviada!.id))
+        avisar(proximo)
         return proximo
       })
     },
-    [onChange],
+    [avisar],
   )
 
   async function subir(item: Item) {

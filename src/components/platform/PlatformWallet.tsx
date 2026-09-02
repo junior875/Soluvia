@@ -105,9 +105,25 @@ export default function PlatformWallet({ lang, formatar, onToast, onSaldo }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Saldo REAL no provedor + preço por milhão editável (config sem deploy).
+  const [saldo, setSaldo] = useState<{ configured: boolean; available?: boolean | null; balances?: { currency: string; total: string; granted: string; topped_up: string }[]; error?: string } | null>(null)
+  const [precoMilhao, setPrecoMilhao] = useState('')
   useEffect(() => {
     api.get<Carteira>('/platform/wallet').then(aplicar).catch(() => setW(null))
+    api.get<typeof saldo>('/platform/ai-balance').then(setSaldo).catch(() => setSaldo(null))
+    api.get<Record<string, number>>('/platform/config')
+      .then((c) => setPrecoMilhao(String(c.deepseek_preco_milhao_usd ?? '')))
+      .catch(() => {})
   }, [aplicar])
+
+  const salvarPreco = async () => {
+    const v = Number(precoMilhao.replace(',', '.'))
+    if (!v || v <= 0) return
+    try {
+      await api.put('/platform/config', { key: 'deepseek_preco_milhao_usd', value: v })
+      onToast('OK')
+    } catch (e) { onToast((e as ApiError).detail ?? L.erro) }
+  }
 
   async function lancar() {
     const n = Math.round(Number(tokens.replace(/[.,\s]/g, '')))
@@ -174,13 +190,47 @@ export default function PlatformWallet({ lang, formatar, onToast, onSaldo }: {
         </p>
       )}
 
+      {/* Saldo REAL da conta DeepSeek — a previsibilidade que o lançamento
+          manual nunca deu: lê da fonte, não da memória de quem comprou. */}
+      {saldo?.configured && (
+        <div style={{ background: 'var(--surface-2)', borderRadius: 14, padding: 14, marginBottom: 12, display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em' }}>Saldo DeepSeek</div>
+            {saldo.error ? (
+              <div style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>provedor sem resposta agora</div>
+            ) : (
+              <div style={{ color: 'var(--heading)', fontSize: 22, fontWeight: 800, marginTop: 2 }}>
+                {saldo.balances?.[0] ? `${saldo.balances[0].currency} ${saldo.balances[0].total}` : '—'}
+                {saldo.available === false && <span style={{ color: '#e11d48', fontSize: 12, marginLeft: 8 }}>esgotado</span>}
+              </div>
+            )}
+          </div>
+          <label style={{ display: 'grid', gap: 4, fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 700, marginLeft: 'auto' }}>
+            {L.precoMedio} (US$ {L.porMilhao})
+            <span style={{ display: 'flex', gap: 6 }}>
+              <input value={precoMilhao} onChange={(e) => setPrecoMilhao(e.target.value)} inputMode="decimal" style={{ ...fld, width: 110 }} />
+              <button onClick={() => void salvarPreco()} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '7px 14px', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}>OK</button>
+            </span>
+          </label>
+        </div>
+      )}
+
       {/* Lançar carga: é AQUI que se registra o total de tokens da plataforma. */}
       <div style={{ background: 'var(--surface-2)', borderRadius: 14, padding: 14, marginBottom: 12 }}>
         <div style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>{L.lancar}</div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <input value={tokens} onChange={(e) => setTokens(e.target.value)} placeholder={L.tokens} inputMode="numeric" style={{ ...fld, width: 200 }} />
-          <input value={custo} onChange={(e) => setCusto(e.target.value)} placeholder={L.custo} inputMode="decimal" style={{ ...fld, width: 170 }} />
-          <input value={nota} onChange={(e) => setNota(e.target.value)} placeholder={L.nota} style={{ ...fld, flex: '1 1 220px' }} />
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          {/* Rótulo PERMANENTE em cada campo: placeholder some ao digitar, e a
+              pessoa ficava com caixas anônimas na frente — sem saber qual era
+              tokens, qual era custo e qual era origem. */}
+          <label style={{ display: 'grid', gap: 4, fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 700 }}>{L.tokens}
+            <input value={tokens} onChange={(e) => setTokens(e.target.value)} placeholder="1000000" inputMode="numeric" style={{ ...fld, width: 200 }} />
+          </label>
+          <label style={{ display: 'grid', gap: 4, fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 700 }}>{L.custo}
+            <input value={custo} onChange={(e) => setCusto(e.target.value)} placeholder="0.00" inputMode="decimal" style={{ ...fld, width: 170 }} />
+          </label>
+          <label style={{ display: 'grid', gap: 4, fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 700, flex: '1 1 220px' }}>{L.nota}
+            <input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="compra DeepSeek 28/08" style={{ ...fld, width: '100%' }} />
+          </label>
           <button disabled={busy || !tokens.trim()} onClick={() => void lancar()}
             style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '9px 20px', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', opacity: busy || !tokens.trim() ? 0.6 : 1 }}>
             {L.enviar}

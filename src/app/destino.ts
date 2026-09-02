@@ -22,6 +22,11 @@
  */
 const CHAVE = 'soluvia.destino'
 const VALIDADE_MS = 30 * 60 * 1000
+// Destino que veio de LINK DE E-MAIL vive mais: a pessoa abre o e-mail no
+// celular de manhã e só entra no computador à noite. O marcador é o `de=email`
+// que todo link de caso carrega. Os 30 minutos continuam para o resto —
+// sessão expirada no meio do uso não pode virar teleporte dias depois.
+const VALIDADE_EMAIL_MS = 72 * 60 * 60 * 1000
 
 /** Aceita só rotas internas do painel — nada de URL absoluta nem protocolo. */
 function ehDestinoValido(hash: string): boolean {
@@ -59,7 +64,29 @@ export function consumirDestino(): string | null {
     if (!cru) return null
     const { destino, em } = JSON.parse(cru) as { destino?: string; em?: number }
     if (!destino || !em) return null
-    if (Date.now() - em > VALIDADE_MS) return null
+    const validade = /[?&]de=email/.test(destino) ? VALIDADE_EMAIL_MS : VALIDADE_MS
+    if (Date.now() - em > validade) return null
+    return ehDestinoValido(destino) ? destino : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Lê o destino SEM consumir — para decisões de rota antes do salto.
+ *
+ * O login com 2+ vínculos precisa saber se o destino nomeia uma empresa
+ * (`empresa=<slug>`) ANTES de decidir entre entrar direto ou abrir o hub; e o
+ * salto em si continua sendo de quem consome.
+ */
+export function espiarDestino(): string | null {
+  try {
+    const cru = sessionStorage.getItem(CHAVE)
+    if (!cru) return null
+    const { destino, em } = JSON.parse(cru) as { destino?: string; em?: number }
+    if (!destino || !em) return null
+    const validade = /[?&]de=email/.test(destino) ? VALIDADE_EMAIL_MS : VALIDADE_MS
+    if (Date.now() - em > validade) return null
     return ehDestinoValido(destino) ? destino : null
   } catch {
     return null

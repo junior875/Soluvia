@@ -50,6 +50,7 @@ const L = {
     mToc: 'Sumário', mHide: 'Esconder o sumário', mShow: 'Mostrar o sumário',
     mOpen: 'Abrir', mLocked: 'Não contratado', mReq: 'obrigatório', mOpt: 'opcional',
     mEmpty: 'Nada para mostrar', mEmptyBody: 'O manual do console está vazio.',
+    stDeTeto: 'de', stLivre: 'livre:',
     tab_armazenamento: 'Armazenamento', tab_tokens: 'Tokens de IA',
     tab_financeiro: 'Custos e entradas',
     fTitulo: 'Custos e entradas', fSub: 'O que está contratado, o que entrou de verdade e o que custa manter.',
@@ -103,7 +104,7 @@ const L = {
     hEmail: 'E-mail', hStorage: 'Armazenamento', hReminders: 'Lembretes', hAi: 'Inteligência artificial',
     hOk: 'configurado', hOff: 'não configurado', hSender: 'Remetente', hBucket: 'Bucket',
     hEphemeral: 'Sem bucket configurado, os arquivos vão para o disco do container — que é apagado a cada deploy.',
-    hEvery: 'Varredura a cada', hAwaiting: 'Casos aguardando triagem', hEnvironment: 'Ambiente',
+    hEvery: 'Varredura a cada', hAwaiting: 'Casos aguardando triagem', hEnvironment: 'Ambiente', hSentTotal: 'Enviados (total)', hSent30d: 'Últimos 30 dias', hSentToday: 'Hoje',
   },
   en: {
     kicker: 'Soluqtion Console', subtitle: 'Full platform view', logout: 'Sign out',
@@ -137,6 +138,7 @@ const L = {
     mToc: 'Contents', mHide: 'Hide contents', mShow: 'Show contents',
     mOpen: 'Open', mLocked: 'Not included', mReq: 'required', mOpt: 'optional',
     mEmpty: 'Nothing to show', mEmptyBody: 'The console manual is empty.',
+    stDeTeto: 'of', stLivre: 'free:',
     tab_armazenamento: 'Storage', tab_tokens: 'AI tokens',
     tab_financeiro: 'Costs & revenue',
     fTitulo: 'Costs & revenue', fSub: 'What is contracted, what actually came in, and what it costs to run.',
@@ -190,7 +192,7 @@ const L = {
     hEmail: 'Email', hStorage: 'Storage', hReminders: 'Reminders', hAi: 'Artificial intelligence',
     hOk: 'configured', hOff: 'not configured', hSender: 'Sender', hBucket: 'Bucket',
     hEphemeral: 'With no bucket configured, files go to the container disk — which is wiped on every deploy.',
-    hEvery: 'Scan every', hAwaiting: 'Cases awaiting triage', hEnvironment: 'Environment',
+    hEvery: 'Scan every', hAwaiting: 'Cases awaiting triage', hEnvironment: 'Environment', hSentTotal: 'Sent (total)', hSent30d: 'Last 30 days', hSentToday: 'Today',
   },
   es: {
     kicker: 'Consola Soluqtion', subtitle: 'Vista total de la plataforma', logout: 'Salir',
@@ -224,6 +226,7 @@ const L = {
     mToc: 'Contenido', mHide: 'Ocultar el contenido', mShow: 'Mostrar el contenido',
     mOpen: 'Abrir', mLocked: 'No contratado', mReq: 'obligatorio', mOpt: 'opcional',
     mEmpty: 'Nada que mostrar', mEmptyBody: 'El manual de la consola está vacío.',
+    stDeTeto: 'de', stLivre: 'libre:',
     tab_armazenamento: 'Almacenamiento', tab_tokens: 'Tokens de IA',
     tab_financeiro: 'Costos e ingresos',
     fTitulo: 'Costos e ingresos', fSub: 'Lo contratado, lo que entró de verdad y lo que cuesta mantener.',
@@ -277,7 +280,7 @@ const L = {
     hEmail: 'Correo', hStorage: 'Almacenamiento', hReminders: 'Recordatorios', hAi: 'Inteligencia artificial',
     hOk: 'configurado', hOff: 'no configurado', hSender: 'Remitente', hBucket: 'Bucket',
     hEphemeral: 'Sin bucket configurado, los archivos van al disco del contenedor — que se borra en cada despliegue.',
-    hEvery: 'Escaneo cada', hAwaiting: 'Casos esperando triaje', hEnvironment: 'Entorno',
+    hEvery: 'Escaneo cada', hAwaiting: 'Casos esperando triaje', hEnvironment: 'Entorno', hSentTotal: 'Enviados (total)', hSent30d: 'Últimos 30 días', hSentToday: 'Hoy',
   },
 }
 
@@ -404,6 +407,19 @@ export default function PlatformConsole() {
   const [resendId, setResendId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [aba, setAba] = useState<AbaId>('empresas')
+  // A unidade é ESCOLHA da pessoa e vale para a página inteira do
+  // Armazenamento — números E campos de edição. Padrão GB por decisão;
+  // guardada para a próxima visita.
+  const [unidade, setUnidade] = useState<'GB' | 'MB'>(() => {
+    try { return (localStorage.getItem('soluvia.unidadeStorage') as 'GB' | 'MB') || 'GB' } catch { return 'GB' }
+  })
+  const trocarUnidade = (u: 'GB' | 'MB') => {
+    setUnidade(u)
+    try { localStorage.setItem('soluvia.unidadeStorage', u) } catch { /* modo privado */ }
+  }
+  const fmtUnidade = (bytes: number) =>
+    unidade === 'GB' ? `${(bytes / 1024 ** 3).toFixed(bytes >= 1024 ** 3 * 10 ? 0 : 2)} GB`
+                     : `${Math.round(bytes / 1024 ** 2).toLocaleString()} MB`
   // null = ainda conferindo | 'anon' = sem sessão | 'forbidden' = sessão sem
   // poder de plataforma | 'ok' = pode operar. O e-mail acompanha o 'forbidden'
   // porque a correção é trocar de conta — a pessoa precisa saber qual está.
@@ -711,17 +727,31 @@ export default function PlatformConsole() {
         )}
 
         {aba === 'armazenamento' && (
+          <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10, gap: 4 }}>
+            {(['GB', 'MB'] as const).map((u) => (
+              <button key={u} type="button" onClick={() => trocarUnidade(u)} className="app-btn"
+                style={{
+                  border: '1px solid var(--border)', borderRadius: 100, padding: '4px 14px',
+                  fontSize: 12, fontWeight: 800, cursor: 'pointer',
+                  background: unidade === u ? 'var(--accent)' : 'var(--surface-2)',
+                  color: unidade === u ? '#fff' : 'var(--text)',
+                }}>{u}</button>
+            ))}
+          </div>
           <PlatformConsumo
+            key={unidade}
             endpoint="/platform/storage"
             discriminado
             onToast={flash}
-            formatar={mb}
-            // A pessoa digita MB porque é a unidade em que ela pensa o teto de um
-            // cliente; o servidor guarda bytes. 0 continua significando "sem
-            // limite" dos dois lados.
-            paraEnvio={(v) => Math.round(Number(v.replace(',', '.')) * 1024 * 1024)}
+            formatar={fmtUnidade}
+            rotuloTeto={{ deTeto: tr.stDeTeto, livre: tr.stLivre }}
+            // A pessoa digita NA UNIDADE ESCOLHIDA; o servidor guarda bytes.
+            // 0 continua significando "sem limite" dos dois lados.
+            paraEnvio={(v) => Math.round(Number(v.replace(',', '.')) * (unidade === 'GB' ? 1024 ** 3 : 1024 ** 2))}
             rotaLimite={(id) => `/platform/tenants/${id}/storage-limit`}
             campoLimite="limit_bytes"
+            unidade={unidade}
             textos={{
               titulo: tr.stTitle, subtitulo: tr.stSub,
               totalLabel: tr.stTotal, totalSub: tr.stTotalSub,
@@ -730,6 +760,7 @@ export default function PlatformConsole() {
               evidence: tr.stEvidence, signatures: tr.stSignatures,
             }}
           />
+          </>
         )}
 
         {aba === 'tokens' && (
@@ -775,6 +806,7 @@ export default function PlatformConsole() {
               sender: tr.hSender, bucket: tr.hBucket, ephemeral: tr.hEphemeral,
               every: tr.hEvery, awaitingTriage: tr.hAwaiting, environment: tr.hEnvironment,
               loading: tr.uSearching,
+              sentTotal: tr.hSentTotal, sent30d: tr.hSent30d, sentToday: tr.hSentToday,
             }}
           />
         )}

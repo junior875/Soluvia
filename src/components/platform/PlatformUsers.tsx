@@ -266,7 +266,17 @@ export default function PlatformUsers({
           <Button
             variant={criando ? 'ghost' : 'primary'}
             leftIcon={criando ? undefined : 'plus'}
-            onClick={() => setCriando((v) => !v)}
+            onClick={() => setCriando((v) => {
+              // Quem buscou um e-mail, não achou e clicou em "Nova pessoa" vai
+              // criar EXATAMENTE aquele e-mail — obrigá-la a digitar de novo é
+              // retrabalho com risco de erro de digitação (e o erro aqui vira
+              // convite indo para a caixa errada).
+              const abrindo = !v
+              if (abrindo && termo.includes('@') && !novo.email) {
+                setNovo((n) => ({ ...n, email: termo.trim() }))
+              }
+              return abrindo
+            })}
           >
             {criando ? textos.cancel : textos.newUser}
           </Button>

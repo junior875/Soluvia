@@ -37,6 +37,10 @@ type Painel = {
   linhas: Linha[]
   evidence?: number
   signatures?: number
+  /** Teto da plataforma (config) e o que sobra dele — só no armazenamento. */
+  ceiling?: number
+  free?: number
+  ceilingPercent?: number | null
 }
 
 /**
@@ -98,6 +102,8 @@ export default function PlatformConsumo({
   rotaLimite,
   campoLimite,
   discriminado,
+  rotuloTeto,
+  unidade,
 }: {
   /** `/platform/storage` ou `/platform/ai-usage`. */
   endpoint: string
@@ -111,6 +117,10 @@ export default function PlatformConsumo({
   campoLimite: string
   /** Armazenamento mostra a divisão provas × assinaturas; IA não tem divisão. */
   discriminado?: boolean
+  /** Barra extra "usado ÷ teto da plataforma" + rótulo do que sobra. */
+  rotuloTeto?: { deTeto: string; livre: string }
+  /** Unidade ativa — vai no placeholder do campo de limite. */
+  unidade?: string
 }) {
   const [dados, setDados] = useState<Painel | null>(null)
   const [edicao, setEdicao] = useState<Record<string, string>>({})
@@ -136,6 +146,9 @@ export default function PlatformConsumo({
         over: r.companies_over_limit ?? 0,
         evidence: r.evidence_bytes,
         signatures: r.signature_bytes,
+        ceiling: r.ceiling_bytes,
+        free: r.free_bytes,
+        ceilingPercent: r.ceiling_percent,
         linhas,
       })
     } catch (e) {
@@ -214,6 +227,22 @@ export default function PlatformConsumo({
               {formatar(dados.total)}
             </p>
             <p style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: 4 }}>{textos.totalSub}</p>
+            {/* O teto da PLATAFORMA (config editável): a pergunta "quanto ainda
+                cabe?" que a soma por empresa sozinha nunca respondeu. */}
+            {rotuloTeto && dados.ceiling != null && dados.ceiling > 0 && (
+              <div style={{ marginTop: 10, maxWidth: 380 }}>
+                <div style={{ height: 8, borderRadius: 6, background: 'var(--surface-2)', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', width: `${Math.min(100, dados.ceilingPercent ?? 0)}%`,
+                    background: (dados.ceilingPercent ?? 0) >= 85 ? '#d97706' : 'var(--accent)',
+                  }} />
+                </div>
+                <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>
+                  {formatar(dados.total)} {rotuloTeto.deTeto} {formatar(dados.ceiling)}
+                  {' · '}{rotuloTeto.livre} <b style={{ color: 'var(--heading)' }}>{formatar(dados.free ?? 0)}</b>
+                </div>
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginLeft: 'auto' }}>
@@ -286,7 +315,7 @@ export default function PlatformConsumo({
                     <Input
                       value={edicao[l.tenant_id] ?? ''}
                       onChange={(e) => setEdicao({ ...edicao, [l.tenant_id]: e.target.value })}
-                      placeholder={textos.dica}
+                      placeholder={unidade ?? textos.dica}
                       inputMode="numeric"
                     />
                   </div>

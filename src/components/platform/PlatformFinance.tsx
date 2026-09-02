@@ -18,6 +18,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import type { ApiError } from '../../lib/types'
 import { Card, Chip, EmptyState, PageHeader, Skeleton, StatCard } from '../../app/ui'
+import LancamentosManuais from './LancamentosManuais'
 
 type Mes = { month: string; gross: number; fees: number; net: number; refunds: number }
 type MesCusto = { month: string; ai: number; stripe_fees: number | null; fixed: number; total: number }
@@ -398,6 +399,8 @@ export default function PlatformFinance({
             </div>
           )}
         </Card>
+
+        <LancamentosManuais lang={lang} onToast={onToast} dinheiro={dinheiro} />
       </div>
     </div>
   )

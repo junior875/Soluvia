@@ -325,12 +325,19 @@ export default function FlowBuilder() {
   const [aiMissing, setAiMissing] = useState<string[]>([])
   const [aiWarnings, setAiWarnings] = useState<string[]>([])
   const [aiRejected, setAiRejected] = useState<string[]>([])
-  /** O desenho de ANTES do último turno com ops — é o que "Desfazer" restaura.
+  /** PILHA dos desenhos anteriores — é o que a seta de voltar restaura.
    *  Auto-aplicar sem desfazer seria trocar um defeito ("nada muda") por outro
-   *  ("mudou e eu não queria"). */
-  const [aiUndo, setAiUndo] = useState<{
+   *  ("mudou e eu não queria").
+   *
+   *  Guarda três passos, e não um: conversar com o agente são vários turnos
+   *  seguidos, e um só desfazer obrigava a acertar de primeira. Três cobre o
+   *  "voltei demais, voltei de novo" sem virar histórico infinito de estados
+   *  de canvas na memória. */
+  const MAX_DESFAZER = 3
+  type SnapFluxo = {
     stages: Draft[]; name: string; closerRole: string | null; closerMembership: string | null
-  } | null>(null)
+  }
+  const [aiUndo, setAiUndo] = useState<SnapFluxo[]>([])
 
   const recarregarChats = useCallback(async (cid: string) => {
     try {
@@ -396,9 +403,13 @@ export default function FlowBuilder() {
       // estado anterior vai para o Desfazer — mudar sem rede é tão ruim
       // quanto não mudar.
       if (r.applied_ops > 0 && stages !== null) {
-        setAiUndo({
+        // `slice(-MAX)` mantém a pilha curta: o mais antigo cai fora quando
+        // entra o quarto. Guardar tudo seria uma cópia do canvas por turno de
+        // conversa parada na memória, para um botão que ninguém usa três
+        // vezes seguidas.
+        setAiUndo((pilha) => [...pilha, {
           stages, name: flowName, closerRole: closerRoleId, closerMembership: closerMembershipId,
-        })
+        }].slice(-MAX_DESFAZER))
         setFlowName(r.flow.name || tf.egName)
         setCloserRoleId(r.flow.closer_role_id)
         setCloserMembershipId(r.flow.closer_membership_id)
@@ -427,15 +438,18 @@ export default function FlowBuilder() {
     } finally { setAiBusy(false) }
   }
 
-  /** Volta o canvas para antes do último turno com operações. */
+  /** Volta o canvas um passo — até três, do mais recente para trás. */
   function desfazerIA() {
-    if (!aiUndo) return
-    setStages(aiUndo.stages)
-    setFlowName(aiUndo.name)
-    setCloserRoleId(aiUndo.closerRole)
-    setCloserMembershipId(aiUndo.closerMembership)
-    setAiUndo(null)
-    flash(t.flow.ai.undone)
+    setAiUndo((pilha) => {
+      const anterior = pilha[pilha.length - 1]
+      if (!anterior) return pilha
+      setStages(anterior.stages)
+      setFlowName(anterior.name)
+      setCloserRoleId(anterior.closerRole)
+      setCloserMembershipId(anterior.closerMembership)
+      flash(t.flow.ai.undone)
+      return pilha.slice(0, -1)
+    })
   }
 
   function abrirChat(id: string) {
@@ -643,7 +657,7 @@ export default function FlowBuilder() {
                 missing={aiMissing}
                 warnings={aiWarnings}
                 rejected={aiRejected}
-                canUndo={aiUndo !== null}
+                podeDesfazer={aiUndo.length}
                 onUndo={desfazerIA}
               />
             </div>
