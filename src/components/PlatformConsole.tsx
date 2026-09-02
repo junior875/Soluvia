@@ -29,6 +29,12 @@ const L = {
     seatsManual: 'Teto próprio desta empresa: {n} usuários (padrão do plano: {p}).',
     walletFree: 'Disponível na carteira da plataforma: {n} tokens.',
     reset: 'Zerar uso', suspend: 'Suspender', reactivate: 'Reativar', close: 'Fechar',
+    secVisao: 'Visão geral', secPlano: 'Plano & vagas', secStorage: 'Armazenamento', secIa: 'IA',
+    secPessoas: 'Pessoas', secCanais: 'Canais', secAcoes: 'Ações',
+    dangerTitle: 'Zona de risco',
+    dangerBody: 'Suspender tira TODA a empresa do ar na hora: ninguém entra e os links públicos param. Reativar devolve tudo como estava.',
+    confirmSuspend: 'Suspender esta empresa agora? Ninguém dela conseguirá entrar.',
+    confirmReset: 'Zerar o uso de IA desta empresa? O contador do mês volta a zero.',
     active: 'ativa', suspended: 'suspensa', domain: 'Domínio', created: 'Criada em', saved: 'Atualizado.',
     newCompany: 'Nova empresa', cName: 'Nome da empresa', cSlug: 'Endereço (slug, opcional)', cPlan: 'Plano',
     cAdmin: 'Admin da empresa', cAdminName: 'Nome do admin', cEmail: 'E-mail', cPassword: 'Senha (mín. 8)',
@@ -117,6 +123,12 @@ const L = {
     seatsManual: 'Custom cap for this company: {n} users (plan default: {p}).',
     walletFree: 'Available in the platform wallet: {n} tokens.',
     reset: 'Reset usage', suspend: 'Suspend', reactivate: 'Reactivate', close: 'Close',
+    secVisao: 'Overview', secPlano: 'Plan & seats', secStorage: 'Storage', secIa: 'AI',
+    secPessoas: 'People', secCanais: 'Channels', secAcoes: 'Actions',
+    dangerTitle: 'Danger zone',
+    dangerBody: 'Suspending takes the WHOLE company offline immediately: nobody signs in and public links stop. Reactivating brings everything back.',
+    confirmSuspend: 'Suspend this company now? Nobody in it will be able to sign in.',
+    confirmReset: "Reset this company's AI usage? The monthly counter goes back to zero.",
     active: 'active', suspended: 'suspended', domain: 'Domain', created: 'Created', saved: 'Updated.',
     newCompany: 'New company', cName: 'Company name', cSlug: 'Address (slug, optional)', cPlan: 'Plan',
     cAdmin: 'Company admin', cAdminName: 'Admin name', cEmail: 'Email', cPassword: 'Password (min. 8)',
@@ -205,6 +217,12 @@ const L = {
     seatsManual: 'Tope propio de esta empresa: {n} usuarios (estándar del plan: {p}).',
     walletFree: 'Disponible en la cartera de la plataforma: {n} tokens.',
     reset: 'Reiniciar uso', suspend: 'Suspender', reactivate: 'Reactivar', close: 'Cerrar',
+    secVisao: 'Visión general', secPlano: 'Plan y cupos', secStorage: 'Almacenamiento', secIa: 'IA',
+    secPessoas: 'Personas', secCanais: 'Canales', secAcoes: 'Acciones',
+    dangerTitle: 'Zona de riesgo',
+    dangerBody: 'Suspender saca a TODA la empresa del aire de inmediato: nadie entra y los enlaces públicos se detienen. Reactivar lo devuelve todo.',
+    confirmSuspend: '¿Suspender esta empresa ahora? Nadie de ella podrá entrar.',
+    confirmReset: '¿Reiniciar el uso de IA de esta empresa? El contador del mes vuelve a cero.',
     active: 'activa', suspended: 'suspendida', domain: 'Dominio', created: 'Creada', saved: 'Actualizado.',
     newCompany: 'Nueva empresa', cName: 'Nombre de la empresa', cSlug: 'Dirección (slug, opcional)', cPlan: 'Plan',
     cAdmin: 'Admin de la empresa', cAdminName: 'Nombre del admin', cEmail: 'Correo', cPassword: 'Contraseña (mín. 8)',
@@ -394,6 +412,11 @@ export default function PlatformConsole() {
   const [rows, setRows] = useState<PlatformTenantRow[] | null>(null)
   const [q, setQ] = useState('')
   const [detail, setDetail] = useState<PlatformTenantDetail | null>(null)
+  /** A seção aberta no painel da empresa. O modal antigo despejava tudo num
+   *  bloco só — plano, storage, IA, membros e o botão de suspender no meio.
+   *  Um assunto por vez, escolhido por chip, é o que faz o painel se LER. */
+  type SecaoEmpresa = 'visao' | 'plano' | 'storage' | 'ia' | 'pessoas' | 'canais' | 'acoes'
+  const [secao, setSecao] = useState<SecaoEmpresa>('visao')
   const [limitEdit, setLimitEdit] = useState('')
   const [storageEdit, setStorageEdit] = useState('')
   // Assentos manuais da empresa aberta no drawer.
@@ -540,6 +563,7 @@ export default function PlatformConsole() {
 
   async function openDetail(id: string) {
     setDetail(null)
+    setSecao('visao')   // o painel sempre abre pelo retrato, não pelo formulário
     try {
       const d = await api.get<PlatformTenantDetail>(`/platform/tenants/${id}`)
       setDetail(d); setLimitEdit(String(d.ai_token_limit)); setStorageEdit(String(Math.round((d.storage_limit_bytes || 0) / 1024 / 1024))); setSeatsEdit(d.max_users_override != null ? String(d.max_users_override) : '')
@@ -872,20 +896,59 @@ export default function PlatformConsole() {
         </div>
       </main>
 
-      {/* Detalhe da empresa */}
+      {/* Detalhe da empresa — DRAWER lateral com um assunto por vez.
+          O modal gigante no meio da tela despejava plano, storage, IA,
+          membros e o botão de suspender num bloco só; aqui cada seção tem
+          seu chip, salva sozinha, e o destrutivo mora numa zona própria. */}
       {detail && (
-        <div onClick={() => setDetail(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--scrim)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto', padding: '40px 16px' }}>
-          <div onClick={(e) => e.stopPropagation()} className="app-modal" style={{ width: '100%', maxWidth: 640, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 22, padding: 26 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-              <div>
-                <div style={{ color: 'var(--heading)', fontWeight: 900, fontSize: 22 }}>{detail.name}</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: 13, fontFamily: 'monospace' }}>/{detail.slug} · {detail.plan_name ?? '—'} · {detail.subscription_status === 'suspended' ? tr.suspended : tr.active}</div>
+        <div onClick={() => setDetail(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--scrim)', backdropFilter: 'blur(8px)' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: 'min(620px, 100vw)', background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', boxShadow: '-24px 0 60px rgba(0,0,0,.35)' }}>
+            {/* Cabeçalho */}
+            <div style={{ padding: '18px 22px 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: 'var(--heading)', fontWeight: 900, fontSize: 21, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{detail.name}</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                    /{detail.slug}
+                    <span style={{ fontFamily: 'inherit', borderRadius: 100, padding: '2px 10px', fontSize: 11, fontWeight: 800, background: detail.subscription_status === 'suspended' ? 'rgba(225,29,72,.12)' : 'rgba(34,197,94,.14)', color: detail.subscription_status === 'suspended' ? '#e11d48' : '#16a34a' }}>
+                      {detail.subscription_status === 'suspended' ? tr.suspended : tr.active}
+                    </span>
+                  </div>
+                </div>
+                <button onClick={() => setDetail(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 26, cursor: 'pointer', lineHeight: 1 }}>×</button>
               </div>
-              <button onClick={() => setDetail(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 26, cursor: 'pointer', lineHeight: 1 }}>×</button>
+              {/* Os chips de seção: um assunto por vez. */}
+              <div className="app-scroll" style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '14px 0 12px', borderBottom: '1px solid var(--border)' }}>
+                {([['visao', tr.secVisao], ['plano', tr.secPlano], ['storage', tr.secStorage], ['ia', tr.secIa], ['pessoas', tr.secPessoas], ['canais', tr.secCanais], ['acoes', tr.secAcoes]] as const).map(([id, rotulo]) => (
+                  <button key={id} onClick={() => setSecao(id)}
+                    style={{ border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', borderRadius: 100, padding: '7px 14px', fontWeight: 700, fontSize: 12.5, background: secao === id ? 'var(--accent)' : 'var(--surface-2)', color: secao === id ? '#fff' : 'var(--text-muted)' }}>
+                    {rotulo}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Cota de IA */}
-            <div style={{ background: 'var(--surface-2)', borderRadius: 14, padding: 16, marginBottom: 16 }}>
+            {/* Corpo da seção ativa */}
+            <div className="app-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 22px 26px' }}>
+              {secao === 'visao' && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 }}>
+                  {([
+                    [tr.usersCol, `${detail.users} / ${detail.max_users}`],
+                    [tr.plan, detail.plan_name ?? '—'],
+                    [tr.channelsList, String(detail.channels_list.length)],
+                    [tr.members, String(detail.members.length)],
+                    [tr.storageQuota, `${mb(detail.storage_used_bytes)} / ${detail.storage_limit_bytes === 0 ? '∞' : mb(detail.storage_limit_bytes)}`],
+                    [tr.aiQuota, `${num(detail.ai_tokens_used, lang)} / ${detail.ai_token_limit === 0 ? '∞' : num(detail.ai_token_limit, lang)}`],
+                  ] as const).map(([rotulo, valor]) => (
+                    <div key={rotulo} style={{ background: 'var(--surface-2)', borderRadius: 14, padding: '13px 15px' }}>
+                      <div style={{ color: 'var(--text-muted)', fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 5 }}>{rotulo}</div>
+                      <div style={{ color: 'var(--heading)', fontWeight: 800, fontSize: 16 }}>{valor}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {secao === 'plano' && (<div style={{ background: 'var(--surface-2)', borderRadius: 14, padding: 16 }}>
               <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>{tr.plan}</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 18 }}>
                 <select
@@ -925,7 +988,9 @@ export default function PlatformConsole() {
                   ? tr.seatsManual.replace('{n}', String(detail.max_users_override)).replace('{p}', String(detail.plan_max_users))
                   : tr.seatsFromPlan.replace('{p}', String(detail.plan_max_users))}
               </p>
+              </div>)}
 
+              {secao === 'storage' && (<div style={{ background: 'var(--surface-2)', borderRadius: 14, padding: 16 }}>
               {/* Armazenamento — o ÚNICO controle de storage que cabe aqui.
                   O bucket é infraestrutura, um só para a plataforma; o que se
                   reparte por empresa é quanto dela cabe nele. */}
@@ -951,7 +1016,9 @@ export default function PlatformConsole() {
               <p style={{ background: 'rgba(242,146,30,.12)', border: '1px solid rgba(242,146,30,.35)', color: 'var(--accent)', borderRadius: 10, padding: '9px 11px', fontSize: 12, lineHeight: 1.5, marginBottom: 18 }}>
                 {tr.storageWarn}
               </p>
+              </div>)}
 
+              {secao === 'ia' && (<div style={{ background: 'var(--surface-2)', borderRadius: 14, padding: 16 }}>
               <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>{tr.aiQuota}</div>
               <div style={{ color: 'var(--heading)', fontSize: 14, marginBottom: 4 }}>{num(detail.ai_tokens_used, lang)} / {detail.ai_token_limit === 0 ? '∞' : num(detail.ai_token_limit, lang)}</div>
               {/* De ONDE sai o que se aloca: o livre da carteira da plataforma.
@@ -965,13 +1032,11 @@ export default function PlatformConsole() {
                 <input type="number" min={0} value={limitEdit} onChange={(e) => setLimitEdit(e.target.value)}
                   style={{ width: 160, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 12px', color: 'var(--heading)', fontSize: 14 }} />
                 <button disabled={busy} onClick={() => void saveLimit()} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '9px 18px', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>{tr.save}</button>
-                <button disabled={busy} onClick={() => void resetAi()} style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 100, padding: '9px 18px', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>{tr.reset}</button>
-                <button disabled={busy} onClick={() => void toggleSuspend()} style={{ background: detail.subscription_status === 'suspended' ? 'rgba(34,197,94,.14)' : 'rgba(225,29,72,.12)', color: detail.subscription_status === 'suspended' ? '#16a34a' : '#e11d48', border: `1px solid ${detail.subscription_status === 'suspended' ? 'rgba(34,197,94,.4)' : 'rgba(225,29,72,.4)'}`, borderRadius: 100, padding: '9px 18px', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>
-                  {detail.subscription_status === 'suspended' ? tr.reactivate : tr.suspend}
-                </button>
+                <button disabled={busy} onClick={() => { if (window.confirm(tr.confirmReset)) void resetAi() }} style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 100, padding: '9px 18px', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>{tr.reset}</button>
               </div>
-            </div>
+              </div>)}
 
+              {secao === 'pessoas' && (<div>
             {/* Membros */}
             <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>{tr.members} · {detail.members.length}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
@@ -993,16 +1058,6 @@ export default function PlatformConsole() {
                 </div>
               ))}
             </div>
-
-            {/* Canais */}
-            <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>{tr.channelsList} · {detail.channels_list.length}</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {detail.channels_list.map((c) => (
-                <span key={c.id} style={{ background: 'var(--surface-2)', borderRadius: 100, padding: '5px 12px', fontSize: 12.5, color: 'var(--text)' }}>{c.name} <span style={{ color: 'var(--text-muted)' }}>· {c.module}{c.is_active ? '' : ' ⏸'}</span></span>
-              ))}
-              {detail.channels_list.length === 0 && <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>—</span>}
-            </div>
-
             {/* Adicionar usuário à empresa */}
             <div style={{ marginTop: 18, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
               <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 10 }}>{tr.addUser}</div>
@@ -1031,6 +1086,30 @@ export default function PlatformConsole() {
                   <button disabled={travado} onClick={() => void addMember()} style={{ ...btnAccent, marginTop: 10, opacity: travado ? 0.6 : 1 }}>{tr.add}</button>
                 )
               })()}
+            </div>
+              </div>)}
+
+              {secao === 'canais' && (<div>
+            {/* Canais */}
+            <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>{tr.channelsList} · {detail.channels_list.length}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {detail.channels_list.map((c) => (
+                <span key={c.id} style={{ background: 'var(--surface-2)', borderRadius: 100, padding: '5px 12px', fontSize: 12.5, color: 'var(--text)' }}>{c.name} <span style={{ color: 'var(--text-muted)' }}>· {c.module}{c.is_active ? '' : ' ⏸'}</span></span>
+              ))}
+              {detail.channels_list.length === 0 && <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>—</span>}
+            </div>
+              </div>)}
+
+              {secao === 'acoes' && (
+                <div style={{ border: '1px solid rgba(225,29,72,.4)', background: 'rgba(225,29,72,.06)', borderRadius: 14, padding: 16 }}>
+                  <div style={{ color: '#e11d48', fontWeight: 800, fontSize: 13.5, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8 }}>{tr.dangerTitle}</div>
+                  <p style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.6, margin: '0 0 14px' }}>{tr.dangerBody}</p>
+                  <button disabled={busy} onClick={() => { if (detail.subscription_status === 'suspended' || window.confirm(tr.confirmSuspend)) void toggleSuspend() }}
+                    style={{ background: detail.subscription_status === 'suspended' ? 'rgba(34,197,94,.14)' : 'rgba(225,29,72,.12)', color: detail.subscription_status === 'suspended' ? '#16a34a' : '#e11d48', border: `1px solid ${detail.subscription_status === 'suspended' ? 'rgba(34,197,94,.4)' : 'rgba(225,29,72,.4)'}`, borderRadius: 100, padding: '10px 20px', fontWeight: 800, fontSize: 13.5, cursor: 'pointer' }}>
+                    {detail.subscription_status === 'suspended' ? tr.reactivate : tr.suspend}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
