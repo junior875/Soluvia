@@ -16,7 +16,12 @@ import NotificationBell from './NotificationBell'
 
 const GROUPS = ['main', 'modules', 'config', 'admin'] as const
 
-type Badges = { mine: number; watching: number; bell: number }
+type Badges = {
+  mine: number; watching: number; bell: number
+  // A cadeia de configuração: canal → formulário → fluxo → divulgação.
+  // O servidor só manda número > 0 para quem PODE dar aquele passo.
+  setup_channels?: number; setup_form?: number; setup_flow?: number; setup_announce?: number
+}
 
 /** De quanto em quanto tempo perguntar pelos números da nav (mesmo ritmo do
  *  sininho: chega "na hora" para quem está com a tela aberta, sem virar uma
@@ -86,6 +91,13 @@ export default function Shell() {
     mine: badges.mine,
     watching: badges.watching,
     manual: caps.manualNovas.length,
+    // A trilha de migalhas da configuração: criou o canal, acende o
+    // formulário; publicou, acende o fluxo; salvou, acende a divulgação.
+    // Quem nunca configurou nada é GUIADO pela ordem certa sem ler manual.
+    channels: badges.setup_channels ?? 0,
+    formbuilder: badges.setup_form ?? 0,
+    flowbuilder: badges.setup_flow ?? 0,
+    announcements: badges.setup_announce ?? 0,
   }
   // Nav recolhida. Fica GUARDADA: quem trabalha no construtor de fluxo quer a
   // largura toda e não vai reclicar a cada visita. Só no desktop — no celular
@@ -145,12 +157,18 @@ export default function Shell() {
             if (!items.length) return null
             return (
               <div key={g} style={{ marginBottom: 8 }}>
-                <p style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', padding: '8px 13px 6px' }}>{t.nav[g]}</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', padding: '8px 13px 6px' }}>{(t.nav as unknown as Record<string, string>)[g]}</p>
                 {items.map(({ s, state }) => {
                   const isActive = state === 'ok' && active === s.id
+                  // O badge da cadeia fala: pousa o mouse e o passo é dito
+                  // por extenso ("agora monte o formulário").
+                  const dica = (badgeDe[s.id] ?? 0) > 0
+                    ? (t.nav.setupHint as Record<string, string>)[s.id]
+                    : undefined
                   return (
                     <button
                       key={s.id}
+                      title={dica}
                       className={`app-nav-item ${isActive ? 'active' : ''} ${state === 'locked' ? 'locked' : ''}`}
                       onClick={() => (state === 'locked' ? goScreen('billing') : goScreen(s.id))}
                     >
@@ -160,7 +178,7 @@ export default function Shell() {
                         // Duotone: véu + traço, entintado pelo tema (index.css).
                         <DuoIcon name={s.icon} size={19} />
                       )}
-                      <span style={{ flex: 1 }}>{t.nav[s.navKey]}</span>
+                      <span style={{ flex: 1 }}>{(t.nav as unknown as Record<string, string>)[s.navKey]}</span>
                       {/* O vermelhinho: "tem coisa esperando você aqui". */}
                       <BadgePill n={badgeDe[s.id] ?? 0} />
                       {state === 'locked' && <Icon name="lock" size={15} />}

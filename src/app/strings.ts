@@ -78,6 +78,12 @@ const pt = {
   },
   nav: {
     hideNav: 'Recolher o menu', showNav: 'Mostrar o menu',
+    setupHint: {
+      channels: 'Próximo passo: crie o primeiro canal.',
+      formbuilder: 'Próximo passo: monte e publique o formulário do canal.',
+      flowbuilder: 'Próximo passo: monte o fluxo de apuração.',
+      announcements: 'Próximo passo: divulgue o canal para a equipe.',
+    },
     main: 'Geral',
     ops: 'Operação',
     modules: 'Módulos',
@@ -698,6 +704,9 @@ const pt = {
     noCodecBody: 'Formatos como .mkv, .avi e .wmv não são reproduzidos por nenhum navegador. Baixe a prova e abra num player do seu computador (o VLC abre todos).',
     noCodecNoPerm: 'Formatos como .mkv, .avi e .wmv não são reproduzidos por nenhum navegador. Para abrir esta prova é preciso baixá-la, e você não tem essa permissão — peça a um administrador.', evidenceEmpty: 'Nenhuma prova anexada.', evidenceView: 'Ver', evidenceDownload: 'Baixar', evidenceNoPreview: 'Sem visualização para este formato.', evidenceNoPerm: 'Você não tem permissão para ver as provas deste canal.', evidenceFromReporter: 'Enviada pelo denunciante',
     fail: 'Falha na ação.', failOpen: 'Falha ao abrir o caso.', loading: 'Carregando…', downloadPdf: 'Baixar PDF', createChannel: 'Criar um canal de denúncia',
+    goChannelsBody: 'Canais são criados na tela de Canais — vamos te levar até lá. Depois de criar, a própria navegação te guia: monte o formulário, publique, desenhe o fluxo e divulgue.',
+    goChannelsGo: 'Ir para Canais',
+    goChannelsStay: 'Ficar aqui',
     inv: {
       nowAt: 'Etapa atual',
       progress: (feitas: number, total: number) => `${feitas} de ${total} concluídas`,
@@ -898,6 +907,12 @@ const en: AppStrings = {
   },
   nav: {
     hideNav: 'Collapse the menu', showNav: 'Show the menu',
+    setupHint: {
+      channels: 'Next step: create the first channel.',
+      formbuilder: 'Next step: build and publish the channel form.',
+      flowbuilder: 'Next step: build the investigation workflow.',
+      announcements: 'Next step: announce the channel to the team.',
+    },
     main: 'General',
     ops: 'Operations',
     modules: 'Modules',
@@ -1512,6 +1527,9 @@ const en: AppStrings = {
     noCodecBody: 'Formats like .mkv, .avi and .wmv are not played by any browser. Download the evidence and open it in a desktop player (VLC opens them all).',
     noCodecNoPerm: 'Formats like .mkv, .avi and .wmv are not played by any browser. Opening this evidence requires downloading it, and you do not have that permission — ask an administrator.', evidenceEmpty: 'No evidence attached.', evidenceView: 'View', evidenceDownload: 'Download', evidenceNoPreview: 'No preview for this format.', evidenceNoPerm: 'You do not have permission to view evidence in this channel.', evidenceFromReporter: 'Sent by the reporter',
     fail: 'Action failed.', failOpen: 'Failed to open the case.', loading: 'Loading…', downloadPdf: 'Download PDF', createChannel: 'Create a whistleblowing channel',
+    goChannelsBody: 'Channels are created on the Channels screen — we will take you there. After creating one, the navigation itself guides you: build the form, publish, design the workflow and announce it.',
+    goChannelsGo: 'Go to Channels',
+    goChannelsStay: 'Stay here',
     inv: {
       nowAt: 'Current stage',
       progress: (feitas: number, total: number) => `${feitas} of ${total} done`,
@@ -1707,6 +1725,12 @@ const es: AppStrings = {
   },
   nav: {
     hideNav: 'Contraer el menú', showNav: 'Mostrar el menú',
+    setupHint: {
+      channels: 'Próximo paso: crea el primer canal.',
+      formbuilder: 'Próximo paso: arma y publica el formulario del canal.',
+      flowbuilder: 'Próximo paso: arma el flujo de averiguación.',
+      announcements: 'Próximo paso: divulga el canal al equipo.',
+    },
     main: 'General',
     ops: 'Operación',
     modules: 'Módulos',
@@ -2321,6 +2345,9 @@ const es: AppStrings = {
     noCodecBody: 'Formatos como .mkv, .avi y .wmv no se reproducen en ningún navegador. Descarga la prueba y ábrela en un reproductor de tu computadora (VLC los abre todos).',
     noCodecNoPerm: 'Formatos como .mkv, .avi y .wmv no se reproducen en ningún navegador. Para abrir esta prueba hay que descargarla, y no tienes ese permiso — pídelo a un administrador.', evidenceEmpty: 'Sin pruebas adjuntas.', evidenceView: 'Ver', evidenceDownload: 'Descargar', evidenceNoPreview: 'Sin vista previa para este formato.', evidenceNoPerm: 'No tienes permiso para ver las pruebas de este canal.', evidenceFromReporter: 'Enviada por el denunciante',
     fail: 'Falló la acción.', failOpen: 'No se pudo abrir el caso.', loading: 'Cargando…', downloadPdf: 'Descargar PDF', createChannel: 'Crear un canal de denuncias',
+    goChannelsBody: 'Los canales se crean en la pantalla de Canales — te llevamos allí. Después de crear uno, la propia navegación te guía: arma el formulario, publica, diseña el flujo y divúlgalo.',
+    goChannelsGo: 'Ir a Canales',
+    goChannelsStay: 'Quedarme aquí',
     inv: {
       nowAt: 'Etapa actual',
       progress: (feitas: number, total: number) => `${feitas} de ${total} concluidas`,

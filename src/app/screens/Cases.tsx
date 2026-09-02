@@ -92,6 +92,8 @@ export default function Cases({ module = 'etica' }: CasesProps) {
   const p = (action: string) => can(modPerm(module, action))
   const canView = p('view')
   const canManageChannels = can('admin.manage_roles')
+  /** O "+" do módulo avisa antes de saltar para a tela de Canais. */
+  const [irParaCanais, setIrParaCanais] = useState(false)
   const canTriage = p('triage')
   const canRespond = p('respond')
   const canClose = p('close')
@@ -252,8 +254,23 @@ export default function Cases({ module = 'etica' }: CasesProps) {
       <PageHeader
         title={tx.title}
         subtitle={tx.subtitle}
-        action={canManageChannels && <Button leftIcon="channels" onClick={() => goScreen('channels')}>{tx.createChannel}</Button>}
+        action={canManageChannels && (
+          <Button leftIcon="plus" onClick={() => setIrParaCanais(true)}>{tx.createChannel}</Button>
+        )}
       />
+
+      {/* O aviso antes do salto: canal se cria na tela de CANAIS, e pular a
+          pessoa para lá sem dizer nada parecia bug ("cliquei em + e a lista
+          sumiu"). Dito o destino, o salto vira um guia. */}
+      <Modal open={irParaCanais} onClose={() => setIrParaCanais(false)} title={tx.createChannel} kicker={tx.title} maxWidth={440}>
+        <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.6, margin: '0 0 18px' }}>
+          {t.cases.goChannelsBody}
+        </p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <Button leftIcon="channels" onClick={() => { setIrParaCanais(false); goScreen('channels') }}>{t.cases.goChannelsGo}</Button>
+          <Button variant="ghost" onClick={() => setIrParaCanais(false)}>{t.cases.goChannelsStay}</Button>
+        </div>
+      </Modal>
       {cases === null ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{[0, 1, 2].map((i) => <Skeleton key={i} h={72} r={16} />)}</div>
       ) : ofModule.length === 0 ? (
