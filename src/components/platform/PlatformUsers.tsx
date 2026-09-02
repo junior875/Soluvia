@@ -37,6 +37,7 @@ export type PlatformUser = {
   id: string | null
   email: string
   full_name: string | null
+  avatar_url?: string | null
   is_active: boolean
   email_verified: boolean
   is_platform_admin: boolean
@@ -354,7 +355,7 @@ export default function PlatformUsers({
         return (
         <Card key={chave}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-            <Avatar name={u.full_name || u.email} />
+            <Avatar name={u.full_name || u.email} src={u.avatar_url} />
             <div style={{ flex: '1 1 220px', minWidth: 0 }}>
               <div style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 {u.full_name || u.email}

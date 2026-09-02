@@ -41,4 +41,15 @@ export default defineConfig({
       },
     },
   },
+  // `vite preview` serve o BUILD com o mesmo proxy: é o jeito de reproduzir
+  // localmente um bug que só aparece no bundle minificado de produção.
+  preview: {
+    port: 5992,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8791',
+        changeOrigin: true,
+      },
+    },
+  },
 })

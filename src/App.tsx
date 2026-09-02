@@ -13,6 +13,7 @@ import SignupFlow from './components/SignupFlow'
 import LoginModal from './components/LoginModal'
 import Panel from './components/Panel'
 import PlatformConsole from './components/PlatformConsole'
+import ChunkGuard from './components/ChunkGuard'
 import CheckoutReturn from './components/CheckoutReturn'
 import LegalDocs from './components/LegalDocs'
 import PublicReport, { isPublicReportPath } from './components/PublicReport'
@@ -440,8 +441,8 @@ export default function App() {
       <WhatsappButton phone="5500000000000" />
       <SignupFlow />
       <LoginModal />
-      <Panel />
-      <PlatformConsole />
+      <ChunkGuard><Panel /></ChunkGuard>
+      <ChunkGuard><PlatformConsole /></ChunkGuard>
       <CheckoutReturn />
       <LegalDocs />
       <PublicTracker />

@@ -21,7 +21,7 @@ import { PasswordInput } from '../app/ui'
 
 const L = {
   pt: {
-    kicker: 'Console Soluqtion', subtitle: 'Visão total da plataforma', logout: 'Sair',
+    kicker: 'Console Soluqtion', subtitle: 'Visão total da plataforma', logout: 'Sair', menuUsage: 'Uso da plataforma',
     photoTitle: 'Sua foto de perfil', photoChange: 'Trocar sua foto', photoPick: 'Escolher imagem',
     photoHint: 'Arraste para posicionar; o zoom ajusta o enquadramento.', photoSaved: 'Foto salva.',
     tenants: 'Empresas', users: 'Usuários', channels: 'Canais', cases: 'Casos', openCases: 'Casos abertos',
@@ -118,7 +118,7 @@ const L = {
     hEvery: 'Varredura a cada', hAwaiting: 'Casos aguardando triagem', hEnvironment: 'Ambiente', hSentTotal: 'Enviados (total)', hSent30d: 'Últimos 30 dias', hSentToday: 'Hoje',
   },
   en: {
-    kicker: 'Soluqtion Console', subtitle: 'Full platform view', logout: 'Sign out',
+    kicker: 'Soluqtion Console', subtitle: 'Full platform view', logout: 'Sign out', menuUsage: 'Platform usage',
     photoTitle: 'Your profile photo', photoChange: 'Change your photo', photoPick: 'Choose image',
     photoHint: 'Drag to position; zoom adjusts the framing.', photoSaved: 'Photo saved.',
     tenants: 'Companies', users: 'Users', channels: 'Channels', cases: 'Cases', openCases: 'Open cases',
@@ -215,7 +215,7 @@ const L = {
     hEvery: 'Scan every', hAwaiting: 'Cases awaiting triage', hEnvironment: 'Environment', hSentTotal: 'Sent (total)', hSent30d: 'Last 30 days', hSentToday: 'Today',
   },
   es: {
-    kicker: 'Consola Soluqtion', subtitle: 'Vista total de la plataforma', logout: 'Salir',
+    kicker: 'Consola Soluqtion', subtitle: 'Vista total de la plataforma', logout: 'Salir', menuUsage: 'Uso de la plataforma',
     photoTitle: 'Tu foto de perfil', photoChange: 'Cambiar tu foto', photoPick: 'Elegir imagen',
     photoHint: 'Arrastra para posicionar; el zoom ajusta el encuadre.', photoSaved: 'Foto guardada.',
     tenants: 'Empresas', users: 'Usuarios', channels: 'Canales', cases: 'Casos', openCases: 'Casos abiertos',
@@ -429,6 +429,32 @@ export default function PlatformConsole() {
   const [minhaFoto, setMinhaFoto] = useState<string | null>(null)
   const [minhaFotoOriginal, setMinhaFotoOriginal] = useState<string | null>(null)
   const [editorFoto, setEditorFoto] = useState(false)
+  const [meuEmail, setMeuEmail] = useState('')
+  const [menuPerfil, setMenuPerfil] = useState(false)
+  type BarraUso = { rotulo: string; texto: string; pct: number | null }
+  const [usoPlataforma, setUsoPlataforma] = useState<BarraUso[] | null>(null)
+
+  /** Os totais que só o dono vê: tokens da plataforma inteira e o
+   *  armazenamento usado contra o teto do disco. Buscados ao ABRIR o menu. */
+  async function carregarUsoPlataforma() {
+    try {
+      const [ov, st] = await Promise.all([
+        api.get<{ ai_tokens_used: number }>('/platform/overview').catch(() => null),
+        api.get<{ total_bytes: number; ceiling_bytes: number }>('/platform/storage').catch(() => null),
+      ])
+      const barras: BarraUso[] = []
+      if (ov) barras.push({ rotulo: tr.tab_tokens, texto: num(ov.ai_tokens_used, lang), pct: null })
+      if (st) {
+        const gb = (n: number) => `${(n / 1024 / 1024 / 1024).toFixed(n >= 10 * 1024 ** 3 ? 0 : 1)} GB`
+        barras.push({
+          rotulo: tr.tab_armazenamento,
+          texto: `${gb(st.total_bytes)} / ${st.ceiling_bytes > 0 ? gb(st.ceiling_bytes) : '∞'}`,
+          pct: st.ceiling_bytes > 0 ? Math.min(100, (st.total_bytes / st.ceiling_bytes) * 100) : null,
+        })
+      }
+      setUsoPlataforma(barras)
+    } catch { setUsoPlataforma(null) }
+  }
   /** A seção aberta no painel da empresa. O modal antigo despejava tudo num
    *  bloco só — plano, storage, IA, membros e o botão de suspender no meio.
    *  Um assunto por vez, escolhido por chip, é o que faz o painel se LER. */
@@ -489,6 +515,7 @@ export default function PlatformConsole() {
       .then((r) => {
         setAcesso(r.is_platform_admin ? { estado: 'ok' } : { estado: 'forbidden', email: r.email })
         setMeuNome(r.full_name || r.email)
+        setMeuEmail(r.email || '')
         setMinhaFoto(r.avatar_url ?? null)
         setMinhaFotoOriginal(r.avatar_original_url ?? null)
       })
@@ -637,10 +664,8 @@ export default function PlatformConsole() {
           única tela do produto com as seções no topo. */}
       <aside className={`app-sidebar ${drawer ? 'open' : ''}`} style={{ width: 260, minWidth: 260, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div style={{ padding: '16px 14px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button type="button" title={tr.photoChange} onClick={() => setEditorFoto(true)}
-            style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer' }}>
-            <Avatar name={meuNome || 'S'} src={minhaFoto} size={38} color="var(--accent)" />
-          </button>
+          {/* A marca do console. A PESSOA mora no rodapé, como em toda conta. */}
+          <span style={{ width: 38, height: 38, minWidth: 38, borderRadius: 12, background: 'var(--accent-soft)', border: '1px solid var(--border)', color: 'var(--accent)', fontWeight: 900, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>S</span>
           <div style={{ minWidth: 0 }}>
             <div style={{ color: 'var(--heading)', fontWeight: 800, fontSize: 14.5, whiteSpace: 'nowrap' }}>{tr.kicker}</div>
             <div style={{ color: 'var(--text-muted)', fontSize: 12, whiteSpace: 'nowrap' }}>{tr.subtitle}</div>
@@ -661,15 +686,56 @@ export default function PlatformConsole() {
           ))}
         </nav>
 
-        <div style={{ padding: 14, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <button onClick={() => setShowNew(true)} className="app-nav-item" style={{ color: 'var(--accent)', fontWeight: 700 }}>
-            <Icon name="plus" size={18} />
-            <span style={{ flex: 1 }}>{tr.newCompany}</span>
+        <div style={{ padding: 14, borderTop: '1px solid var(--border)', position: 'relative' }}>
+          {/* O menu do perfil do dono — o MESMO desenho do painel, com a
+              diferença certa: aqui o uso é o da PLATAFORMA INTEIRA (tokens
+              totais e armazenamento usado vs teto), e não há troca de
+              empresa — o console é um só. */}
+          {menuPerfil && (
+            <>
+              <div onClick={() => setMenuPerfil(false)} style={{ position: 'fixed', inset: 0, zIndex: 400 }} />
+              <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: 10, right: 10, zIndex: 401, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 18px 50px rgba(0,0,0,.35)', padding: 6 }}>
+                <div style={{ padding: '9px 12px 7px', color: 'var(--text-muted)', fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meuEmail}</div>
+                <button className="app-btn" onClick={() => { setMenuPerfil(false); setEditorFoto(true) }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 10, padding: '9px 12px', color: 'var(--heading)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+                  <DuoIcon name="people" size={16} />{tr.photoChange}
+                </button>
+                {usoPlataforma && (
+                  <div style={{ margin: '6px 4px', padding: '11px 13px', background: 'var(--surface-2)', borderRadius: 12 }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 9 }}>{tr.menuUsage}</div>
+                    {usoPlataforma.map((b, i) => {
+                      const cor = b.pct === null ? 'var(--accent)' : b.pct >= 90 ? '#e11d48' : b.pct >= 70 ? '#f59e0b' : '#16a34a'
+                      return (
+                        <div key={b.rotulo} style={{ marginTop: i ? 10 : 0 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 11.5, marginBottom: 4 }}>
+                            <span style={{ color: 'var(--heading)', fontWeight: 700 }}>{b.rotulo}</span>
+                            <span style={{ color: 'var(--text-muted)' }}>{b.texto}</span>
+                          </div>
+                          <div style={{ height: 6, borderRadius: 100, background: 'var(--surface)', overflow: 'hidden' }}>
+                            <div style={{ width: `${b.pct ?? 100}%`, height: '100%', borderRadius: 100, background: cor, opacity: b.pct === null ? 0.35 : 1 }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                <div style={{ height: 1, background: 'var(--border)', margin: '4px 8px' }} />
+                <button className="app-btn" onClick={() => void doLogout()}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 10, padding: '9px 12px', color: '#e11d48', fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}>
+                  <Icon name="logout" size={16} />{tr.logout}
+                </button>
+              </div>
+            </>
+          )}
+          <button type="button" onClick={() => { setMenuPerfil((v) => !v); void carregarUsoPlataforma() }}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', background: menuPerfil ? 'var(--surface-2)' : 'none', border: '1px solid var(--border)', borderRadius: 14, padding: '9px 10px', cursor: 'pointer' }}>
+            <Avatar name={meuNome || 'S'} src={minhaFoto} size={34} color="var(--accent)" />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', color: 'var(--heading)', fontWeight: 700, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meuNome || tr.kicker}</span>
+              <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 11.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meuEmail}</span>
+            </span>
+            <Icon name="chevron" size={14} style={{ color: 'var(--text-muted)', transform: menuPerfil ? 'rotate(-90deg)' : 'rotate(90deg)', flexShrink: 0 }} />
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <PrefSwitcher compact />
-            <button onClick={() => void doLogout()} className="app-btn" style={{ marginLeft: 'auto', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 100, padding: '8px 14px', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}>{tr.logout}</button>
-          </div>
         </div>
       </aside>
 
@@ -682,6 +748,9 @@ export default function PlatformConsole() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, color: 'var(--heading)', fontWeight: 800, minWidth: 0 }}>
             <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
             <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tr[`tab_${aba}` as keyof typeof tr] as string}</span>
+          </div>
+          <div style={{ marginLeft: 'auto' }}>
+            <PrefSwitcher compact />
           </div>
         </header>
 
@@ -872,8 +941,14 @@ export default function PlatformConsole() {
             cara do resto do produto: inicial num bloco arredondado, chips,
             números com ícone e a barrinha de IA. Clicou, abre o painel. */}
         <div style={{ ...card, padding: 16 }}>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr.search}
-            style={{ width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 15px', color: 'var(--heading)', fontSize: 14.5, boxSizing: 'border-box', marginBottom: 14 }} />
+          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr.search}
+              style={{ flex: 1, minWidth: 0, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 15px', color: 'var(--heading)', fontSize: 14.5, boxSizing: 'border-box' }} />
+            <button type="button" title={tr.newCompany} onClick={() => setShowNew(true)}
+              style={{ width: 46, minWidth: 46, borderRadius: 12, background: 'var(--accent)', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <Icon name="plus" size={20} />
+            </button>
+          </div>
           {filtered.length === 0 ? (
             <div style={{ padding: 26, textAlign: 'center', color: 'var(--text-muted)' }}>{tr.none}</div>
           ) : (
@@ -1103,7 +1178,10 @@ export default function PlatformConsole() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
               {detail.members.map((m) => (
                 <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, background: 'var(--surface-2)', borderRadius: 10, padding: '9px 12px', flexWrap: 'wrap' }}>
-                  <div><span style={{ color: 'var(--heading)', fontWeight: 600 }}>{m.name || m.email}</span> <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{m.email}</span></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+                    <Avatar name={m.name || m.email || '?'} src={m.avatar_url} size={26} />
+                    <span><span style={{ color: 'var(--heading)', fontWeight: 600 }}>{m.name || m.email}</span> <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{m.email}</span></span>
+                  </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{m.roles.join(', ') || '—'} · {m.status}</span>
                     {m.status === 'invited' && (

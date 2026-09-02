@@ -21,6 +21,26 @@ import { initPrefsEarly } from './lib/prefs.ts'
 // Aplica tamanho de fonte + tema 'sistema' antes do primeiro paint.
 initPrefsEarly()
 
+// ── Deploy no meio do uso ────────────────────────────────────────
+// As telas pesadas (pdf.js do visualizador de assinatura, Word) são chunks
+// carregados SOB DEMANDA, com hash no nome. Um deploy apaga os arquivos
+// antigos; quem estava com a aba aberta no index anterior e clicava numa
+// dessas áreas levava 404 no chunk → o import dinâmico explodia → a tela
+// inteira morria (foi exatamente o "subi um PDF para assinar e morreu").
+// A correção canônica: detectar a falha e recarregar UMA vez — o reload
+// busca o index novo, com os nomes novos. O carimbo em sessionStorage
+// impede loop se o reload não resolver (aí o problema é outro).
+function recarregarUmaVez() {
+  const marca = Number(sessionStorage.getItem('chunk_reload_at') || 0)
+  if (Date.now() - marca < 60_000) return false
+  sessionStorage.setItem('chunk_reload_at', String(Date.now()))
+  window.location.reload()
+  return true
+}
+window.addEventListener('vite:preloadError', (e) => {
+  if (recarregarUmaVez()) e.preventDefault()
+})
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>

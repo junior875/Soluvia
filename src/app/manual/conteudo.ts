@@ -1466,6 +1466,48 @@ export const CAPITULOS: ManualCapitulo[] = [
     tela: 'settings',
     secoes: [
       {
+        id: 'meu-menu',
+        titulo: t3('O seu cantinho: o menu do rodapé', 'Your corner: the footer menu', 'Tu rincón: el menú del pie'),
+        corpo: [t3(
+          'Tudo que é <b>seu</b> mora num lugar só: o cartãozinho com o seu nome, no rodapé do menu da esquerda. Clique nele e aparecem <b>Trocar foto</b>, <b>Configurações</b>, o <b>seu uso</b> (as barrinhas de inteligência artificial e de armazenamento, com a data em que a cota renova), <b>suas empresas</b> — clique em outra para trocar, sem sair da conta — e <b>Sair</b>.',
+          'Everything that is <b>yours</b> lives in one place: the little card with your name, at the bottom of the left menu. Click it and you get <b>Change photo</b>, <b>Settings</b>, <b>your usage</b> (the AI and storage bars, with the date the quota renews), <b>your companies</b> — click another one to switch without signing out — and <b>Sign out</b>.',
+          'Todo lo que es <b>tuyo</b> vive en un solo lugar: la tarjetita con tu nombre, al pie del menú de la izquierda. Haz clic y aparecen <b>Cambiar foto</b>, <b>Configuración</b>, <b>tu uso</b> (las barras de inteligencia artificial y de almacenamiento, con la fecha en que se renueva la cuota), <b>tus empresas</b> — haz clic en otra para cambiar sin salir de la cuenta — y <b>Salir</b>.',
+        )],
+        figuras: [{
+          src: '83-menu-perfil',
+          legenda: t3(
+            '<b>O menu do seu perfil.</b> <b>1</b> o cartão com o seu nome — clique para abrir. As barrinhas falam por cor: verde é folga, amarelo é hora de olhar, vermelho é fim.',
+            '<b>Your profile menu.</b> <b>1</b> the card with your name — click to open. The bars speak in colour: green is room to spare, amber means look, red means done.',
+            '<b>El menú de tu perfil.</b> <b>1</b> la tarjeta con tu nombre — haz clic para abrir. Las barras hablan por color: verde hay holgura, ámbar toca mirar, rojo se acabó.',
+          ),
+        }],
+        notas: [{
+          tipo: 'ok',
+          texto: t3(
+            'A cota de inteligência artificial <b>renova sozinha todo mês</b>, e a data da próxima renovação fica ali no menu.',
+            'The AI quota <b>renews on its own every month</b>, and the next renewal date is right there in the menu.',
+            'La cuota de inteligencia artificial <b>se renueva sola cada mes</b>, y la fecha de la próxima renovación está ahí en el menú.',
+          ),
+        }],
+      },
+      {
+        id: 'minha-foto',
+        titulo: t3('Colocar a sua foto', 'Setting your photo', 'Poner tu foto'),
+        corpo: [t3(
+          'A foto aparece ao lado do seu nome em todas as listas de pessoas — é o que faz a equipe te achar de primeira, sem ler nome nenhum. Escolha a imagem e ajuste o enquadramento: <b>arraste</b> para posicionar e use a <b>roda do mouse</b> (ou dois dedos, no celular) para aproximar e afastar. O círculo é exatamente o que vai aparecer. Para reenquadrar depois, abra de novo: a sua foto original volta como estava.',
+          'Your photo shows next to your name in every people list — it is what lets the team find you at a glance. Pick the image and adjust the framing: <b>drag</b> to position and use the <b>mouse wheel</b> (or two fingers on a phone) to zoom in and out. The circle is exactly what will show. To reframe later, open it again: your original photo comes back as it was.',
+          'Tu foto aparece junto a tu nombre en todas las listas de personas — es lo que permite al equipo encontrarte de un vistazo. Elige la imagen y ajusta el encuadre: <b>arrastra</b> para posicionar y usa la <b>rueda del ratón</b> (o dos dedos en el celular) para acercar y alejar. El círculo es exactamente lo que se verá. Para reencuadrar después, ábrelo de nuevo: tu foto original vuelve como estaba.',
+        )],
+        figuras: [{
+          src: '84-foto-editor',
+          legenda: t3(
+            '<b>O editor da foto.</b> O círculo é o recorte final; arraste e use o zoom até enquadrar.',
+            '<b>The photo editor.</b> The circle is the final crop; drag and zoom until it frames right.',
+            '<b>El editor de la foto.</b> El círculo es el recorte final; arrastra y usa el zoom hasta encuadrar.',
+          ),
+        }],
+      },
+      {
         id: 'preferencias',
         titulo: t3('Suas preferências', 'Your preferences', 'Tus preferencias'),
         corpo: [
@@ -1526,11 +1568,11 @@ export const CAPITULOS: ManualCapitulo[] = [
             ),
           },
           {
-            src: '57-trocar-empresa-topo',
+            src: '83-menu-perfil',
             legenda: t3(
-              '<b>Trocar depois de entrar.</b> <b>1</b> o nome da empresa na barra superior vira botão e devolve a escolha.',
-              '<b>Switching after signing in.</b> <b>1</b> the company name in the top bar becomes a button and gives the choice back.',
-              '<b>Cambiar después de entrar.</b> <b>1</b> el nombre de la empresa en la barra superior se vuelve botón y devuelve la elección.',
+              '<b>Trocar depois de entrar.</b> A troca mora no <b>menu do seu perfil</b> (o cartão com o seu nome, no rodapé do menu): em SUAS EMPRESAS estão todas, com ✓ na que está aberta.',
+              '<b>Switching after signing in.</b> Switching lives in <b>your profile menu</b> (the card with your name, at the bottom of the menu): under YOUR COMPANIES they are all there, with a ✓ on the open one.',
+              '<b>Cambiar después de entrar.</b> El cambio vive en <b>el menú de tu perfil</b> (la tarjeta con tu nombre, al pie del menú): en TUS EMPRESAS están todas, con ✓ en la que está abierta.',
             ),
           },
         ],
