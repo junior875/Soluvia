@@ -13,6 +13,7 @@ import { currentScreenId, goScreen } from './nav'
 import { Avatar, IconButton } from './ui'
 import { DuoIcon, Icon } from './icons'
 import NotificationBell from './NotificationBell'
+import AvatarEditor from '../components/AvatarEditor'
 
 const GROUPS = ['main', 'modules', 'config', 'admin'] as const
 
@@ -83,6 +84,9 @@ export default function Shell() {
   const { lang, setLang } = useTranslation()
   const [active, setActive] = useState(currentScreenId())
   const [drawer, setDrawer] = useState(false)
+  // A foto da pessoa: nasce do contexto e atualiza na hora ao salvar no editor.
+  const [fotoUrl, setFotoUrl] = useState<string | null>(ctx.user.avatar_url ?? null)
+  const [editorFoto, setEditorFoto] = useState(false)
   const badges = useBadges()
   // Aba → número. As três abas "pessoais" têm badge; as demais são telas de
   // trabalho, não de aviso.
@@ -197,14 +201,35 @@ export default function Shell() {
 
         <div style={{ padding: 16, borderTop: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Avatar name={ctx.user.full_name} src={ctx.user.avatar_url} />
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ctx.user.full_name}</div>
-              <div style={{ color: 'var(--text-muted)', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ctx.user.email}</div>
-            </div>
+            {/* O cartãozinho da pessoa é o atalho da FOTO: clicou, abre o
+                editor — sem precisar achar a seção em Configurações. */}
+            <button
+              type="button"
+              title={t.settings.photoChange}
+              onClick={() => setEditorFoto(true)}
+              className="app-btn"
+              style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+            >
+              <Avatar name={ctx.user.full_name} src={fotoUrl} />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ctx.user.full_name}</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ctx.user.email}</div>
+              </div>
+            </button>
             <IconButton icon="logout" label={t.common.logout} onClick={() => void caps.logout()} />
           </div>
         </div>
+
+        <AvatarEditor
+          open={editorFoto}
+          onClose={() => setEditorFoto(false)}
+          onSaved={(url) => setFotoUrl(url)}
+          textos={{
+            title: t.settings.photoTitle, pick: t.settings.photoPick, zoom: t.settings.photoZoom,
+            save: t.settings.save, saving: t.settings.saving, hint: t.settings.photoDragHint,
+            fail: t.settings.saveFail,
+          }}
+        />
       </aside>
 
       {/* Conteúdo */}

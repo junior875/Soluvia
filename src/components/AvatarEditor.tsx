@@ -28,7 +28,16 @@ export default function AvatarEditor({ open, onClose, onSaved, textos }: {
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const palcoRef = useRef<HTMLDivElement>(null)
+  /** Ponteiros ativos no palco — 1 arrasta, 2 fazem a pinça do celular. */
+  const ponteiros = useRef<Map<number, { x: number; y: number }>>(new Map())
   const arrasto = useRef<{ x: number; y: number } | null>(null)
+  const pincaDist = useRef<number | null>(null)
+
+  /** Zoom mínimo por imagem: 1 = cobre o círculo; abaixo disso, até a imagem
+   *  INTEIRA caber (o caso do logo largo que não tinha como enquadrar). */
+  const zoomMin = img ? Math.min(1, Math.min(img.width, img.height) / Math.max(img.width, img.height)) : 1
+  const ZOOM_MAX = 4
 
   function escolher(file: File | null) {
     if (!file) return
@@ -38,17 +47,39 @@ export default function AvatarEditor({ open, onClose, onSaved, textos }: {
     el.src = url
   }
 
-  /** A escala-base cobre o quadro (cover); o slider multiplica em cima. */
+  /** A escala-base cobre o quadro (cover); o zoom multiplica em cima. */
   const escalaDe = (el: HTMLImageElement, lado: number, z: number) =>
     (lado / Math.min(el.width, el.height)) * z
 
-  /** Desloca no máximo até a borda da imagem — nunca sobra vazio no círculo. */
+  /** Deslocamento limitado à borda da imagem (ou zero quando ela é menor que
+   *  o quadro naquele eixo — aí ela fica centrada e o vazio sai transparente). */
   function limitar(el: HTMLImageElement, lado: number, z: number, x: number, y: number) {
     const esc = escalaDe(el, lado, z)
     const maxX = Math.max(0, (el.width * esc - lado) / 2)
     const maxY = Math.max(0, (el.height * esc - lado) / 2)
     return { x: Math.max(-maxX, Math.min(maxX, x)), y: Math.max(-maxY, Math.min(maxY, y)) }
   }
+
+  function aplicarZoom(z: number) {
+    const novo = Math.max(zoomMin, Math.min(ZOOM_MAX, z))
+    setZoom(novo)
+    if (img) setOff((o) => limitar(img, QUADRO, novo, o.x, o.y))
+  }
+
+  // Roda do mouse: zoom onde a pessoa espera que ele esteja. Registrado à mão
+  // (não via onWheel) porque o listener precisa ser NÃO-passivo para o
+  // preventDefault segurar o scroll da página atrás do modal.
+  useEffect(() => {
+    const palco = palcoRef.current
+    if (!palco || !img) return
+    const aoRolar = (e: WheelEvent) => {
+      e.preventDefault()
+      aplicarZoom(zoom * (e.deltaY < 0 ? 1.08 : 0.92))
+    }
+    palco.addEventListener('wheel', aoRolar, { passive: false })
+    return () => palco.removeEventListener('wheel', aoRolar)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [img, zoom, zoomMin])
 
   function desenhar(ctx: CanvasRenderingContext2D, lado: number) {
     if (!img) return
@@ -110,25 +141,50 @@ export default function AvatarEditor({ open, onClose, onSaved, textos }: {
           <>
             {/* O palco: canvas quadrado + máscara circular por cima. */}
             <div
+              ref={palcoRef}
               style={{ position: 'relative', width: QUADRO, height: QUADRO, borderRadius: '50%', overflow: 'hidden', cursor: 'grab', touchAction: 'none', border: '2px solid var(--border)' }}
-              onPointerDown={(e) => { arrasto.current = { x: e.clientX - off.x, y: e.clientY - off.y }; (e.target as HTMLElement).setPointerCapture(e.pointerId) }}
-              onPointerMove={(e) => {
-                if (!arrasto.current || !img) return
-                setOff(limitar(img, QUADRO, zoom, e.clientX - arrasto.current.x, e.clientY - arrasto.current.y))
+              onPointerDown={(e) => {
+                ponteiros.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+                ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+                if (ponteiros.current.size === 1) {
+                  arrasto.current = { x: e.clientX - off.x, y: e.clientY - off.y }
+                } else {
+                  // Segundo dedo: vira pinça — o arrasto para para não brigar.
+                  arrasto.current = null
+                  const [a, b] = [...ponteiros.current.values()]
+                  pincaDist.current = Math.hypot(a.x - b.x, a.y - b.y)
+                }
               }}
-              onPointerUp={() => { arrasto.current = null }}
+              onPointerMove={(e) => {
+                if (!img || !ponteiros.current.has(e.pointerId)) return
+                ponteiros.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+                if (ponteiros.current.size >= 2 && pincaDist.current) {
+                  const [a, b] = [...ponteiros.current.values()]
+                  const dist = Math.hypot(a.x - b.x, a.y - b.y)
+                  aplicarZoom(zoom * (dist / pincaDist.current))
+                  pincaDist.current = dist
+                } else if (arrasto.current) {
+                  setOff(limitar(img, QUADRO, zoom, e.clientX - arrasto.current.x, e.clientY - arrasto.current.y))
+                }
+              }}
+              onPointerUp={(e) => {
+                ponteiros.current.delete(e.pointerId)
+                pincaDist.current = null
+                arrasto.current = null
+              }}
+              onPointerCancel={(e) => {
+                ponteiros.current.delete(e.pointerId)
+                pincaDist.current = null
+                arrasto.current = null
+              }}
             >
               <canvas ref={canvasRef} width={QUADRO} height={QUADRO} style={{ display: 'block' }} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%' }}>
               <span style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700 }}>{textos.zoom}</span>
               <input
-                type="range" min={1} max={3} step={0.01} value={zoom}
-                onChange={(e) => {
-                  const z = Number(e.target.value)
-                  setZoom(z)
-                  if (img) setOff((o) => limitar(img, QUADRO, z, o.x, o.y))
-                }}
+                type="range" min={zoomMin} max={ZOOM_MAX} step={0.01} value={zoom}
+                onChange={(e) => aplicarZoom(Number(e.target.value))}
                 style={{ flex: 1, accentColor: 'var(--accent)' }}
               />
             </div>

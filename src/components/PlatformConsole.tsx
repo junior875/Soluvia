@@ -7,6 +7,8 @@ import type { ApiError, PlanOut, PlatformOverview, PlatformTenantDetail, Platfor
 import { useTranslation } from '../i18n/LanguageProvider'
 import PrefSwitcher from './PrefSwitcher'
 import { Icon, type IconName } from '../app/icons'
+import { Avatar } from '../app/ui'
+import AvatarEditor from './AvatarEditor'
 import { ManualView } from '../app/manual/ManualView'
 import { CAPITULOS_PLATAFORMA } from '../app/manual/conteudoPlataforma'
 import { Button, Card, EmptyState } from '../app/ui'
@@ -20,6 +22,8 @@ import { PasswordInput } from '../app/ui'
 const L = {
   pt: {
     kicker: 'Console Soluqtion', subtitle: 'Visão total da plataforma', logout: 'Sair',
+    photoTitle: 'Sua foto de perfil', photoChange: 'Trocar sua foto', photoPick: 'Escolher imagem',
+    photoHint: 'Arraste para posicionar; o zoom ajusta o enquadramento.', photoSaved: 'Foto salva.',
     tenants: 'Empresas', users: 'Usuários', channels: 'Canais', cases: 'Casos', openCases: 'Casos abertos',
     aiUsed: 'Tokens de IA usados', search: 'Buscar empresa…', plan: 'Plano', usersCol: 'Usuários',
     aiCol: 'IA (uso/limite)', status: 'Status', none: 'Nenhuma empresa encontrada.',
@@ -114,6 +118,8 @@ const L = {
   },
   en: {
     kicker: 'Soluqtion Console', subtitle: 'Full platform view', logout: 'Sign out',
+    photoTitle: 'Your profile photo', photoChange: 'Change your photo', photoPick: 'Choose image',
+    photoHint: 'Drag to position; zoom adjusts the framing.', photoSaved: 'Photo saved.',
     tenants: 'Companies', users: 'Users', channels: 'Channels', cases: 'Cases', openCases: 'Open cases',
     aiUsed: 'AI tokens used', search: 'Search company…', plan: 'Plan', usersCol: 'Users',
     aiCol: 'AI (used/limit)', status: 'Status', none: 'No companies found.',
@@ -208,6 +214,8 @@ const L = {
   },
   es: {
     kicker: 'Consola Soluqtion', subtitle: 'Vista total de la plataforma', logout: 'Salir',
+    photoTitle: 'Tu foto de perfil', photoChange: 'Cambiar tu foto', photoPick: 'Elegir imagen',
+    photoHint: 'Arrastra para posicionar; el zoom ajusta el encuadre.', photoSaved: 'Foto guardada.',
     tenants: 'Empresas', users: 'Usuarios', channels: 'Canales', cases: 'Casos', openCases: 'Casos abiertos',
     aiUsed: 'Tokens de IA usados', search: 'Buscar empresa…', plan: 'Plan', usersCol: 'Usuarios',
     aiCol: 'IA (uso/límite)', status: 'Estado', none: 'No se encontraron empresas.',
@@ -412,6 +420,11 @@ export default function PlatformConsole() {
   const [rows, setRows] = useState<PlatformTenantRow[] | null>(null)
   const [q, setQ] = useState('')
   const [detail, setDetail] = useState<PlatformTenantDetail | null>(null)
+  // A foto do PROPRIO admin da plataforma: o console e a casa dele — sem
+  // isso, so quem tem vinculo em empresa achava onde carregar a foto.
+  const [meuNome, setMeuNome] = useState('')
+  const [minhaFoto, setMinhaFoto] = useState<string | null>(null)
+  const [editorFoto, setEditorFoto] = useState(false)
   /** A seção aberta no painel da empresa. O modal antigo despejava tudo num
    *  bloco só — plano, storage, IA, membros e o botão de suspender no meio.
    *  Um assunto por vez, escolhido por chip, é o que faz o painel se LER. */
@@ -468,10 +481,12 @@ export default function PlatformConsole() {
   useEffect(() => {
     if (!open) return
     api
-      .get<{ email: string; is_platform_admin: boolean }>('/auth/me')
-      .then((r) =>
-        setAcesso(r.is_platform_admin ? { estado: 'ok' } : { estado: 'forbidden', email: r.email }),
-      )
+      .get<{ email: string; is_platform_admin: boolean; full_name?: string; avatar_url?: string | null }>('/auth/me')
+      .then((r) => {
+        setAcesso(r.is_platform_admin ? { estado: 'ok' } : { estado: 'forbidden', email: r.email })
+        setMeuNome(r.full_name || r.email)
+        setMinhaFoto(r.avatar_url ?? null)
+      })
       .catch(() => setAcesso({ estado: 'anon' }))
   }, [open])
 
@@ -617,7 +632,10 @@ export default function PlatformConsole() {
           única tela do produto com as seções no topo. */}
       <aside className={`app-sidebar ${drawer ? 'open' : ''}`} style={{ width: 260, minWidth: 260, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', height: '100%' }}>
         <div style={{ padding: '16px 14px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ width: 38, height: 38, minWidth: 38, borderRadius: 11, background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 18 }}>S</span>
+          <button type="button" title={tr.photoChange} onClick={() => setEditorFoto(true)}
+            style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer' }}>
+            <Avatar name={meuNome || 'S'} src={minhaFoto} size={38} color="var(--accent)" />
+          </button>
           <div style={{ minWidth: 0 }}>
             <div style={{ color: 'var(--heading)', fontWeight: 800, fontSize: 14.5, whiteSpace: 'nowrap' }}>{tr.kicker}</div>
             <div style={{ color: 'var(--text-muted)', fontSize: 12, whiteSpace: 'nowrap' }}>{tr.subtitle}</div>
@@ -1150,6 +1168,13 @@ export default function PlatformConsole() {
           </div>
         </div>
       )}
+
+      <AvatarEditor
+        open={editorFoto}
+        onClose={() => setEditorFoto(false)}
+        onSaved={(url) => { setMinhaFoto(url); setToast(tr.photoSaved); setTimeout(() => setToast(null), 2200) }}
+        textos={{ title: tr.photoTitle, pick: tr.photoPick, zoom: 'Zoom', save: tr.save, saving: '…', hint: tr.photoHint, fail: 'Erro' }}
+      />
 
       {toast && (
         <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: 'var(--heading)', color: 'var(--surface)', padding: '12px 22px', borderRadius: 100, fontWeight: 700, fontSize: 14, zIndex: 10002 }}>{toast}</div>
