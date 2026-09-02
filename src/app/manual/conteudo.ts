@@ -219,6 +219,10 @@ export const CAPITULOS: ManualCapitulo[] = [
           'O caso abre com o relato como a pessoa escreveu, as provas anexadas, a linha do tempo e o bloco da sua etapa. Cada etapa tem um <b>tipo</b>, e o tipo decide o que o sistema pede na hora do parecer.',
           'The case opens with the report exactly as it was written, the attached evidence, the timeline and the block for your stage. Each stage has a <b>type</b>, and the type decides what the system asks for when you give your opinion.',
           'El caso abre con el relato tal como lo escribió la persona, las pruebas adjuntas, la línea de tiempo y el bloque de tu etapa. Cada etapa tiene un <b>tipo</b>, y el tipo decide qué pide el sistema a la hora del dictamen.',
+        ), t3(
+          '<b>Baixar PDF</b> gera o dossiê do caso: o relato respondido, a <b>etapa em que ele está</b>, data e hora de emissão no horário de Brasília, a linha do tempo, os pareceres, <b>todas as assinaturas digitais</b> (com carimbo e QR de verificação) e as <b>provas citadas por nome</b> — nome, tipo, tamanho e origem. Os arquivos em si não vão no PDF: ficam no cofre, onde cada acesso exige permissão e é registrado.',
+          '<b>Download PDF</b> generates the case dossier: the answered report, the <b>stage it is at</b>, issue date and time in Brasília time, the timeline, the opinions, <b>every digital signature</b> (with seal and verification QR) and the <b>evidence cited by name</b> — name, type, size and origin. The files themselves do not go into the PDF: they stay in the vault, where every access requires permission and is logged.',
+          '<b>Descargar PDF</b> genera el expediente del caso: el relato respondido, la <b>etapa en la que está</b>, fecha y hora de emisión en horario de Brasilia, la línea de tiempo, los dictámenes, <b>todas las firmas digitales</b> (con sello y QR de verificación) y las <b>pruebas citadas por nombre</b> — nombre, tipo, tamaño y origen. Los archivos en sí no van en el PDF: quedan en la bóveda, donde cada acceso exige permiso y queda registrado.',
         )],
         tabela: {
           colunas: [
@@ -392,11 +396,19 @@ export const CAPITULOS: ManualCapitulo[] = [
               t3('Abre página por página, dentro do site.', 'Opens page by page, inside the site.', 'Se abre página por página, dentro del sitio.'),
             ],
             [
+              t3('Word (DOCX)', 'Word (DOCX)', 'Word (DOCX)'),
+              t3(
+                'Abre <b>dentro do site</b>, com o texto formatado — sem baixar nada.',
+                'Opens <b>inside the site</b>, with the text formatted — nothing downloaded.',
+                'Se abre <b>dentro del sitio</b>, con el texto formateado — sin descargar nada.',
+              ),
+            ],
+            [
               t3('Texto (TXT, CSV)', 'Text (TXT, CSV)', 'Texto (TXT, CSV)'),
               t3('Mostra o conteúdo.', 'Shows the contents.', 'Muestra el contenido.'),
             ],
             [
-              t3('Word, Excel, ZIP', 'Word, Excel, ZIP', 'Word, Excel, ZIP'),
+              t3('Excel, ZIP', 'Excel, ZIP', 'Excel, ZIP'),
               t3(
                 '<b>Só aparece "Baixar".</b> Navegador nenhum exibe esses formatos — oferecer "ver" seria prometer uma prévia que não existe.',
                 '<b>Only "Download" appears.</b> No browser displays these formats — offering "view" would promise a preview that does not exist.',
@@ -405,6 +417,23 @@ export const CAPITULOS: ManualCapitulo[] = [
             ],
           ],
         },
+      },
+      {
+        id: 'lado-a-lado',
+        titulo: t3('Lado a lado com o caso', 'Side by side with the case', 'Lado a lado con el caso'),
+        corpo: [t3(
+          'No computador, abrir uma prova <b>não cobre</b> o caso: a ficha encosta na direita e o arquivo cresce para a esquerda. Dá para ler o laudo e o relato ao mesmo tempo. No celular, onde não há “lado”, o arquivo abre em tela cheia.',
+          'On a computer, opening a piece of evidence does <b>not cover</b> the case: the card docks to the right and the file grows to the left. You can read the report and the case at the same time. On a phone, where there is no “side”, the file opens full screen.',
+          'En la computadora, abrir una prueba <b>no cubre</b> el caso: la ficha se apoya a la derecha y el archivo crece hacia la izquierda. Se puede leer el informe y el relato al mismo tiempo. En el celular, donde no hay “lado”, el archivo se abre a pantalla completa.',
+        )],
+        figuras: [{
+          src: '81-prova-lado-a-lado',
+          legenda: t3(
+            '<b>Prova e caso, juntos.</b> O laudo aberto à esquerda; o caso, com as demais provas, ancorado à direita.',
+            '<b>Evidence and case, together.</b> The report open on the left; the case, with the other evidence, docked on the right.',
+            '<b>Prueba y caso, juntos.</b> El informe abierto a la izquierda; el caso, con las demás pruebas, anclado a la derecha.',
+          ),
+        }],
       },
     ],
   },
@@ -1253,6 +1282,23 @@ export const CAPITULOS: ManualCapitulo[] = [
           ),
         }],
       },
+      {
+        id: 'historico',
+        titulo: t3('Histórico de versões', 'Version history', 'Historial de versiones'),
+        corpo: [t3(
+          'Cada vez que o fluxo é salvo, uma versão entra no <b>Histórico</b> — com data, autor e o desenho daquele momento. Salvou errado na terça e percebeu na quinta? <b>Restaurar</b> carrega a versão antiga no construtor como <b>rascunho</b>: nada muda até você conferir e salvar. Restaurar é sempre um gesto seu — o assistente de IA não enxerga nem mexe no histórico.',
+          'Every time the workflow is saved, a version lands in <b>History</b> — with date, author and that moment’s design. Saved the wrong thing on Tuesday and noticed on Thursday? <b>Restore</b> loads the old version into the builder as a <b>draft</b>: nothing changes until you review and save. Restoring is always a human gesture — the AI assistant cannot see or touch the history.',
+          'Cada vez que se guarda el flujo, una versión entra en el <b>Historial</b> — con fecha, autor y el diseño de ese momento. ¿Guardaste mal el martes y lo notaste el jueves? <b>Restaurar</b> carga la versión antigua en el constructor como <b>borrador</b>: nada cambia hasta que revises y guardes. Restaurar siempre es un gesto tuyo — el asistente de IA no ve ni toca el historial.',
+        )],
+        figuras: [{
+          src: '80-fluxo-historico',
+          legenda: t3(
+            '<b>O histórico de versões.</b> A versão do topo é a que está valendo; nas demais, <b>Restaurar</b> carrega aquele desenho como rascunho.',
+            '<b>The version history.</b> The top version is the one in effect; on the others, <b>Restore</b> loads that design as a draft.',
+            '<b>El historial de versiones.</b> La versión de arriba es la vigente; en las demás, <b>Restaurar</b> carga ese diseño como borrador.',
+          ),
+        }],
+      },
     ],
   },
 
@@ -1274,6 +1320,10 @@ export const CAPITULOS: ManualCapitulo[] = [
           'Escolha o canal, escreva o assunto e a mensagem, e o aviso sai por e-mail para quem você indicar. Diferente das notificações do sistema, que são automáticas.',
           'Pick the channel, write the subject and the message, and the announcement goes out by e-mail to whoever you choose. Unlike system notifications, which are automatic.',
           'Elige el canal, escribe el asunto y el mensaje, y el aviso sale por correo a quien indiques. A diferencia de las notificaciones del sistema, que son automáticas.',
+        ), t3(
+          '<b>Feito para não cair no spam.</b> Cada cópia sai com um rodapé próprio — dizendo para quem foi enviada e a pedido de qual empresa — e com um link de <b>Sair da lista</b>, o mesmo “cancelar inscrição” que o Gmail mostra no topo. Quem não quer receber sai por ali em vez de marcar spam, e quem sai não recebe as próximas. Variar o assunto a cada campanha também ajuda a entrega.',
+          '<b>Built to stay out of spam.</b> Each copy goes out with its own footer — saying who it was sent to and on behalf of which company — and an <b>Unsubscribe</b> link, the same one Gmail shows at the top. People who don’t want it leave through there instead of marking spam, and whoever leaves stops receiving the next ones. Varying the subject per campaign also helps delivery.',
+          '<b>Hecho para no caer en spam.</b> Cada copia sale con un pie propio — diciendo a quién fue enviada y a pedido de qué empresa — y con un enlace de <b>Salir de la lista</b>, el mismo “cancelar suscripción” que Gmail muestra arriba. Quien no quiere recibirlo sale por ahí en vez de marcar spam, y quien sale no recibe los siguientes. Variar el asunto en cada campaña también ayuda a la entrega.',
         )],
         figuras: [{
           src: '19-comunicados',
@@ -1392,6 +1442,13 @@ export const CAPITULOS: ManualCapitulo[] = [
             'Cada linha traz o ator, a data, o endereço de onde partiu e o navegador. Os registros são <b>encadeados entre si</b>: alterar ou remover um deles quebra a corrente, e o próprio sistema acusa.',
             'Each line carries the actor, the date, the address it came from and the browser. The records are <b>chained to one another</b>: altering or removing one breaks the chain, and the system itself flags it.',
             'Cada línea trae el actor, la fecha, la dirección de origen y el navegador. Los registros están <b>encadenados entre sí</b>: alterar o eliminar uno rompe la cadena, y el propio sistema lo acusa.',
+          ),
+        }, {
+          tipo: 'ok',
+          texto: t3(
+            '<b>Da linha ao arquivo, num clique.</b> Quando o registro é sobre uma prova (“visualizou” ou “baixou”), a linha mostra o <b>nome do arquivo</b> e o protocolo — e clicar nela abre o <b>cofre de provas</b> já apontando para aquele arquivo.',
+            '<b>From the line to the file, in one click.</b> When the record is about evidence (“viewed” or “downloaded”), the line shows the <b>file name</b> and the protocol — and clicking it opens the <b>evidence vault</b> pointing straight at that file.',
+            '<b>De la línea al archivo, en un clic.</b> Cuando el registro es sobre una prueba (“visualizó” o “descargó”), la línea muestra el <b>nombre del archivo</b> y el protocolo — y al hacer clic se abre la <b>bóveda de pruebas</b> apuntando a ese archivo.',
           ),
         }],
       },

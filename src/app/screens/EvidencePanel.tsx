@@ -221,7 +221,12 @@ export default function EvidencePanel({
             <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19, flexShrink: 0 }} aria-hidden>
               {ICONE[p.kind] ?? '📄'}
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
+            {/* `flex-basis` com corpo: no modal ANCORADO (420px, lado a lado
+                com uma prova aberta) o `flex: 1` sem base deixava esta coluna
+                com meia dúzia de pixels — "2 KB" saía empilhado na vertical e
+                os botões atropelavam o nome. Com base de 150px, a coluna
+                quebra a linha INTEIRA antes de espremer o conteúdo. */}
+            <div style={{ flex: '1 1 150px', minWidth: 0 }}>
               <div style={{ color: 'var(--heading)', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {p.filename}
               </div>
