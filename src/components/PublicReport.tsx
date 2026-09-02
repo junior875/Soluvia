@@ -16,9 +16,9 @@ interface PublicForm { tenant_slug: string; tenant_name: string; channel_name: s
 interface Receipt { protocol: string; access_hash: string }
 
 const L = {
-  pt: { loading: 'Carregando…', unavailable: 'Canal indisponível', unavailableBody: 'Este canal ainda não tem um formulário publicado, ou o link é inválido.', identifyLegend: 'Como você quer relatar?', anon: 'Anônimo', anonHint: 'Não pediremos nada que te identifique.', identify: 'Identificar-me', email: 'Seu e-mail', emailHint: 'Usaremos só para dar retorno do seu relato.', anonForced: 'Este canal é 100% anônimo.', idRequired: 'Este canal exige identificação.', send: 'Enviar relato', sending: 'Enviando…', waitUpload: 'Aguardando o anexo…', required: 'Preencha os campos obrigatórios.', doneTitle: 'Relato registrado', doneBody: 'Guarde o protocolo e o código abaixo — é a única forma de acompanhar (inclusive de forma anônima).', protocol: 'Protocolo', code: 'Código de acesso', copy: 'Copiar', copied: 'Copiado!', track: 'Acompanhar depois em', another: 'Enviar outro relato', secure: 'Ambiente seguro e confidencial', yes: 'Sim', no: 'Não', choose: 'Selecione', signTitle: 'Assine seu relato', signKicker: 'Identificação', signCta: 'Assinar e enviar', signNote: 'Ao se identificar, você assina digitalmente o relato (rubrica + localização opcional).', evidenceTitle: 'Provas (opcional)', evidenceHelp: 'Fotos, vídeos, áudios ou documentos que ajudem a comprovar o que você está relatando.', evidenceChoose: 'Escolher arquivos', evidenceDrop: 'ou arraste e solte aqui', evidenceRemove: 'Remover', evidenceSending: 'Enviando…', evidenceFailed: 'Não foi possível enviar este arquivo.', evidenceLimit: 'Limite de arquivos atingido.', evidenceAccepted: 'Formatos aceitos', fmtImage: 'Imagens', fmtVideo: 'Vídeos', fmtAudio: 'Áudios', fmtDocument: 'Documentos', evidenceLimits: 'Até {n} arquivos, {mb} MB cada.' },
-  en: { loading: 'Loading…', unavailable: 'Channel unavailable', unavailableBody: 'This channel has no published form yet, or the link is invalid.', identifyLegend: 'How do you want to report?', anon: 'Anonymous', anonHint: 'We will not ask anything that identifies you.', identify: 'Identify myself', email: 'Your email', emailHint: 'Only used to get back to you about your report.', anonForced: 'This channel is 100% anonymous.', idRequired: 'This channel requires identification.', send: 'Send report', sending: 'Sending…', waitUpload: 'Waiting for the upload…', required: 'Please fill the required fields.', doneTitle: 'Report received', doneBody: 'Keep the protocol and code below — it is the only way to follow up (even anonymously).', protocol: 'Protocol', code: 'Access code', copy: 'Copy', copied: 'Copied!', track: 'Follow up later at', another: 'Send another report', secure: 'Secure & confidential', yes: 'Yes', no: 'No', choose: 'Select', signTitle: 'Sign your report', signKicker: 'Identification', signCta: 'Sign & send', signNote: 'By identifying yourself, you digitally sign the report (signature + optional location).', evidenceTitle: 'Evidence (optional)', evidenceHelp: 'Photos, videos, audio or documents that support what you are reporting.', evidenceChoose: 'Choose files', evidenceDrop: 'or drag and drop here', evidenceRemove: 'Remove', evidenceSending: 'Uploading…', evidenceFailed: 'This file could not be uploaded.', evidenceLimit: 'File limit reached.', evidenceAccepted: 'Accepted formats', fmtImage: 'Images', fmtVideo: 'Videos', fmtAudio: 'Audio', fmtDocument: 'Documents', evidenceLimits: 'Up to {n} files, {mb} MB each.' },
-  es: { loading: 'Cargando…', unavailable: 'Canal no disponible', unavailableBody: 'Este canal aún no tiene un formulario publicado, o el enlace no es válido.', identifyLegend: '¿Cómo quieres denunciar?', anon: 'Anónimo', anonHint: 'No pediremos nada que te identifique.', identify: 'Identificarme', email: 'Tu correo', emailHint: 'Solo para darte seguimiento de tu denuncia.', anonForced: 'Este canal es 100% anónimo.', idRequired: 'Este canal exige identificación.', send: 'Enviar denuncia', sending: 'Enviando…', waitUpload: 'Esperando el archivo…', required: 'Completa los campos obligatorios.', doneTitle: 'Denuncia registrada', doneBody: 'Guarda el protocolo y el código — es la única forma de dar seguimiento (incluso anónimo).', protocol: 'Protocolo', code: 'Código de acceso', copy: 'Copiar', copied: '¡Copiado!', track: 'Da seguimiento luego en', another: 'Enviar otra denuncia', secure: 'Entorno seguro y confidencial', yes: 'Sí', no: 'No', choose: 'Selecciona', signTitle: 'Firma tu denuncia', signKicker: 'Identificación', signCta: 'Firmar y enviar', signNote: 'Al identificarte, firmas digitalmente la denuncia (firma + ubicación opcional).', evidenceTitle: 'Pruebas (opcional)', evidenceHelp: 'Fotos, videos, audios o documentos que respalden lo que estás relatando.', evidenceChoose: 'Elegir archivos', evidenceDrop: 'o arrastra y suelta aquí', evidenceRemove: 'Quitar', evidenceSending: 'Enviando…', evidenceFailed: 'No fue posible enviar este archivo.', evidenceLimit: 'Límite de archivos alcanzado.', evidenceAccepted: 'Formatos aceptados', fmtImage: 'Imágenes', fmtVideo: 'Videos', fmtAudio: 'Audios', fmtDocument: 'Documentos', evidenceLimits: 'Hasta {n} archivos, {mb} MB cada uno.' },
+  pt: { loading: 'Carregando…', unavailable: 'Canal indisponível', unavailableBody: 'Este canal ainda não tem um formulário publicado, ou o link é inválido.', identifyLegend: 'Como você quer relatar?', anon: 'Anônimo', anonHint: 'Não pediremos nada que te identifique.', identify: 'Identificar-me', email: 'Seu e-mail', emailHint: 'Usaremos só para dar retorno do seu relato.', anonForced: 'Este canal é 100% anônimo.', idRequired: 'Este canal exige identificação.', send: 'Enviar relato', sending: 'Enviando…', waitUpload: 'Aguardando o anexo…', required: 'Preencha os campos obrigatórios.', doneTitle: 'Relato registrado', doneBody: 'Guarde o protocolo e o código abaixo — é a única forma de acompanhar (inclusive de forma anônima).', protocol: 'Protocolo', code: 'Código de acesso', copy: 'Copiar', copied: 'Copiado!', track: 'Acompanhar depois em', another: 'Enviar outro relato', secure: 'Ambiente seguro e confidencial', yes: 'Sim', no: 'Não', choose: 'Selecione', signTitle: 'Assine seu relato', signKicker: 'Identificação', signCta: 'Assinar e enviar', verifTitle: 'Confirme seu e-mail', verifBody: 'Enviamos um código de 8 dígitos para', verifConfirm: 'Confirmar e assinar', verifResend: 'Reenviar código', verifFail: 'Não foi possível enviar o código. Tente de novo.', verifBad: 'Código inválido ou expirado.', signNote: 'Ao se identificar, você assina digitalmente o relato (rubrica + localização opcional).', evidenceTitle: 'Provas (opcional)', evidenceHelp: 'Fotos, vídeos, áudios ou documentos que ajudem a comprovar o que você está relatando.', evidenceChoose: 'Escolher arquivos', evidenceDrop: 'ou arraste e solte aqui', evidenceRemove: 'Remover', evidenceSending: 'Enviando…', evidenceFailed: 'Não foi possível enviar este arquivo.', evidenceLimit: 'Limite de arquivos atingido.', evidenceAccepted: 'Formatos aceitos', fmtImage: 'Imagens', fmtVideo: 'Vídeos', fmtAudio: 'Áudios', fmtDocument: 'Documentos', evidenceLimits: 'Até {n} arquivos, {mb} MB cada.' },
+  en: { loading: 'Loading…', unavailable: 'Channel unavailable', unavailableBody: 'This channel has no published form yet, or the link is invalid.', identifyLegend: 'How do you want to report?', anon: 'Anonymous', anonHint: 'We will not ask anything that identifies you.', identify: 'Identify myself', email: 'Your email', emailHint: 'Only used to get back to you about your report.', anonForced: 'This channel is 100% anonymous.', idRequired: 'This channel requires identification.', send: 'Send report', sending: 'Sending…', waitUpload: 'Waiting for the upload…', required: 'Please fill the required fields.', doneTitle: 'Report received', doneBody: 'Keep the protocol and code below — it is the only way to follow up (even anonymously).', protocol: 'Protocol', code: 'Access code', copy: 'Copy', copied: 'Copied!', track: 'Follow up later at', another: 'Send another report', secure: 'Secure & confidential', yes: 'Yes', no: 'No', choose: 'Select', signTitle: 'Sign your report', signKicker: 'Identification', signCta: 'Sign & send', verifTitle: 'Confirm your e-mail', verifBody: 'We sent an 8-digit code to', verifConfirm: 'Confirm & sign', verifResend: 'Resend code', verifFail: 'We could not send the code. Try again.', verifBad: 'Invalid or expired code.', signNote: 'By identifying yourself, you digitally sign the report (signature + optional location).', evidenceTitle: 'Evidence (optional)', evidenceHelp: 'Photos, videos, audio or documents that support what you are reporting.', evidenceChoose: 'Choose files', evidenceDrop: 'or drag and drop here', evidenceRemove: 'Remove', evidenceSending: 'Uploading…', evidenceFailed: 'This file could not be uploaded.', evidenceLimit: 'File limit reached.', evidenceAccepted: 'Accepted formats', fmtImage: 'Images', fmtVideo: 'Videos', fmtAudio: 'Audio', fmtDocument: 'Documents', evidenceLimits: 'Up to {n} files, {mb} MB each.' },
+  es: { loading: 'Cargando…', unavailable: 'Canal no disponible', unavailableBody: 'Este canal aún no tiene un formulario publicado, o el enlace no es válido.', identifyLegend: '¿Cómo quieres denunciar?', anon: 'Anónimo', anonHint: 'No pediremos nada que te identifique.', identify: 'Identificarme', email: 'Tu correo', emailHint: 'Solo para darte seguimiento de tu denuncia.', anonForced: 'Este canal es 100% anónimo.', idRequired: 'Este canal exige identificación.', send: 'Enviar denuncia', sending: 'Enviando…', waitUpload: 'Esperando el archivo…', required: 'Completa los campos obligatorios.', doneTitle: 'Denuncia registrada', doneBody: 'Guarda el protocolo y el código — es la única forma de dar seguimiento (incluso anónimo).', protocol: 'Protocolo', code: 'Código de acceso', copy: 'Copiar', copied: '¡Copiado!', track: 'Da seguimiento luego en', another: 'Enviar otra denuncia', secure: 'Entorno seguro y confidencial', yes: 'Sí', no: 'No', choose: 'Selecciona', signTitle: 'Firma tu denuncia', signKicker: 'Identificación', signCta: 'Firmar y enviar', verifTitle: 'Confirma tu correo', verifBody: 'Enviamos un código de 8 dígitos a', verifConfirm: 'Confirmar y firmar', verifResend: 'Reenviar código', verifFail: 'No pudimos enviar el código. Intenta de nuevo.', verifBad: 'Código inválido o vencido.', signNote: 'Al identificarte, firmas digitalmente la denuncia (firma + ubicación opcional).', evidenceTitle: 'Pruebas (opcional)', evidenceHelp: 'Fotos, videos, audios o documentos que respalden lo que estás relatando.', evidenceChoose: 'Elegir archivos', evidenceDrop: 'o arrastra y suelta aquí', evidenceRemove: 'Quitar', evidenceSending: 'Enviando…', evidenceFailed: 'No fue posible enviar este archivo.', evidenceLimit: 'Límite de archivos alcanzado.', evidenceAccepted: 'Formatos aceptados', fmtImage: 'Imágenes', fmtVideo: 'Videos', fmtAudio: 'Audios', fmtDocument: 'Documentos', evidenceLimits: 'Hasta {n} archivos, {mb} MB cada uno.' },
 }
 
 
@@ -111,8 +111,53 @@ export default function PublicReport() {
     if (willIdentify && !email.trim()) { setErr(tr.email); return }
     // Identificado → abre o mesmo modal de assinatura (rubrica + geo + CPF) e só
     // envia após assinar. Anônimo → envia direto.
-    if (willIdentify) { setSignOpen(true); return }
+    if (willIdentify) {
+      // Só abre a assinatura com o e-mail JÁ provado; trocar o e-mail depois
+      // de verificar invalida o passo (o voucher é daquele endereço).
+      if (voucher && emailVerificado === email.trim().toLowerCase()) { setSignOpen(true); return }
+      void pedirCodigo()
+      return
+    }
     void doSubmit()
+  }
+
+  // O passo que faltava: provar que o e-mail é de quem está relatando. Sem
+  // isso a assinatura ficava amarrada a um endereço que ninguém confirmou.
+  const [verifAberta, setVerifAberta] = useState(false)
+  const [codigo, setCodigo] = useState('')
+  const [voucher, setVoucher] = useState<string | null>(null)
+  const [emailVerificado, setEmailVerificado] = useState<string | null>(null)
+  const [verifBusy, setVerifBusy] = useState(false)
+  const [verifErro, setVerifErro] = useState<string | null>(null)
+
+  async function pedirCodigo() {
+    setVerifBusy(true); setVerifErro(null)
+    try {
+      const r = await fetch(`${BASE_URL}/public/verify-email/request`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      })
+      if (!r.ok) throw new Error()
+      setVerifAberta(true)
+    } catch { setVerifErro(tr.verifFail) } finally { setVerifBusy(false) }
+  }
+
+  async function confirmarCodigo() {
+    setVerifBusy(true); setVerifErro(null)
+    try {
+      const r = await fetch(`${BASE_URL}/public/verify-email/confirm`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), code: codigo.trim() }),
+      })
+      if (!r.ok) throw new Error()
+      const d = await r.json()
+      setVoucher(d.voucher)
+      setEmailVerificado(email.trim().toLowerCase())
+      setVerifAberta(false)
+      setCodigo('')
+      // Verificado: segue direto para a assinatura.
+      setSignOpen(true)
+    } catch { setVerifErro(tr.verifBad) } finally { setVerifBusy(false) }
   }
 
   async function doSubmit(sig?: { signature_image: string; geo: SigGeo; cpf: string | null }) {
@@ -128,6 +173,7 @@ export default function PublicReport() {
           signature_image: sig?.signature_image ?? null,
           geo: sig?.geo ?? null,
           cpf: sig?.cpf ?? null,
+          email_voucher: voucher,
           attachment_ids: attachmentIds,
         }),
       })
@@ -319,6 +365,40 @@ export default function PublicReport() {
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12.5 }}>🔒 {tr.secure}</p>
         </div>
       </div>
+
+      {/* O passo da verificação: código no e-mail antes de assinar. */}
+      {verifAberta && (
+        <div onClick={() => setVerifAberta(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 12000, background: 'rgba(6,10,18,.8)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: 400, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 22, padding: 26 }}>
+            <h3 style={{ color: 'var(--heading)', fontSize: 19, fontWeight: 800, margin: '0 0 6px' }}>{tr.verifTitle}</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: 13.5, lineHeight: 1.6, margin: '0 0 16px' }}>
+              {tr.verifBody} <b style={{ color: 'var(--heading)' }}>{email.trim()}</b>
+            </p>
+            <input
+              value={codigo}
+              onChange={(e) => setCodigo(e.target.value.replace(/\D/g, '').slice(0, 8))}
+              inputMode="numeric" autoFocus placeholder="00000000"
+              style={{ width: '100%', boxSizing: 'border-box', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px', color: 'var(--heading)', fontSize: 22, letterSpacing: '.35em', textAlign: 'center', fontFamily: 'monospace' }}
+            />
+            {verifErro && <p style={{ color: '#d9534f', fontSize: 13, margin: '10px 0 0' }}>{verifErro}</p>}
+            <button
+              type="button" disabled={verifBusy || codigo.trim().length < 4}
+              onClick={() => void confirmarCodigo()}
+              style={{ width: '100%', marginTop: 14, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '13px 22px', fontWeight: 800, fontSize: 15, cursor: 'pointer', opacity: verifBusy || codigo.trim().length < 4 ? 0.6 : 1 }}
+            >
+              {verifBusy ? tr.sending : tr.verifConfirm}
+            </button>
+            <button
+              type="button" disabled={verifBusy} onClick={() => void pedirCodigo()}
+              style={{ width: '100%', marginTop: 8, background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer' }}
+            >
+              {tr.verifResend}
+            </button>
+          </div>
+        </div>
+      )}
 
       <ParecerSignModal
         open={signOpen}
