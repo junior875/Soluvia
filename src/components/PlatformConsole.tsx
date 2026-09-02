@@ -6,7 +6,7 @@ import { api, listPlans, logout } from '../lib/api'
 import type { ApiError, PlanOut, PlatformOverview, PlatformTenantDetail, PlatformTenantRow } from '../lib/types'
 import { useTranslation } from '../i18n/LanguageProvider'
 import PrefSwitcher from './PrefSwitcher'
-import { Icon, type IconName } from '../app/icons'
+import { DuoIcon, Icon, type IconName } from '../app/icons'
 import { Avatar } from '../app/ui'
 import AvatarEditor from './AvatarEditor'
 import { ManualView } from '../app/manual/ManualView'
@@ -863,48 +863,66 @@ export default function PlatformConsole() {
           {ov && stat(tr.aiUsed, ov.ai_tokens_used)}
         </div>
 
-        {/* Empresas */}
-        <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: 16, borderBottom: '1px solid var(--border)' }}>
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr.search}
-              style={{ width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 14px', color: 'var(--heading)', fontSize: 14.5, boxSizing: 'border-box' }} />
-          </div>
+        {/* Empresas — CARTÕES, não tabela. Cada empresa é um cartão com a
+            cara do resto do produto: inicial num bloco arredondado, chips,
+            números com ícone e a barrinha de IA. Clicou, abre o painel. */}
+        <div style={{ ...card, padding: 16 }}>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr.search}
+            style={{ width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 15px', color: 'var(--heading)', fontSize: 14.5, boxSizing: 'border-box', marginBottom: 14 }} />
           {filtered.length === 0 ? (
-            <div style={{ padding: 30, textAlign: 'center', color: 'var(--text-muted)' }}>{tr.none}</div>
+            <div style={{ padding: 26, textAlign: 'center', color: 'var(--text-muted)' }}>{tr.none}</div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              {/* minWidth: no celular a tabela ROLA para o lado em vez de
-                  esmagar seis colunas até virar confete ilegível. */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 560 }}>
-                <thead>
-                  <tr style={{ textAlign: 'left', color: 'var(--text-muted)', fontSize: 12, textTransform: 'uppercase', letterSpacing: '.04em' }}>
-                    <th style={{ padding: '10px 16px' }}>{tr.tenants}</th>
-                    <th style={{ padding: '10px 16px' }}>{tr.plan}</th>
-                    <th style={{ padding: '10px 16px' }}>{tr.usersCol}</th>
-                    <th style={{ padding: '10px 16px' }}>{tr.channels}</th>
-                    <th style={{ padding: '10px 16px' }}>{tr.cases}</th>
-                    <th style={{ padding: '10px 16px' }}>{tr.aiCol}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((r) => (
-                    <tr key={r.id} onClick={() => void openDetail(r.id)} className="app-row-hover"
-                      style={{ cursor: 'pointer', borderTop: '1px solid var(--border)' }}>
-                      <td style={{ padding: '12px 16px' }}>
-                        <div style={{ color: 'var(--heading)', fontWeight: 700 }}>{r.name}</div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: 12, fontFamily: 'monospace' }}>/{r.slug}{r.subscription_status === 'suspended' ? ' · ⏸' : ''}</div>
-                      </td>
-                      <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>{r.plan_name ?? '—'}</td>
-                      <td style={{ padding: '12px 16px' }}>{num(r.users, lang)}</td>
-                      <td style={{ padding: '12px 16px' }}>{num(r.channels, lang)}</td>
-                      <td style={{ padding: '12px 16px' }}>{num(r.cases, lang)}</td>
-                      <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>
-                        {num(r.ai_tokens_used, lang)} / {r.ai_token_limit === 0 ? '∞' : num(r.ai_token_limit, lang)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 12 }}>
+              {filtered.map((r) => {
+                const pctIa = r.ai_token_limit > 0 ? Math.min(100, Math.round((r.ai_tokens_used / r.ai_token_limit) * 100)) : 0
+                const suspensa = r.subscription_status === 'suspended'
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => void openDetail(r.id)}
+                    className="app-btn app-card--hover"
+                    style={{ textAlign: 'left', cursor: 'pointer', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 18, padding: 16, display: 'flex', flexDirection: 'column', gap: 12, opacity: suspensa ? 0.75 : 1 }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                      <span style={{ width: 42, height: 42, minWidth: 42, borderRadius: 13, background: suspensa ? 'var(--surface)' : 'var(--accent-soft)', border: '1px solid var(--border)', color: 'var(--accent)', fontWeight: 900, fontSize: 17, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {(r.name || '?').trim().charAt(0).toUpperCase()}
+                      </span>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ color: 'var(--heading)', fontWeight: 800, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: 12, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>/{r.slug}</div>
+                      </div>
+                      <Icon name="chevron" size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <span style={{ borderRadius: 100, padding: '3px 11px', fontSize: 11.5, fontWeight: 800, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)' }}>{r.plan_name ?? '—'}</span>
+                      {suspensa && (
+                        <span style={{ borderRadius: 100, padding: '3px 11px', fontSize: 11.5, fontWeight: 800, background: 'rgba(225,29,72,.12)', color: '#e11d48' }}>{tr.suspended}</span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                      {([['people', r.users, tr.usersCol], ['channels', r.channels, tr.channels], ['cases', r.cases, tr.cases]] as const).map(([ic, n, rot]) => (
+                        <span key={rot} title={rot} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: 12.5 }}>
+                          <DuoIcon name={ic} size={15} />
+                          <b style={{ color: 'var(--heading)', fontWeight: 800 }}>{num(n, lang)}</b>
+                        </span>
+                      ))}
+                    </div>
+
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: 11.5, marginBottom: 5 }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><DuoIcon name="spark" size={13} /> IA</span>
+                        <span>{num(r.ai_tokens_used, lang)} / {r.ai_token_limit === 0 ? '∞' : num(r.ai_token_limit, lang)}</span>
+                      </div>
+                      <div style={{ height: 5, borderRadius: 100, background: 'var(--surface)', overflow: 'hidden' }}>
+                        <div style={{ width: `${r.ai_token_limit === 0 ? 0 : pctIa}%`, height: '100%', borderRadius: 100, background: pctIa >= 100 ? '#e11d48' : pctIa >= 85 ? '#f59e0b' : 'var(--accent)' }} />
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>
@@ -920,11 +938,15 @@ export default function PlatformConsole() {
           seu chip, salva sozinha, e o destrutivo mora numa zona própria. */}
       {detail && (
         <div onClick={() => setDetail(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--scrim)', backdropFilter: 'blur(8px)' }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: 'min(620px, 100vw)', background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', boxShadow: '-24px 0 60px rgba(0,0,0,.35)' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 10, right: 10, bottom: 10, width: 'min(620px, calc(100vw - 20px))', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 22, display: 'flex', flexDirection: 'column', boxShadow: '-24px 0 60px rgba(0,0,0,.4)', overflow: 'hidden' }}>
             {/* Cabeçalho */}
             <div style={{ padding: '18px 22px 0' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                  <span style={{ width: 46, height: 46, minWidth: 46, borderRadius: 14, background: 'var(--accent-soft)', border: '1px solid var(--border)', color: 'var(--accent)', fontWeight: 900, fontSize: 19, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {(detail.name || '?').trim().charAt(0).toUpperCase()}
+                  </span>
+                  <div style={{ minWidth: 0 }}>
                   <div style={{ color: 'var(--heading)', fontWeight: 900, fontSize: 21, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{detail.name}</div>
                   <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
                     /{detail.slug}
@@ -932,14 +954,16 @@ export default function PlatformConsole() {
                       {detail.subscription_status === 'suspended' ? tr.suspended : tr.active}
                     </span>
                   </div>
+                  </div>
                 </div>
                 <button onClick={() => setDetail(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 26, cursor: 'pointer', lineHeight: 1 }}>×</button>
               </div>
               {/* Os chips de seção: um assunto por vez. */}
               <div className="app-scroll" style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '14px 0 12px', borderBottom: '1px solid var(--border)' }}>
-                {([['visao', tr.secVisao], ['plano', tr.secPlano], ['storage', tr.secStorage], ['ia', tr.secIa], ['pessoas', tr.secPessoas], ['canais', tr.secCanais], ['acoes', tr.secAcoes]] as const).map(([id, rotulo]) => (
+                {([['visao', tr.secVisao, 'overview'], ['plano', tr.secPlano, 'billing'], ['storage', tr.secStorage, 'vault'], ['ia', tr.secIa, 'spark'], ['pessoas', tr.secPessoas, 'people'], ['canais', tr.secCanais, 'channels'], ['acoes', tr.secAcoes, 'shield']] as const).map(([id, rotulo, icone]) => (
                   <button key={id} onClick={() => setSecao(id)}
-                    style={{ border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', borderRadius: 100, padding: '7px 14px', fontWeight: 700, fontSize: 12.5, background: secao === id ? 'var(--accent)' : 'var(--surface-2)', color: secao === id ? '#fff' : 'var(--text-muted)' }}>
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 7, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', borderRadius: 100, padding: '8px 15px', fontWeight: 700, fontSize: 12.5, background: secao === id ? 'var(--accent)' : 'var(--surface-2)', color: secao === id ? '#fff' : 'var(--text-muted)' }}>
+                    <DuoIcon name={icone} size={14} />
                     {rotulo}
                   </button>
                 ))}

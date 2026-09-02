@@ -44,6 +44,8 @@ interface Caps {
   memberships: MembershipSummary[]
   /** Volta ao hub de empresas SEM deslogar — para entrar na outra empresa. */
   openHub: () => void
+  /** Troca DIRETO para o vínculo dado — o caminho do menu de perfil. */
+  switchTenant: (tenantId: string) => Promise<void>
   /** Permissões ganhas desde a última visita ao manual — vira o número na nav. */
   manualNovas: string[]
 }
@@ -172,6 +174,12 @@ export function CapabilityProvider({ children }: { children: ReactNode }) {
             openHub: () => {
               setChoices(vinculos)
               setStatus('select')
+            },
+            // Trocar de empresa também troca de TELA (a rota atual pode nem
+            // existir lá) — mesma regra do hub.
+            switchTenant: async (tenantId: string) => {
+              window.location.hash = 'painel'
+              await loadContext(tenantId)
             },
           }
         : null,

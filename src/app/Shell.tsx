@@ -59,6 +59,20 @@ function useBadges(): Badges {
   return badges
 }
 
+/** Linha do menu de perfil: ícone + rótulo (+ ✓ na empresa atual). */
+function MenuItem({ icone, rotulo, onClick, marcado }: { icone: string; rotulo: string; onClick: () => void; marcado?: boolean }) {
+  return (
+    <button
+      type="button" onClick={onClick} className="app-btn app-card--hover"
+      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', border: 'none', background: 'none', padding: '9px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'left', color: 'var(--heading)', fontWeight: 600, fontSize: 13.5 }}
+    >
+      <DuoIcon name={icone as never} size={16} />
+      <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rotulo}</span>
+      {marcado && <Icon name="check" size={15} style={{ color: 'var(--accent)', flexShrink: 0 }} />}
+    </button>
+  )
+}
+
 /** A bolinha vermelha com número — o padrão que todo mundo já leu no WhatsApp. */
 function BadgePill({ n }: { n: number }) {
   if (n <= 0) return null
@@ -87,6 +101,24 @@ export default function Shell() {
   // A foto da pessoa: nasce do contexto e atualiza na hora ao salvar no editor.
   const [fotoUrl, setFotoUrl] = useState<string | null>(ctx.user.avatar_url ?? null)
   const [editorFoto, setEditorFoto] = useState(false)
+  const [menuPerfil, setMenuPerfil] = useState(false)
+  const [usoMenu, setUsoMenu] = useState<{ ia?: string; storage?: string } | null>(null)
+  // O uso so e buscado quando o menu ABRE — dois GETs por clique, nao por boot.
+  useEffect(() => {
+    if (!menuPerfil) return
+    void (async () => {
+      const fmt = (n: number) => n.toLocaleString()
+      const mb = (b: number) => b >= 1024 ** 3 ? (b / 1024 ** 3).toFixed(1) + ' GB' : Math.round(b / 1024 ** 2) + ' MB'
+      const [ia, st] = await Promise.all([
+        api.get<{ my_used: number; my_limit: number }>('/ai/usage').catch(() => null),
+        api.get<{ used_bytes: number; limit_bytes: number; unlimited: boolean }>('/storage/usage').catch(() => null),
+      ])
+      setUsoMenu({
+        ia: ia ? fmt(ia.my_used) + (ia.my_limit > 0 ? ' / ' + fmt(ia.my_limit) : '') : undefined,
+        storage: st ? mb(st.used_bytes) + ' / ' + (st.unlimited ? '∞' : mb(st.limit_bytes)) : undefined,
+      })
+    })()
+  }, [menuPerfil])
   const badges = useBadges()
   // Aba → número. As três abas "pessoais" têm badge; as demais são telas de
   // trabalho, não de aviso.
@@ -199,25 +231,77 @@ export default function Shell() {
           })}
         </nav>
 
-        <div style={{ padding: 16, borderTop: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {/* O cartãozinho da pessoa é o atalho da FOTO: clicou, abre o
-                editor — sem precisar achar a seção em Configurações. */}
-            <button
-              type="button"
-              title={t.settings.photoChange}
-              onClick={() => setEditorFoto(true)}
-              className="app-btn"
-              style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-            >
-              <Avatar name={ctx.user.full_name} src={fotoUrl} />
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ctx.user.full_name}</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ctx.user.email}</div>
+        <div style={{ padding: 16, borderTop: '1px solid var(--border)', position: 'relative' }}>
+          {/* O cartãozinho da pessoa abre o MENU DE PERFIL — foto, ajustes,
+              empresas, uso e sair, tudo num lugar só (o padrão de toda
+              plataforma grande). O logout genérico e o botão de trocar
+              empresa do topo moram aqui agora. */}
+          <button
+            type="button"
+            onClick={() => setMenuPerfil((v) => !v)}
+            className="app-btn"
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', minWidth: 0, background: menuPerfil ? 'var(--surface-2)' : 'none', border: 'none', padding: 6, borderRadius: 12, cursor: 'pointer', textAlign: 'left' }}
+          >
+            <Avatar name={ctx.user.full_name} src={fotoUrl} />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ctx.user.full_name}</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ctx.user.email}</div>
+            </div>
+            <Icon name="chevron" size={14} style={{ color: 'var(--text-muted)', flexShrink: 0, transform: menuPerfil ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform .15s' }} />
+          </button>
+
+          {menuPerfil && (
+            <>
+              {/* Clique fora fecha. */}
+              <div onClick={() => setMenuPerfil(false)} style={{ position: 'fixed', inset: 0, zIndex: 9500 }} />
+              <div style={{ position: 'absolute', left: 12, right: 12, bottom: 'calc(100% + 6px)', zIndex: 9501, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 18px 50px rgba(0,0,0,.4)', padding: 8, maxHeight: '70vh', overflowY: 'auto' }} className="app-scroll">
+                <div style={{ color: 'var(--text-muted)', fontSize: 12, padding: '8px 12px 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ctx.user.email}</div>
+
+                <MenuItem icone="people" rotulo={t.settings.photoChange} onClick={() => { setMenuPerfil(false); setEditorFoto(true) }} />
+                <MenuItem icone="settings" rotulo={(t.nav as unknown as Record<string, string>).settings} onClick={() => { setMenuPerfil(false); goScreen('settings') }} />
+
+                {/* Uso: os dois números que a pessoa mais pergunta. */}
+                {usoMenu && (
+                  <div style={{ margin: '6px 4px', padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 12 }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>{t.settings.menuUsage}</div>
+                    {usoMenu.ia && (
+                      <div style={{ color: 'var(--heading)', fontSize: 12.5, marginBottom: 3 }}>
+                        IA · {usoMenu.ia}
+                      </div>
+                    )}
+                    {usoMenu.storage && (
+                      <div style={{ color: 'var(--heading)', fontSize: 12.5 }}>
+                        {t.settings.storageTitle} · {usoMenu.storage}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Empresas: a troca mora AQUI agora (saiu do topo). */}
+                {caps.memberships.length > 1 && (
+                  <>
+                    <div style={{ height: 1, background: 'var(--border)', margin: '6px 4px' }} />
+                    <div style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em', padding: '6px 12px 4px' }}>{t.settings.menuCompanies}</div>
+                    {caps.memberships.map((m) => {
+                      const atual = m.tenant_id === ctx.tenant_id
+                      return (
+                        <MenuItem
+                          key={m.id}
+                          icone="channels"
+                          rotulo={m.tenant_name}
+                          marcado={atual}
+                          onClick={() => { if (!atual) { setMenuPerfil(false); void caps.switchTenant(m.tenant_id) } }}
+                        />
+                      )
+                    })}
+                  </>
+                )}
+
+                <div style={{ height: 1, background: 'var(--border)', margin: '6px 4px' }} />
+                <MenuItem icone="logout" rotulo={t.common.logout} onClick={() => void caps.logout()} />
               </div>
-            </button>
-            <IconButton icon="logout" label={t.common.logout} onClick={() => void caps.logout()} />
-          </div>
+            </>
+          )}
         </div>
 
         <AvatarEditor
@@ -256,24 +340,11 @@ export default function Shell() {
               vínculo: clica, escolhe a outra empresa/papel, sem deslogar. Com
               um vínculo só, continua texto — não se oferece escolha que não
               existe. */}
-          {caps.memberships.length > 1 ? (
-            <button
-              type="button"
-              className="app-btn"
-              onClick={caps.openHub}
-              title={t.states.chooseCompany}
-              style={{ display: 'flex', alignItems: 'center', gap: 9, color: 'var(--heading)', fontWeight: 800, minWidth: 0, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 100, padding: '7px 13px', cursor: 'pointer' }}
-            >
-              <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
-              <span className="pnl-topbar-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ctx.tenant_name}</span>
-              <Icon name="chevron" size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-            </button>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9, color: 'var(--heading)', fontWeight: 800, minWidth: 0 }}>
-              <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
-              <span className="pnl-topbar-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ctx.tenant_name}</span>
-            </div>
-          )}
+          {/* Só informa a empresa atual; a TROCA mora no menu de perfil. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, color: 'var(--heading)', fontWeight: 800, minWidth: 0 }}>
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
+            <span className="pnl-topbar-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ctx.tenant_name}</span>
+          </div>
 
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
             <NotificationBell />
