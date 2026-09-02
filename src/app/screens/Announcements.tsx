@@ -30,7 +30,9 @@ type Aviso = {
   created_at: string
 }
 
-type Contato = { email: string; name: string; status: string }
+type Contato = { email: string; name: string; status: string; contact_id?: string }
+
+const EMAIL_OK = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
 export default function Announcements() {
   const t = useT()
@@ -43,9 +45,15 @@ export default function Announcements() {
   const [publico, setPublico] = useState<'contacts' | 'list'>('contacts')
   const [contatos, setContatos] = useState<Contato[] | null>(null)
   const [marcados, setMarcados] = useState<Set<string>>(new Set())
-  // E-mails AVULSOS somados aos contatos marcados: o RH quer avisar a folha e
-  // também o consultor externo que nem tem cadastro — sem trocar de modo.
-  const [extras, setExtras] = useState('')
+  // E-mails AVULSOS somados aos contatos marcados — UM POR LINHA, cada linha
+  // validada. O campo de texto solto ("separe por espaço") era péssimo de
+  // conferir: um endereço colado errado sumia no meio dos outros.
+  const [extras, setExtras] = useState<string[]>([])
+  // A agenda: cadastrar alguém de fora da plataforma (nome + e-mail) uma vez,
+  // e ele passa a aparecer na lista de contatos como qualquer membro.
+  const [novoNome, setNovoNome] = useState('')
+  const [novoEmail, setNovoEmail] = useState('')
+  const [salvandoContato, setSalvandoContato] = useState(false)
   const [lista, setLista] = useState('')
   const [assunto, setAssunto] = useState('')
   const [mensagem, setMensagem] = useState('')
@@ -102,10 +110,40 @@ export default function Announcements() {
     .map((x) => x.trim())
     .filter((x) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x)).length
 
-  const extrasValidos = extras
-    .split(/[\n,;\s]+/)
-    .map((x) => x.trim())
-    .filter((x) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x))
+  const extrasValidos = extras.map((x) => x.trim()).filter((x) => EMAIL_OK.test(x))
+
+  async function cadastrarContato() {
+    const email = novoEmail.trim().toLowerCase()
+    if (!EMAIL_OK.test(email) || salvandoContato) return
+    setSalvandoContato(true)
+    try {
+      const c = await api.post<{ id: string; email: string; name: string }>(
+        '/announcements/contacts', { name: novoNome.trim(), email },
+      )
+      setContatos((cs) => {
+        const sem = (cs ?? []).filter((x) => x.email !== c.email)
+        return [...sem, { email: c.email, name: c.name || c.email.split('@')[0], status: 'contact', contact_id: c.id }]
+          .sort((a, b) => a.name.localeCompare(b.name))
+      })
+      // Recém-cadastrado já entra MARCADO: a pessoa o cadastrou para avisar.
+      setMarcados((m) => new Set(m).add(c.email))
+      setNovoNome(''); setNovoEmail('')
+      flash(tx.contactSaved)
+    } catch (e) {
+      flash((e as ApiError).detail ?? tx.errLoad)
+    } finally { setSalvandoContato(false) }
+  }
+
+  async function removerContato(c: Contato) {
+    if (!c.contact_id) return
+    try {
+      await api.delete(`/announcements/contacts/${c.contact_id}`)
+      setContatos((cs) => (cs ?? []).filter((x) => x.email !== c.email))
+      setMarcados((m) => { const novo = new Set(m); novo.delete(c.email); return novo })
+    } catch (e) {
+      flash((e as ApiError).detail ?? tx.errLoad)
+    }
+  }
 
   const podeEnviar = !enviando && !!canalId
     && (publico === 'list' ? quantosNaLista > 0 : marcados.size + extrasValidos.length > 0)
@@ -126,7 +164,7 @@ export default function Announcements() {
         message: mensagem,
       })
       flash(tx.sentOk(r.sent_count))
-      setLista(''); setExtras(''); setAssunto(''); setMensagem('')
+      setLista(''); setExtras([]); setAssunto(''); setMensagem('')
       await carregar()
     } catch (e) {
       flash((e as ApiError).detail ?? tx.errSend)
@@ -225,22 +263,86 @@ export default function Announcements() {
                           style={{ width: 15, height: 15, accentColor: 'var(--accent)' }}
                         />
                         <span style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 13.5, flex: '0 0 auto' }}>{c.name}</span>
-                        <span style={{ color: 'var(--text-muted)', fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.email}</span>
-                        {c.status !== 'active' && <Chip tone="muted">{tx.invited}</Chip>}
+                        <span style={{ color: 'var(--text-muted)', fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{c.email}</span>
+                        {c.status === 'contact' ? <Chip tone="blue">{tx.contactChip}</Chip>
+                          : c.status !== 'active' ? <Chip tone="muted">{tx.invited}</Chip> : null}
+                        {/* Só a AGENDA se remove daqui; membro sai em Pessoas. */}
+                        {c.contact_id && (
+                          <button
+                            type="button" className="app-btn" title={tx.contactRemove}
+                            onClick={(e) => { e.preventDefault(); void removerContato(c) }}
+                            style={{ border: 'none', background: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 2, flexShrink: 0 }}
+                          >
+                            <Icon name="trash" size={14} />
+                          </button>
+                        )}
                       </label>
                     )
                   })}
                 </div>
 
-                {/* E-mails AVULSOS somados aos marcados: o consultor externo,
-                    o sócio sem cadastro — sem obrigar a trocar de modo. */}
+                {/* A agenda: cadastrar quem NÃO tem conta (chão de fábrica,
+                    terceirizado) uma vez — e ele vira contato permanente. */}
+                <div style={{ marginTop: 12, border: '1px dashed var(--border)', borderRadius: 12, padding: '12px 14px' }}>
+                  <p style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 13, margin: '0 0 8px' }}>{tx.contactNewTitle}</p>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <div style={{ flex: '1 1 140px', minWidth: 0 }}>
+                      <Input value={novoNome} onChange={(e) => setNovoNome(e.target.value)} placeholder={tx.contactNamePh} />
+                    </div>
+                    <div style={{ flex: '2 1 200px', minWidth: 0 }}>
+                      <Input value={novoEmail} onChange={(e) => setNovoEmail(e.target.value)} placeholder={tx.contactEmailPh}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void cadastrarContato() } }} />
+                    </div>
+                    <Button variant="outline" loading={salvandoContato}
+                      disabled={!EMAIL_OK.test(novoEmail.trim())}
+                      onClick={() => void cadastrarContato()} style={{ padding: '9px 16px', fontSize: 13 }}>
+                      {tx.contactAdd}
+                    </Button>
+                  </div>
+                  <p style={{ color: 'var(--text-muted)', fontSize: 12, margin: '8px 0 0' }}>{tx.contactNewHint}</p>
+                </div>
+
+                {/* E-mails AVULSOS deste envio — um por linha, cada linha
+                    validada. Para endereço que vale guardar, use a agenda. */}
                 <div style={{ marginTop: 12 }}>
                   <Field label={tx.extraEmails}>
-                    <Input
-                      value={extras}
-                      onChange={(e) => setExtras(e.target.value)}
-                      placeholder={tx.extraEmailsPh}
-                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {extras.map((v, i) => {
+                        const invalido = v.trim() !== '' && !EMAIL_OK.test(v.trim())
+                        return (
+                          <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <input
+                                className="app-input" type="email" value={v}
+                                onChange={(e) => setExtras((xs) => xs.map((x, j) => (j === i ? e.target.value : x)))}
+                                placeholder={tx.extraEmailsPh}
+                                style={{
+                                  width: '100%', boxSizing: 'border-box', background: 'var(--surface-2)',
+                                  border: `1px solid ${invalido ? '#d9534f' : 'var(--border)'}`,
+                                  borderRadius: 12, padding: '10px 13px', color: 'var(--heading)',
+                                  fontSize: 13.5, outline: 'none', fontFamily: 'inherit',
+                                }}
+                              />
+                            </div>
+                            {invalido && <span style={{ color: '#d9534f', fontSize: 11.5, fontWeight: 700, flexShrink: 0 }}>{tx.extraInvalid}</span>}
+                            <button
+                              type="button" className="app-btn" title={tx.extraRemove}
+                              onClick={() => setExtras((xs) => xs.filter((_, j) => j !== i))}
+                              style={{ border: 'none', background: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 2, flexShrink: 0 }}
+                            >
+                              <Icon name="close" size={15} />
+                            </button>
+                          </div>
+                        )
+                      })}
+                      <button
+                        type="button" className="app-btn"
+                        onClick={() => setExtras((xs) => [...xs, ''])}
+                        style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', border: '1px dashed var(--border)', background: 'transparent', color: 'var(--accent)', borderRadius: 100, padding: '7px 15px', fontSize: 12.5, fontWeight: 800 }}
+                      >
+                        <Icon name="plus" size={13} /> {tx.extraAddLine}
+                      </button>
+                    </div>
                     <p style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: 6 }}>
                       {extrasValidos.length > 0 ? tx.extraCount(extrasValidos.length) : tx.extraEmailsHint}
                     </p>
