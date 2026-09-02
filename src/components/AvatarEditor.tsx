@@ -37,10 +37,12 @@ export default function AvatarEditor({ open, onClose, onSaved, textos, atualUrl 
   const arrasto = useRef<{ x: number; y: number } | null>(null)
   const pincaDist = useRef<number | null>(null)
 
-  /** Zoom mínimo por imagem: 1 = cobre o círculo; abaixo disso, até a imagem
-   *  INTEIRA caber (o caso do logo largo que não tinha como enquadrar). */
-  const zoomMin = img ? Math.min(1, Math.min(img.width, img.height) / Math.max(img.width, img.height)) : 1
-  const ZOOM_MAX = 4
+  /** Faixa de zoom LARGA de propósito: 1 = cobre o círculo; para baixo vai
+   *  até 5x além do "coube inteira" (sobra sai transparente), para cima 10x.
+   *  A régua anterior parava exatamente no enquadramento e parecia travada. */
+  const contain = img ? Math.min(img.width, img.height) / Math.max(img.width, img.height) : 1
+  const zoomMin = Math.min(0.2, contain)
+  const ZOOM_MAX = 10
 
   function escolher(file: File | null) {
     if (!file) return
