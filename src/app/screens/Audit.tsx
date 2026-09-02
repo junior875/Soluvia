@@ -84,13 +84,26 @@ export default function Audit() {
   const verbOf = (r: AuditRow) => (t.audit.act as Record<string, string>)[normAction(r.action)] || r.action
   const whoOf = (r: AuditRow) => r.actor_name || t.audit.system
   const detailOf = (r: AuditRow) => {
+    const m = r.metadata || {}
+    // Prova tem NOME, e o nome é o que responde "qual arquivo saiu daqui" —
+    // um id truncado não responde nada. O protocolo diz de qual caso.
+    if (typeof m.filename === 'string' && m.filename) {
+      const proto = typeof m.protocol === 'string' && m.protocol ? ` · ${m.protocol}` : ''
+      return `${m.filename}${proto}`
+    }
     const resLabel = (t.audit.res as Record<string, string>)[r.resource_type] || r.resource_type
     let d = r.resource_id ? `${resLabel} · ${String(r.resource_id).slice(0, 8)}` : resLabel
-    const m = r.metadata || {}
     if (typeof m.level === 'string') d += ` · ${m.level}`
     if (typeof m.new_status === 'string') d += ` · ${m.new_status}`
     return d
   }
+  // Do registro para o arquivo num salto: a linha de prova abre o cofre já
+  // apontando para ela. É o "quem tirou este arquivo daqui" com o caminho de
+  // volta — rastreável de ponta a ponta, não só legível.
+  const vaultLinkOf = (r: AuditRow) =>
+    r.resource_type === 'case_attachment' && r.resource_id
+      ? `painel/evidence?arquivo=${r.resource_id}`
+      : null
 
   const people = useMemo(() => {
     const set = new Set<string>()
@@ -249,8 +262,15 @@ export default function Audit() {
                 {g.items.map((r) => {
                   const c = catOf(r.action)
                   const [bg, fg] = CAT_STYLE[c]
+                  const link = vaultLinkOf(r)
                   return (
-                    <div key={r.id} className="app-card--hover" style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '11px 12px', borderRadius: 12 }}>
+                    <div
+                      key={r.id}
+                      className="app-card--hover"
+                      onClick={link ? () => { window.location.hash = link } : undefined}
+                      title={link ? t.audit.openInVault : undefined}
+                      style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '11px 12px', borderRadius: 12, cursor: link ? 'pointer' : undefined }}
+                    >
                       <span style={{ width: 38, height: 38, minWidth: 38, borderRadius: 11, background: bg, color: fg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Icon name={CAT_ICON[c]} size={19} />
                       </span>
@@ -260,6 +280,7 @@ export default function Audit() {
                         </div>
                         <div style={{ color: 'var(--text-muted)', fontSize: 12.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{detailOf(r)}</div>
                       </div>
+                      {link && <Icon name="vault" size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />}
                       <span style={{ color: 'var(--text-muted)', fontSize: 12.5, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{new Date(r.created_at).toLocaleTimeString(locale)}</span>
                     </div>
                   )

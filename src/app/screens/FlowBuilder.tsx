@@ -180,40 +180,47 @@ export default function FlowBuilder() {
     if (!flowChannels.some((c) => c.id === channelId)) setChannelId(flowChannels[0].id)
   }, [flowChannels, channelId])
 
+  /** Aplica um fluxo (do GET ou de uma VERSÃO do histórico) no rascunho.
+   *
+   *  É a mesma hidratação nos dois caminhos de propósito: restaurar uma versão
+   *  é devolver ao construtor o formato que ele mesmo mandou — se cada caminho
+   *  tivesse seu tradutor, os dois divergiriam no primeiro campo novo. */
+  const aplicarFluxo = (f: FlowOut) => {
+    setFlowName(f.name || tf.egName)
+    setMode(f.mode === 'parallel' ? 'parallel' : 'sequential')
+    setCloserMembershipId(f.closer_membership_id ?? null)
+    setCloserRoleId(f.closer_role_id ?? null)
+    setCloserRequireSignature(!!f.closer_require_signature)
+    setStages(normalizar(f.stages.map((s, i) => ({
+      key: uid(), name: s.name, operator_role_id: s.operator_role_id,
+      operator_membership_id: s.operator_membership_id ?? null,
+      // Fluxo salvo antes dos grupos não traz `group_index`. O padrão
+      // seguro é UM GRUPO POR ETAPA (sequencial): juntar tudo num grupo só
+      // faria o fluxo antigo passar a acionar todo mundo de uma vez.
+      group_index: s.group_index ?? (f.mode === 'parallel' ? 0 : i),
+      // Fluxo salvo antes dos tipos vem sem `kind`: deduz do que a etapa
+      // pedia, para o painel não abrir mostrando um tipo que ninguém
+      // escolheu (e que seria salvo por cima no próximo salvar).
+      kind: s.kind ?? kindDoConfig(s.parecer_config),
+      parecer_config: s.parecer_config ?? {},
+      require_signature: !!s.require_signature,
+      watcher_all: !!s.watcher_all,
+      watcher_role_ids: s.watcher_role_ids ?? [],
+      watcher_membership_ids: s.watcher_membership_ids ?? [],
+      sla_days: s.sla_days,
+      // Fluxo antigo só tem dias: vira horas aqui, uma vez, e o rascunho
+      // inteiro fala uma língua só.
+      sla_hours: s.sla_hours ?? (s.sla_days || 0) * 24,
+      is_conditional: s.is_conditional, condition: s.condition,
+    }))))
+  }
+
   // Carrega o fluxo do canal (404 = ainda não configurado → vazio).
   useEffect(() => {
     if (!channelId) return
     setStages(null)
     api.get<FlowOut>(`/channels/${channelId}/flow`)
-      .then((f) => {
-        setFlowName(f.name || tf.egName)
-        setMode(f.mode === 'parallel' ? 'parallel' : 'sequential')
-        setCloserMembershipId(f.closer_membership_id ?? null)
-        setCloserRoleId(f.closer_role_id ?? null)
-        setCloserRequireSignature(!!f.closer_require_signature)
-        setStages(normalizar(f.stages.map((s, i) => ({
-          key: uid(), name: s.name, operator_role_id: s.operator_role_id,
-          operator_membership_id: s.operator_membership_id ?? null,
-          // Fluxo salvo antes dos grupos não traz `group_index`. O padrão
-          // seguro é UM GRUPO POR ETAPA (sequencial): juntar tudo num grupo só
-          // faria o fluxo antigo passar a acionar todo mundo de uma vez.
-          group_index: s.group_index ?? (f.mode === 'parallel' ? 0 : i),
-          // Fluxo salvo antes dos tipos vem sem `kind`: deduz do que a etapa
-          // pedia, para o painel não abrir mostrando um tipo que ninguém
-          // escolheu (e que seria salvo por cima no próximo salvar).
-          kind: s.kind ?? kindDoConfig(s.parecer_config),
-          parecer_config: s.parecer_config ?? {},
-          require_signature: !!s.require_signature,
-          watcher_all: !!s.watcher_all,
-          watcher_role_ids: s.watcher_role_ids ?? [],
-          watcher_membership_ids: s.watcher_membership_ids ?? [],
-          sla_days: s.sla_days,
-          // Fluxo antigo só tem dias: vira horas aqui, uma vez, e o rascunho
-          // inteiro fala uma língua só.
-          sla_hours: s.sla_hours ?? (s.sla_days || 0) * 24,
-          is_conditional: s.is_conditional, condition: s.condition,
-        }))))
-      })
+      .then(aplicarFluxo)
       .catch(() => { setFlowName(tf.egName); setMode('sequential'); setCloserMembershipId(null); setCloserRoleId(null); setCloserRequireSignature(false); setStages([]) })
     // `tf` de propósito fora das dependências: ele só muda junto com o canal, e
     // relistar aqui refaria o GET a cada troca de idioma, jogando fora o que a
@@ -574,6 +581,37 @@ export default function FlowBuilder() {
     } finally { setBusy(false) }
   }
 
+  /* ── Histórico de versões (o "git" do fluxo) ──────────────────
+     Cada salvamento vira uma versão no servidor; aqui a pessoa lista e
+     restaura qualquer uma. Restaurar carrega a versão como RASCUNHO — nada
+     muda até ela salvar (o que grava uma versão nova por cima, nunca apaga).
+     Decisão de produto: só gente mexe aqui; o agente de IA não enxerga o
+     histórico. */
+  type VersaoFluxo = { id: string; created_at: string; author_name: string; stages_count: number; groups_count: number }
+  const [histAberto, setHistAberto] = useState(false)
+  const [versoes, setVersoes] = useState<VersaoFluxo[] | null>(null)
+  const [restaurando, setRestaurando] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!histAberto || !channelId) return
+    setVersoes(null)
+    api.get<VersaoFluxo[]>(`/channels/${channelId}/flow/versions`)
+      .then(setVersoes)
+      .catch(() => setVersoes([]))
+  }, [histAberto, channelId])
+
+  async function restaurarVersao(v: VersaoFluxo) {
+    setRestaurando(v.id)
+    try {
+      const r = await api.get<{ payload: FlowOut }>(`/channels/${channelId}/flow/versions/${v.id}`)
+      aplicarFluxo(r.payload)
+      setHistAberto(false)
+      flash(t.flow.histRestored)
+    } catch (e) {
+      flash((e as ApiError).detail ?? t.flow.saveFail)
+    } finally { setRestaurando(null) }
+  }
+
   const Toast = toast && createPortal(
     <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: 'var(--heading)', color: 'var(--surface)', padding: '12px 22px', borderRadius: 100, fontWeight: 700, fontSize: 14, boxShadow: '0 12px 30px rgba(0,0,0,.3)', zIndex: 10002 }}>{toast}</div>,
     document.body,
@@ -588,11 +626,45 @@ export default function FlowBuilder() {
         subtitle={tf.subtitle}
         action={canEdit && channelId && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Button variant="ghost" leftIcon="clock" onClick={() => setHistAberto(true)}>{t.flow.histButton}</Button>
             <Button variant="ghost" leftIcon="spark" onClick={() => setTplAberto(true)}>{t.flow.tplButton}</Button>
             <Button leftIcon="check" onClick={() => void save()} loading={busy}>{t.flow.save}</Button>
           </div>
         )}
       />
+
+      {/* Modal do histórico: toda gravação vira uma linha aqui. */}
+      <Modal open={histAberto} onClose={() => setHistAberto(false)} title={t.flow.histTitle} kicker={t.flow.title} maxWidth={560}>
+        <p style={{ color: 'var(--text-muted)', fontSize: 13.5, margin: '0 0 14px' }}>{t.flow.histBody}</p>
+        {versoes === null ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{[0, 1, 2].map((i) => <Skeleton key={i} h={52} r={12} />)}</div>
+        ) : versoes.length === 0 ? (
+          <EmptyState icon="clock" title={t.flow.histEmpty} />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '52vh', overflowY: 'auto' }} className="app-scroll">
+            {versoes.map((v, i) => (
+              <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 13px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-2)', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+                  <div style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 13.5 }}>
+                    {new Date(v.created_at).toLocaleString()}
+                    {i === 0 && <span style={{ marginLeft: 8, color: 'var(--accent)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em' }}>{t.flow.histCurrent}</span>}
+                  </div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {v.author_name || '—'} · {t.flow.histCounts(v.stages_count, v.groups_count)}
+                  </div>
+                </div>
+                {/* A versão do topo é a que está valendo — restaurá-la seria um
+                    clique que não faz nada e confunde. */}
+                {i > 0 && (
+                  <Button variant="outline" loading={restaurando === v.id} onClick={() => void restaurarVersao(v)} style={{ padding: '7px 13px', fontSize: 12.5 }}>
+                    {t.flow.histRestore}
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
 
       {flowChannels.length === 0 ? (
         <Card><EmptyState icon="flow" title={t.flow.noChannel} body={t.flow.noChannelBody} /></Card>

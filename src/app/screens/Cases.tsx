@@ -46,6 +46,14 @@ export default function Cases({ module = 'etica' }: CasesProps) {
   const [cases, setCases] = useState<CaseOut[] | null>(null)
   const [detail, setDetail] = useState<CaseDetail | null>(null)
   const [open, setOpen] = useState(false)
+  /** Uma prova está aberta no visualizador. No desktop, o modal do caso
+   *  encosta na DIREITA e o arquivo cresce para a esquerda — os dois lado a
+   *  lado, em vez de um cobrindo o outro. No celular não há "lado": o
+   *  visualizador segue em tela cheia. */
+  const [provaAberta, setProvaAberta] = useState(false)
+  const ladoALado = provaAberta && window.innerWidth >= 1024
+  // 420px do modal ancorado + os respiros do scrim.
+  const RESERVA_MODAL = 448
   const [busy, setBusy] = useState(false)
   const [reply, setReply] = useState('')
   const [note, setNote] = useState('')
@@ -270,7 +278,7 @@ export default function Cases({ module = 'etica' }: CasesProps) {
         </div>
       )}
 
-      <Modal open={open} onClose={() => setOpen(false)} kicker={tx.title} title={detail ? detail.protocol : t.cases.loading} maxWidth={720}>
+      <Modal open={open} onClose={() => { setOpen(false); setProvaAberta(false) }} kicker={tx.title} title={detail ? detail.protocol : t.cases.loading} maxWidth={720} dock={ladoALado ? 'right' : null}>
         {!detail ? <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}><Skeleton h={20} /><Skeleton h={90} r={12} /><Skeleton h={60} r={12} /></div> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -299,6 +307,8 @@ export default function Cases({ module = 'etica' }: CasesProps) {
                 canAudit={can('admin.view_audit')}
                 onError={flash}
                 onContagem={setProvasCount}
+                onPreview={setProvaAberta}
+                reservaDireita={ladoALado ? RESERVA_MODAL : 0}
                 textos={{
                   title: tx.evidenceTitle,
                   empty: tx.evidenceEmpty,

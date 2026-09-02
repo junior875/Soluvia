@@ -55,6 +55,16 @@ export default function EvidenceVault() {
   const [erro, setErro] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState<string | null>(null)
   const timer = useRef<number | null>(null)
+  // Vindo da auditoria (#painel/evidence?arquivo=<id>): destaca a prova da
+  // linha clicada. Lido UMA vez e limpo da URL — senão o destaque renasceria
+  // a cada remontagem, apontando para um clique que já passou.
+  const [destaque, setDestaque] = useState<string | null>(() => {
+    const query = window.location.hash.split('?')[1]
+    const id = query ? new URLSearchParams(query).get('arquivo') : null
+    if (id) window.history.replaceState(null, '', window.location.hash.split('?')[0])
+    return id
+  })
+  const linhaDestacada = useRef<HTMLDivElement | null>(null)
 
   const carregar = useCallback(async () => {
     const params = new URLSearchParams()
@@ -77,6 +87,15 @@ export default function EvidenceVault() {
     timer.current = window.setTimeout(() => void carregar(), 350)
     return () => { if (timer.current) window.clearTimeout(timer.current) }
   }, [carregar])
+
+  // Rola até a prova destacada quando a lista chega; o destaque se apaga
+  // sozinho depois — é um dedo apontando, não um estado permanente.
+  useEffect(() => {
+    if (!destaque || provas === null) return
+    linhaDestacada.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const t = window.setTimeout(() => setDestaque(null), 4000)
+    return () => window.clearTimeout(t)
+  }, [destaque, provas])
 
   async function abrir(p: Prova) {
     setOcupado(p.id)
@@ -144,7 +163,18 @@ export default function EvidenceVault() {
       ) : (
         <Card style={{ padding: 0 }}>
           {provas.map((p, i) => (
-            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px', borderBottom: i < provas.length - 1 ? '1px solid var(--border)' : 'none', flexWrap: 'wrap' }}>
+            <div
+              key={p.id}
+              ref={p.id === destaque ? linhaDestacada : undefined}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px',
+                borderBottom: i < provas.length - 1 ? '1px solid var(--border)' : 'none', flexWrap: 'wrap',
+                // O dedo apontando: a linha que a auditoria mandou abrir.
+                background: p.id === destaque ? 'var(--accent-soft)' : undefined,
+                boxShadow: p.id === destaque ? 'inset 3px 0 0 var(--accent)' : undefined,
+                transition: 'background .6s ease, box-shadow .6s ease',
+              }}
+            >
               <span style={{ width: 36, height: 36, minWidth: 36, borderRadius: 11, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <DuoIcon name={ICONE_DO_KIND[p.kind] ?? 'audit'} size={17} />
               </span>

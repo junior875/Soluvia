@@ -13,6 +13,7 @@
  * com o download como saída quando a pessoa tem essa permissão.
  */
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 // Só o TIPO entra estático: o pdf.js pesa ~480KB e é carregado sob demanda
 // (import dinâmico no efeito), senão ele viria no bundle principal de TODAS
 // as páginas — inclusive a landing.
@@ -52,11 +53,12 @@ function Falha({ textos, canDownload, onDownload }: {
 }
 
 /** Páginas do PDF em canvas, uma embaixo da outra, na largura disponível. */
-function PdfPager({ url, textos, canDownload, onDownload }: {
+function PdfPager({ url, textos, canDownload, onDownload, larguraMax = 'min(92vw, 940px)' }: {
   url: string
   textos: FilePreviewTextos
   canDownload: boolean
   onDownload?: () => void
+  larguraMax?: string
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [estado, setEstado] = useState<'carregando' | 'pronto' | 'erro'>('carregando')
@@ -116,7 +118,7 @@ function PdfPager({ url, textos, canDownload, onDownload }: {
 
   if (estado === 'erro') return <Falha textos={textos} canDownload={canDownload} onDownload={onDownload} />
   return (
-    <div className="app-scroll" style={{ overflowY: 'auto', maxHeight: '82vh', width: 'min(92vw, 940px)', borderRadius: 12 }}>
+    <div className="app-scroll" style={{ overflowY: 'auto', maxHeight: '82vh', width: larguraMax, borderRadius: 12 }}>
       {estado === 'carregando' && (
         <p style={{ color: '#fff', textAlign: 'center', padding: 30 }}>{textos.loading}</p>
       )}
@@ -125,12 +127,69 @@ function PdfPager({ url, textos, canDownload, onDownload }: {
   )
 }
 
-/** Texto puro (txt/csv), buscado e mostrado — sem executar nada. */
-function TextoPlano({ url, textos, canDownload, onDownload }: {
+/** Word (.docx) desenhado DENTRO do site.
+ *
+ * O navegador não renderiza Word — antes disto, "ver" um docx era um download
+ * disfarçado (e por isso exigia a permissão de baixar). O mammoth converte o
+ * documento em HTML no cliente; o DOMPurify então REMOVE qualquer coisa
+ * executável antes de encostar no DOM — o docx vem de quem denuncia, ou seja,
+ * de fora, e conteúdo de fora não ganha script aqui dentro.
+ *
+ * As duas bibliotecas entram por import dinâmico, como o pdf.js: quem nunca
+ * abre um Word não paga o peso delas.
+ */
+function DocxView({ url, textos, canDownload, onDownload, larguraMax }: {
   url: string
   textos: FilePreviewTextos
   canDownload: boolean
   onDownload?: () => void
+  larguraMax: string
+}) {
+  const [html, setHtml] = useState<string | null>(null)
+  const [erro, setErro] = useState(false)
+
+  useEffect(() => {
+    let vivo = true
+    ;(async () => {
+      try {
+        const [{ default: mammoth }, { default: DOMPurify }, resp] = await Promise.all([
+          import('mammoth/mammoth.browser'),
+          import('dompurify'),
+          fetch(url),
+        ])
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+        const bruto = await resp.arrayBuffer()
+        const r = await mammoth.convertToHtml({ arrayBuffer: bruto })
+        if (!vivo) return
+        setHtml(DOMPurify.sanitize(r.value, { FORBID_TAGS: ['style', 'iframe', 'form'] }))
+      } catch {
+        if (vivo) setErro(true)
+      }
+    })()
+    return () => { vivo = false }
+  }, [url])
+
+  if (erro) return <Falha textos={textos} canDownload={canDownload} onDownload={onDownload} />
+  return (
+    <div className="app-scroll" style={{
+      overflowY: 'auto', maxHeight: '82vh', width: larguraMax,
+      background: '#fff', color: '#1c2a3a', borderRadius: 12,
+      padding: 'clamp(18px, 4vw, 42px)', fontSize: 14.5, lineHeight: 1.65,
+    }}>
+      {html === null
+        ? <p style={{ textAlign: 'center', color: '#5b6b80' }}>{textos.loading}</p>
+        : <div className="docx-body" dangerouslySetInnerHTML={{ __html: html }} />}
+    </div>
+  )
+}
+
+/** Texto puro (txt/csv), buscado e mostrado — sem executar nada. */
+function TextoPlano({ url, textos, canDownload, onDownload, larguraMax = 'min(92vw, 940px)' }: {
+  url: string
+  textos: FilePreviewTextos
+  canDownload: boolean
+  onDownload?: () => void
+  larguraMax?: string
 }) {
   const [conteudo, setConteudo] = useState<string | null>(null)
   const [erro, setErro] = useState(false)
@@ -148,7 +207,7 @@ function TextoPlano({ url, textos, canDownload, onDownload }: {
   if (erro) return <Falha textos={textos} canDownload={canDownload} onDownload={onDownload} />
   return (
     <pre className="app-scroll" style={{
-      overflow: 'auto', maxHeight: '82vh', width: 'min(92vw, 940px)',
+      overflow: 'auto', maxHeight: '82vh', width: larguraMax,
       background: 'var(--surface)', color: 'var(--heading)', borderRadius: 12,
       padding: 18, fontSize: 13, lineHeight: 1.55, whiteSpace: 'pre-wrap',
       wordBreak: 'break-word', margin: 0,
@@ -158,7 +217,9 @@ function TextoPlano({ url, textos, canDownload, onDownload }: {
   )
 }
 
-export default function FilePreview({ url, filename, contentType, canDownload, onClose, onDownload, textos }: {
+const TIPO_DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+
+export default function FilePreview({ url, filename, contentType, canDownload, onClose, onDownload, textos, reservaDireita = 0 }: {
   url: string
   filename: string
   contentType: string
@@ -166,17 +227,26 @@ export default function FilePreview({ url, filename, contentType, canDownload, o
   onClose: () => void
   onDownload?: () => void
   textos: FilePreviewTextos
+  /** Largura (px) deixada LIVRE à direita — o modal do caso continua visível
+   *  ali, e o arquivo cresce para a esquerda. 0 = tela cheia, como sempre. */
+  reservaDireita?: number
 }) {
   const tipo = (contentType || '').split(';')[0].trim().toLowerCase()
   const [semCodec, setSemCodec] = useState(false)
 
+  // Com reserva, a largura útil é o que sobra da janela; sem, o teto antigo.
+  const larguraMax = reservaDireita > 0
+    ? `calc(100vw - ${reservaDireita + 48}px)`
+    : 'min(92vw, 940px)'
+  const larguraMidia = reservaDireita > 0 ? `calc(100vw - ${reservaDireita + 48}px)` : '92vw'
+
   let corpo: JSX.Element
   if (tipo.startsWith('image/')) {
-    corpo = <img src={url} alt={filename} style={{ maxWidth: '92vw', maxHeight: '82vh', borderRadius: 12, objectFit: 'contain' }} />
+    corpo = <img src={url} alt={filename} style={{ maxWidth: larguraMidia, maxHeight: '82vh', borderRadius: 12, objectFit: 'contain' }} />
   } else if (tipo.startsWith('video/') && !semCodec) {
     corpo = (
       <video src={url} controls controlsList="nodownload" onError={() => setSemCodec(true)}
-        style={{ maxWidth: '92vw', maxHeight: '82vh', borderRadius: 12, background: '#000' }} />
+        style={{ maxWidth: larguraMidia, maxHeight: '82vh', borderRadius: 12, background: '#000' }} />
     )
   } else if (tipo.startsWith('video/')) {
     corpo = <Falha textos={{ ...textos, noPreview: textos.noCodecBody }} canDownload={canDownload} onDownload={onDownload} />
@@ -188,16 +258,22 @@ export default function FilePreview({ url, filename, contentType, canDownload, o
       </div>
     )
   } else if (tipo === 'application/pdf') {
-    corpo = <PdfPager url={url} textos={textos} canDownload={canDownload} onDownload={onDownload} />
+    corpo = <PdfPager url={url} textos={textos} canDownload={canDownload} onDownload={onDownload} larguraMax={larguraMax} />
+  } else if (tipo === TIPO_DOCX) {
+    corpo = <DocxView url={url} textos={textos} canDownload={canDownload} onDownload={onDownload} larguraMax={larguraMax} />
   } else if (tipo.startsWith('text/')) {
-    corpo = <TextoPlano url={url} textos={textos} canDownload={canDownload} onDownload={onDownload} />
+    corpo = <TextoPlano url={url} textos={textos} canDownload={canDownload} onDownload={onDownload} larguraMax={larguraMax} />
   } else {
     corpo = <Falha textos={textos} canDownload={canDownload} onDownload={onDownload} />
   }
 
-  return (
+  // Portal para o BODY: o visualizador costuma nascer dentro do modal do
+  // caso, e `.app-modal` guarda um transform da animação de entrada — que
+  // captura `position:fixed` e espremia o overlay dentro do próprio modal.
+  // No body, o fixed volta a valer contra a viewport, como o layout espera.
+  return createPortal(
     <div onClick={onClose}
-      style={{ position: 'fixed', inset: 0, zIndex: 12000, background: 'rgba(6,10,18,.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(10px,3vw,24px)' }}>
+      style={{ position: 'fixed', top: 0, left: 0, bottom: 0, right: reservaDireita, zIndex: 12000, background: 'rgba(6,10,18,.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(10px,3vw,24px)' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: '94vw', maxHeight: '94vh', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#fff' }}>
           <span style={{ fontWeight: 700, fontSize: 14.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -216,6 +292,7 @@ export default function FilePreview({ url, filename, contentType, canDownload, o
         </div>
         {corpo}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

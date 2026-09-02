@@ -308,13 +308,17 @@ export function Avatar({ name, color }: { name: string; color?: string }) {
 }
 
 // ── Modal ──────────────────────────────────────────────────────
-export function Modal({ open, onClose, title, kicker, children, maxWidth = 460 }: { open: boolean; onClose: () => void; title: string; kicker?: string; children: ReactNode; maxWidth?: number }) {
+export function Modal({ open, onClose, title, kicker, children, maxWidth = 460, dock }: { open: boolean; onClose: () => void; title: string; kicker?: string; children: ReactNode; maxWidth?: number; dock?: 'right' | null }) {
   if (!open) return null
+  // `dock='right'`: o modal encosta na direita e estreita — é o modo "lado a
+  // lado" do caso com uma prova aberta: o arquivo cresce para a esquerda e o
+  // caso continua legível ao lado, em vez de um cobrir o outro.
+  const ancorado = dock === 'right'
   // Portal para o body: garante que o modal cubra a VIEWPORT inteira, e não fique
   // preso dentro do painel (que tem zoom/animação e capturava o position:fixed).
   return createPortal(
-    <div onClick={onClose} className="app-modal-scrim app-scroll" style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'var(--scrim)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', display: 'flex', padding: '32px 16px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} className="app-modal" style={{ width: '100%', maxWidth, margin: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 22, padding: 'clamp(22px,4vw,32px)', boxShadow: '0 30px 80px rgba(0,0,0,.45)' }}>
+    <div onClick={onClose} className="app-modal-scrim app-scroll" style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'var(--scrim)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', display: 'flex', justifyContent: ancorado ? 'flex-end' : undefined, padding: ancorado ? '16px 12px' : '32px 16px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} className="app-modal" style={{ width: '100%', maxWidth: ancorado ? 420 : maxWidth, margin: ancorado ? '0 0 0 auto' : 'auto', alignSelf: ancorado ? 'stretch' : undefined, overflowY: ancorado ? 'auto' : undefined, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 22, padding: 'clamp(22px,4vw,32px)', boxShadow: '0 30px 80px rgba(0,0,0,.45)', transition: 'max-width .25s ease' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
           <div>
             {kicker && <SectionLabel>{kicker}</SectionLabel>}

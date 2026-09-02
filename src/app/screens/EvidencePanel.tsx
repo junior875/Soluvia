@@ -102,6 +102,8 @@ export default function EvidencePanel({
   textos,
   onError,
   onContagem,
+  onPreview,
+  reservaDireita = 0,
 }: {
   caseId: string
   canView: boolean
@@ -113,6 +115,11 @@ export default function EvidencePanel({
    *  do número, e ele já foi buscado aqui — pedir de novo seria a mesma
    *  consulta duas vezes por abertura de caso. */
   onContagem?: (n: number) => void
+  /** Avisa o modal do caso que um arquivo abriu/fechou — no desktop, o modal
+   *  encosta na direita e o arquivo cresce para a esquerda, lado a lado. */
+  onPreview?: (aberta: boolean) => void
+  /** Largura (px) que o preview deixa livre à direita (o modal ancorado). */
+  reservaDireita?: number
 }) {
   const [provas, setProvas] = useState<Prova[] | null>(null)
   const [aberta, setAberta] = useState<{ prova: Prova; url: string } | null>(null)
@@ -156,6 +163,7 @@ export default function EvidencePanel({
       }
       setSemCodec(naoToca)
       setAberta({ prova, url: r.url })
+      onPreview?.(true)
     } catch (e) {
       onError((e as ApiError).detail ?? textos.failed)
     } finally { setOcupado(null) }
@@ -315,7 +323,7 @@ export default function EvidencePanel({
         // decidido (semCodec, via canPlayType no clique).
         semCodec && aberta.prova.kind === 'video' ? (
           <div
-            onClick={() => { setAberta(null); setSemCodec(false) }}
+            onClick={() => { setAberta(null); setSemCodec(false); onPreview?.(false) }}
             style={{ position: 'fixed', inset: 0, zIndex: 12000, background: 'rgba(6,10,18,.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
           >
             <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 12, padding: '26px 24px', maxWidth: 460, textAlign: 'center' }}>
@@ -341,9 +349,10 @@ export default function EvidencePanel({
             filename={aberta.prova.filename}
             contentType={aberta.prova.content_type}
             canDownload={canDownload}
-            onClose={() => { setAberta(null); setSemCodec(false) }}
+            onClose={() => { setAberta(null); setSemCodec(false); onPreview?.(false) }}
             onDownload={() => void baixar(aberta.prova)}
             textos={textos}
+            reservaDireita={reservaDireita}
           />
         )
       )}
