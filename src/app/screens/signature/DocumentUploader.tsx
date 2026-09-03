@@ -22,10 +22,12 @@ export default function DocumentUploader({ onUploaded, onToast }: Props) {
   const [busy, setBusy] = useState(false)
   const [over, setOver] = useState(false)
 
-  // A extensão decide AQUI (o servidor confere os bytes depois): os mesmos
-  // formatos do assinador gov.br e os de escritório mais comuns.
-  const EXTS = ['.pdf', '.doc', '.docx', '.odt', '.rtf', '.txt', '.csv', '.xlsx', '.xls',
-    '.ods', '.pptx', '.ppt', '.odp', '.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp', '.gif', '.webp']
+  // PDF e DOCX, só. São os dois que percorrem o caminho inteiro — visualizar,
+  // posicionar o campo e assinar. Oferecer formato que sobe e fica "aguardando"
+  // é prometer o que a tela não entrega; os demais voltam quando o motor de
+  // escritório existir. (O servidor ainda aceita mais, para não recusar o que
+  // já está guardado.)
+  const EXTS = ['.pdf', '.docx']
   const accepts = (file: File) => {
     const name = file.name.toLowerCase()
     return EXTS.some((e) => name.endsWith(e))
@@ -79,7 +81,7 @@ export default function DocumentUploader({ onUploaded, onToast }: Props) {
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,.doc,.docx,.odt,.rtf,.txt,.csv,.xlsx,.xls,.ods,.pptx,.ppt,.odp,.jpg,.jpeg,.png,.tif,.tiff,.bmp,.gif,.webp"
+        accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         onChange={(e) => void handle(e.target.files?.[0])}
         style={{ display: 'none' }}
       />
