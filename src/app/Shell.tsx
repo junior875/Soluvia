@@ -126,7 +126,14 @@ export default function Shell() {
         api.get<{ used_bytes: number; limit_bytes: number; unlimited: boolean }>('/storage/usage').catch(() => null),
         api.get<MeResponse>('/auth/me').catch(() => null),
       ])
-      if (me) setEmpresasMenu(me.memberships.filter((m) => m.status === 'active'))
+      if (me) {
+        setEmpresasMenu(me.memberships.filter((m) => m.status === 'active'))
+        // A foto também é retrato do boot: quem trocou durante a sessão abria
+        // o editor sem a imagem atual (pela tela de Configurações vinha, por
+        // ela montar depois). Chegou junto do resto — custo zero.
+        if (me.avatar_url !== undefined) setFotoUrl(me.avatar_url ?? null)
+        if (me.avatar_original_url !== undefined) setFotoOriginal(me.avatar_original_url ?? null)
+      }
       const barras: UsoBarra[] = []
       if (ia) {
         // Sem crédito pessoal, o teto que de fato limita esta pessoa é o da
