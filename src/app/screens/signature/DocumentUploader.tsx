@@ -21,9 +21,13 @@ export default function DocumentUploader({ onUploaded, onToast }: Props) {
   const [busy, setBusy] = useState(false)
   const [over, setOver] = useState(false)
 
+  // A extensão decide AQUI (o servidor confere os bytes depois): os mesmos
+  // formatos do assinador gov.br e os de escritório mais comuns.
+  const EXTS = ['.pdf', '.doc', '.docx', '.odt', '.rtf', '.txt', '.csv', '.xlsx', '.xls',
+    '.ods', '.pptx', '.ppt', '.odp', '.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp', '.gif', '.webp']
   const accepts = (file: File) => {
     const name = file.name.toLowerCase()
-    return file.type === PDF_MIME || file.type === DOCX_MIME || name.endsWith('.pdf') || name.endsWith('.docx')
+    return EXTS.some((e) => name.endsWith(e))
   }
 
   async function handle(file: File | undefined) {
@@ -74,7 +78,7 @@ export default function DocumentUploader({ onUploaded, onToast }: Props) {
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        accept=".pdf,.doc,.docx,.odt,.rtf,.txt,.csv,.xlsx,.xls,.ods,.pptx,.ppt,.odp,.jpg,.jpeg,.png,.tif,.tiff,.bmp,.gif,.webp"
         onChange={(e) => void handle(e.target.files?.[0])}
         style={{ display: 'none' }}
       />

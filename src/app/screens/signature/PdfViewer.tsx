@@ -11,6 +11,7 @@ import type { ApiError, SigDocument, SigField, SigFieldInput } from '../../../li
 import { Button, Card } from '../../ui'
 import { Icon } from '../../icons'
 import { useT } from '../../strings'
+import PaginaDoDocumento from './PaginaDoDocumento'
 
 interface Props {
   documentId: string
@@ -46,8 +47,6 @@ const isCoarsePointer = () =>
 
 export default function PdfViewer({ documentId, canManage, initialFields, onPendingChange, onFieldsSaved, onToast }: Props) {
   const t = useT()
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const overlayRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
   const pdfRef = useRef<PdfDocument | null>(null)
   const taskRef = useRef<PdfLoadingTask | null>(null)
@@ -59,6 +58,9 @@ export default function PdfViewer({ documentId, canManage, initialFields, onPend
   const [numPages, setNumPages] = useState(1)
   const [page, setPage] = useState(1)
   const [scale, setScale] = useState(1.1)
+  /** 'pagina' = uma por vez (o de sempre); 'rolagem' = todas empilhadas, como
+   *  num leitor de PDF na internet. Nos DOIS dá para posicionar o campo. */
+  const [modo, setModo] = useState<'pagina' | 'rolagem'>('pagina')
   const [busy, setBusy] = useState(false)
 
   // Campos, já normalizados. Cada um com uma key local estável para a lista/DOM.
@@ -85,10 +87,15 @@ export default function PdfViewer({ documentId, canManage, initialFields, onPend
         const token = getAccessToken()
         // Sempre o ORIGINAL: a versão assinada traz carimbos antigos e páginas de
         // evidência no fim, o que atrapalha na hora de marcar onde assinar.
-        const resp = await fetch(`${BASE_URL}/signature/documents/${documentId}/download?original=true`, {
-          credentials: 'include',
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
+        // O RENDER: o PDF derivado do arquivo, seja ele qual for. É sobre ele
+        // que os campos são marcados — coordenada de página só existe em PDF.
+        // Se o servidor ainda não tem a rota (deploy em andamento), cai no
+        // original, que para PDF é o mesmo arquivo.
+        const cab: RequestInit = { credentials: 'include', headers: token ? { Authorization: `Bearer ${token}` } : {} }
+        let resp = await fetch(`${BASE_URL}/signature/documents/${documentId}/download?variant=render`, cab)
+        if (resp.status === 404 || resp.status === 422) {
+          resp = await fetch(`${BASE_URL}/signature/documents/${documentId}/download?original=true`, cab)
+        }
         if (!resp.ok) {
           // Mostra o motivo que o servidor deu (ex.: arquivo perdido por falta de
           // volume persistente) em vez do genérico "não foi possível renderizar".
@@ -126,29 +133,6 @@ export default function PdfViewer({ documentId, canManage, initialFields, onPend
 
   // ── Renderiza a página atual no canvas quando muda página/zoom ─────
   const renderTaskRef = useRef<{ cancel: () => void } | null>(null)
-  const renderPage = useCallback(async () => {
-    const pdf = pdfRef.current
-    const canvas = canvasRef.current
-    if (!pdf || !canvas) return
-    const p = await pdf.getPage(page)
-    const viewport = p.getViewport({ scale })
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    const ratio = window.devicePixelRatio || 1
-    canvas.width = Math.floor(viewport.width * ratio)
-    canvas.height = Math.floor(viewport.height * ratio)
-    canvas.style.width = `${Math.floor(viewport.width)}px`
-    canvas.style.height = `${Math.floor(viewport.height)}px`
-    ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
-    renderTaskRef.current?.cancel()
-    const task = p.render({ canvas, canvasContext: ctx, viewport })
-    renderTaskRef.current = task
-    try { await task.promise } catch { /* cancelada por re-render — ok */ }
-  }, [page, scale])
-
-  useEffect(() => {
-    if (status === 'ready') void renderPage()
-  }, [status, renderPage])
 
   // Auto-ajuste à largura em telas estreitas (celular): calcula um zoom que faça a
   // página caber no palco, uma única vez ao abrir o PDF. No desktop (palco largo) a
@@ -182,14 +166,25 @@ export default function PdfViewer({ documentId, canManage, initialFields, onPend
     if (s > 0) setScale(clamp(+s.toFixed(2), 0.4, 2.4))
   }, [page])
 
-  const pageFields = fields.filter((f) => f.page === page)
+  /** Em qual página o retângulo está sendo desenhado (o modo rolagem tem
+   *  várias na tela, e o rastro não pode aparecer em todas). */
+  const [actPage, setActPage] = useState(1)
 
   // ── Gestos sobre a página: criar, mover e redimensionar campos ─────
-  /** Ponto do ponteiro relativo ao overlay + o tamanho REAL dele em px. */
+  /** Ponto do ponteiro relativo ao overlay DO EVENTO + o tamanho real dele.
+   *
+   *  Mede `e.currentTarget`, não uma ref única: no modo de rolagem existe um
+   *  overlay por página empilhada, e medir sempre o mesmo jogaria o campo para
+   *  a página errada — o mesmo tipo de erro que já mandou assinatura para o pé
+   *  do documento. */
   const pointAt = (e: React.PointerEvent) => {
-    const r = overlayRef.current!.getBoundingClientRect()
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
     return { x: e.clientX - r.left, y: e.clientY - r.top, w: r.width || 1, h: r.height || 1 }
   }
+
+  /** A página que recebeu o gesto (o overlay carrega o número consigo). */
+  const paginaDoEvento = (e: React.PointerEvent) =>
+    Number((e.currentTarget as HTMLElement).dataset.pagina) || page
 
   const onDown = (e: React.PointerEvent) => {
     if (!canManage) return
@@ -198,6 +193,7 @@ export default function PdfViewer({ documentId, canManage, initialFields, onPend
     const fieldKey = el.closest<HTMLElement>('[data-field]')?.dataset.field
     const p = pointAt(e)
 
+    setActPage(paginaDoEvento(e))
     if (handleKey) {
       setAct({ kind: 'resize', key: handleKey })
     } else if (fieldKey) {
@@ -212,7 +208,7 @@ export default function PdfViewer({ documentId, canManage, initialFields, onPend
       if (e.pointerType === 'touch' && !addMode) return
       setAct({ kind: 'create', x0: p.x, y0: p.y, x1: p.x, y1: p.y })
     }
-    overlayRef.current?.setPointerCapture(e.pointerId)
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     // No toque não bloqueamos o gesto: o navegador ainda pode transformá-lo em
     // rolagem (e aí manda pointercancel, que aborta sem criar nada).
     if (e.pointerType !== 'touch') e.preventDefault()
@@ -243,7 +239,7 @@ export default function PdfViewer({ documentId, canManage, initialFields, onPend
 
   const onUp = (e: React.PointerEvent) => {
     if (!act) return
-    try { overlayRef.current?.releasePointerCapture(e.pointerId) } catch { /* já solto */ }
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId) } catch { /* já solto */ }
     if (act.kind !== 'create') { setAct(null); return }
 
     const { w, h } = pointAt(e)
@@ -273,10 +269,11 @@ export default function PdfViewer({ documentId, canManage, initialFields, onPend
     }
     const nw = clamp(width / w, MIN_W, 1)
     const nh = clamp(height / h, MIN_H, 1)
+    const paginaAlvo = paginaDoEvento(e)
     setFields((prev) => [
       ...prev,
       {
-        key: uid(), page,
+        key: uid(), page: paginaAlvo,
         x: clamp(left / w, 0, 1 - nw), y: clamp(top / h, 0, 1 - nh),
         w: nw, h: nh, order_index: prev.length, placeholder: t.sig.signHere,
       },
@@ -390,6 +387,11 @@ export default function PdfViewer({ documentId, canManage, initialFields, onPend
           <ToolBtn icon="chevron" label={t.sig.page} disabled={page >= numPages} onClick={() => setPage((p) => Math.min(numPages, p + 1))} />
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 100, padding: 4 }}>
+          <ToolBtn
+            text={modo === 'pagina' ? '☰' : '▤'}
+            label={modo === 'pagina' ? t.sig.modeScroll : t.sig.modePaged}
+            onClick={() => setModo((m) => (m === 'pagina' ? 'rolagem' : 'pagina'))}
+          />
           <ToolBtn text="−" label={t.sig.zoomOut} disabled={scale <= 0.6} onClick={() => setScale((s) => Math.max(0.6, +(s - 0.2).toFixed(2)))} />
           <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--heading)', minWidth: 44, textAlign: 'center' }}>{Math.round(scale * 100)}%</span>
           <ToolBtn text="+" label={t.sig.zoomIn} disabled={scale >= 2.4} onClick={() => setScale((s) => Math.min(2.4, +(s + 0.2).toFixed(2)))} />
@@ -453,32 +455,51 @@ export default function PdfViewer({ documentId, canManage, initialFields, onPend
           metade de baixo e (b) o clique era normalizado pela altura errada,
           jogando a assinatura ~2x mais para baixo. `margin:auto` centraliza quando
           cabe e deixa rolar do início quando o zoom excede a largura. */}
-      <div ref={stageRef} className="app-scroll" style={{ overflow: 'auto', maxHeight: 'calc(100vh - 320px)', minHeight: 300, background: 'var(--surface-2)', borderRadius: 14, padding: 18, display: 'flex', alignItems: 'flex-start' }}>
-        <div style={{ position: 'relative', flexShrink: 0, margin: '0 auto', boxShadow: '0 10px 30px rgba(8,22,38,.22)' }}>
-          <canvas ref={canvasRef} style={{ display: 'block', borderRadius: 4 }} />
-          <div
-            ref={overlayRef}
-            onPointerDown={onDown}
-            onPointerMove={onMove}
-            onPointerUp={onUp}
-            // Rolagem (ou um gesto do sistema) vencendo → aborta sem criar campo.
-            // Soltar a captura é obrigatório: presa, o toque seguinte não chega ao
-            // alvo certo — mais uma forma de "não dá para colocar em qualquer lugar".
-            onPointerCancel={(e) => {
-              try { overlayRef.current?.releasePointerCapture(e.pointerId) } catch { /* já solto */ }
-              setAct(null)
-            }}
-            style={{
-              position: 'absolute', inset: 0,
-              cursor: canManage && addMode ? 'crosshair' : 'default',
-              // 'pan-y' deixa o dedo ROLAR o documento e ainda assim tocar para
-              // posicionar. Fixo em 'none' (como era antes) o overlay engolia todo
-              // gesto: não dava para descer a página e marcar nada na parte de baixo.
-              // Só afeta toque — o mouse continua arrastando para desenhar a caixa.
-              touchAction: canManage && addMode ? 'pan-y' : 'auto',
+      {/* Palco. Dois modos, a MESMA regra de coordenada: a camada de campos
+          tem exatamente a caixa do canvas, e o campo nasce na página do gesto.
+          `alignItems: flex-start` + `flexShrink: 0` impedem o flex de encolher
+          a página para a altura visível — foi assim que a assinatura já foi
+          parar no pé do documento. */}
+      <div
+        ref={stageRef}
+        className="app-scroll"
+        style={{
+          overflow: 'auto', maxHeight: 'calc(100vh - 320px)', minHeight: 300,
+          background: 'var(--surface-2)', borderRadius: 14, padding: 18,
+          display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+          gap: modo === 'rolagem' ? 18 : 0,
+        }}
+      >
+        {(modo === 'rolagem'
+          ? Array.from({ length: numPages }, (_, i) => i + 1)
+          : [page]
+        ).map((n) => (
+          <PaginaDoDocumento
+            key={n}
+            pdf={pdfRef.current!}
+            numero={n}
+            escala={scale}
+            preguicoso={modo === 'rolagem'}
+            overlayProps={{
+              onPointerDown: onDown,
+              onPointerMove: onMove,
+              onPointerUp: onUp,
+              onPointerCancel: (e: React.PointerEvent) => {
+                try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId) } catch { /* já solto */ }
+                setAct(null)
+              },
+              style: {
+                cursor: canManage && addMode ? 'crosshair' : 'default',
+                // 'pan-y' deixa o dedo ROLAR e ainda assim tocar para marcar.
+                touchAction: canManage && addMode ? 'pan-y' : 'auto',
+              },
             }}
           >
-            {pageFields.map((f) => (
+            {(() => {
+              const campos = fields.filter((f) => f.page === n)
+              return (
+                <>
+            {campos.map((f) => (
               <div
                 key={f.key}
                 data-field={f.key}
@@ -533,12 +554,20 @@ export default function PdfViewer({ documentId, canManage, initialFields, onPend
                 )}
               </div>
             ))}
-            {/* Rascunho do retângulo em arraste */}
-            {dragRect && (
-              <div style={{ position: 'absolute', left: dragRect.left, top: dragRect.top, width: dragRect.width, height: dragRect.height, border: '1.5px dashed var(--accent)', background: 'var(--accent-soft)', borderRadius: 6, pointerEvents: 'none' }} />
-            )}
-          </div>
-        </div>
+                  {/* O retângulo em desenho só aparece na página do gesto. */}
+                  {dragRect && actPage === n && (
+                    <div style={{
+                      position: 'absolute', left: dragRect.left, top: dragRect.top,
+                      width: dragRect.width, height: dragRect.height,
+                      border: '2px dashed var(--accent)', background: 'var(--accent-soft)',
+                      borderRadius: 6, pointerEvents: 'none',
+                    }} />
+                  )}
+                </>
+              )
+            })()}
+          </PaginaDoDocumento>
+        ))}
       </div>
     </Card>
   )

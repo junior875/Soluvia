@@ -49,7 +49,7 @@ export default function Signature() {
     if (!openId) { setDetail(null); return }
     setDetail(null)
     api.get<SigDocument>(`/signature/documents/${openId}`)
-      .then((d) => { setDetail(d); setTab(isPdf(d.mime) && canManage ? 'prepare' : 'sign') })
+      .then((d) => { setDetail(d); const pronto = d.render_status ? d.render_status === 'ready' : isPdf(d.mime); setTab(pronto && canManage ? 'prepare' : 'sign') })
       .catch(() => flash(t.sig.evLoadFail))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openId])
@@ -181,7 +181,10 @@ function DocumentDetail({ doc, tab, setTab, canManage, canSign, evKey, onOpenSig
   onToast: (m: string) => void
 }) {
   const t = useT()
-  const pdf = isPdf(doc.mime)
+  // Com o render (todo formato vira PDF), a régua deixou de ser "é PDF?" e
+  // passou a ser "o PDF derivado está pronto?". Doc antigo sem a coluna conta
+  // como pronto quando é PDF — o render dele é o próprio arquivo.
+  const pdf = doc.render_status ? doc.render_status === 'ready' : isPdf(doc.mime)
   // Campos posicionados mas ainda não persistidos. Assinar nesse estado faz o
   // backend ver a lista vazia e carimbar no pé da ÚLTIMA página.
   const [fieldsPending, setFieldsPending] = useState(false)

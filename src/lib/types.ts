@@ -539,6 +539,9 @@ export interface SigFieldInput {
 export type SigStatus = 'uploaded' | 'partial' | 'signed'
 
 export interface SigDocument {
+  render_status?: 'pending' | 'ready' | 'failed'
+  render_pages?: number
+  render_error?: string | null
   id: string
   case_id?: string | null
   filename: string
