@@ -13,7 +13,8 @@ interface Props {
   onToast: (msg: string) => void
 }
 
-const MAX_BYTES = 20 * 1024 * 1024
+// O mesmo teto do servidor (settings.signature_max_bytes).
+const MAX_BYTES = 200 * 1024 * 1024
 
 export default function DocumentUploader({ onUploaded, onToast }: Props) {
   const t = useT()
