@@ -172,11 +172,11 @@ export const CAPITULOS: ManualCapitulo[] = [
   // ─────────────────────────────────────────────── trabalho do dia
   {
     id: 'meus-atendimentos',
-    titulo: t3('Meus atendimentos', 'My assignments', 'Mis atenciones'),
+    titulo: t3('Meus atendimentos', 'My cases', 'Mis atenciones'),
     resumo: t3(
-      'O que está esperando uma ação sua — a primeira tela do seu dia.',
-      'What is waiting on you — the first screen of your day.',
-      'Lo que espera una acción tuya — la primera pantalla de tu día.',
+      'As etapas pelas quais você responde. O caso fica parado até você responder — comece o dia por aqui.',
+      'The stages you are responsible for. The case stands still until you answer — start your day here.',
+      'Las etapas de las que eres responsable. El caso queda detenido hasta que respondas — empieza el día por aquí.',
     ),
     tela: 'mine',
     secoes: [
@@ -185,9 +185,9 @@ export const CAPITULOS: ManualCapitulo[] = [
         titulo: t3('A sua fila', 'Your queue', 'Tu cola'),
         corpo: [
           t3(
-            'Liberado o fluxo de um caso, cada etapa vira uma ficha para quem responde por ela. É aqui que a sua aparece, com o protocolo, o nome da etapa, o tipo e o prazo.',
-            'Once a case workflow is released, each stage becomes a card for whoever answers for it. Yours shows up here, with the reference number, the stage name, the type and the deadline.',
-            'Liberado el flujo de un caso, cada etapa se vuelve una ficha para quien responde por ella. Aquí aparece la tuya, con el número de protocolo, el nombre de la etapa, el tipo y el plazo.',
+            'Liberado o fluxo de um caso, cada etapa vira uma ficha para quem responde por ela. É aqui que a sua aparece, com o protocolo, o nome da etapa, o tipo e o prazo. Tudo nesta lista <b>depende de uma resposta sua</b>: enquanto você não responde, o caso não anda.',
+            'Once a case workflow is released, each stage becomes a card for whoever answers for it. Yours shows up here, with the reference number, the stage name, the type and the deadline. Everything in this list <b>depends on an answer from you</b>: until you answer, the case does not move.',
+            'Liberado el flujo de un caso, cada etapa se vuelve una ficha para quien responde por ella. Aquí aparece la tuya, con el número de protocolo, el nombre de la etapa, el tipo y el plazo. Todo en esta lista <b>depende de una respuesta tuya</b>: mientras no respondas, el caso no avanza.',
           ),
           t3(
             'O número vermelho no menu conta quantas esperam por você.',
@@ -206,9 +206,9 @@ export const CAPITULOS: ManualCapitulo[] = [
         notas: [{
           tipo: 'nota',
           texto: t3(
-            '<b>Meus atendimentos × Meus acompanhamentos.</b> <b>Atendimentos</b> é o que espera uma ação sua — você responde por aquela etapa. <b>Acompanhamentos</b> é o que você apenas observa.',
-            '<b>My assignments × What I follow.</b> <b>Assignments</b> is what is waiting on you — you answer for that stage. <b>What I follow</b> is what you merely watch.',
-            '<b>Mis atenciones × Mis seguimientos.</b> <b>Atenciones</b> es lo que espera una acción tuya — tú respondes por esa etapa. <b>Seguimientos</b> es lo que solo observas.',
+            '<b>Meus atendimentos × Meus acompanhamentos — não confunda as duas.</b> Em <b>Meus atendimentos</b> você é o <b>responsável</b> pela etapa: o caso fica parado até você responder. Em <b>Meus acompanhamentos</b> você é <b>observador</b>: só lê o andamento e não responde nada. No SAC o atendimento tem prazo legal de <b>7 dias corridos</b> — etapa sem resposta é caso vencido e empresa exposta.',
+            '<b>My cases × What I follow — do not mix them up.</b> In <b>My cases</b> you are the person <b>responsible</b> for the stage: the case stands still until you answer. In <b>What I follow</b> you are a <b>watcher</b>: you only read the progress and answer nothing. On the consumer desk the answer has a legal deadline of <b>7 calendar days</b> — a stage left unanswered means a missed deadline and an exposed company.',
+            '<b>Mis atenciones × Mis seguimientos — no los confundas.</b> En <b>Mis atenciones</b> eres el <b>responsable</b> de la etapa: el caso queda detenido hasta que respondas. En <b>Mis seguimientos</b> eres <b>observador</b>: solo lees el avance y no respondes nada. En atención al consumidor la respuesta tiene un plazo legal de <b>7 días corridos</b> — una etapa sin respuesta es un plazo vencido y una empresa expuesta.',
           ),
         }],
       },
@@ -267,9 +267,9 @@ export const CAPITULOS: ManualCapitulo[] = [
         figuras: [{
           src: '61-caso-etapa',
           legenda: t3(
-            '<b>O caso aberto.</b> <b>1</b> a etapa em que ele está. Abaixo vêm o relato, as provas e o formulário do parecer.',
-            '<b>The case, open.</b> <b>1</b> the stage it is on. Below come the report, the evidence and the opinion form.',
-            '<b>El caso abierto.</b> <b>1</b> la etapa en la que está. Abajo vienen el relato, las pruebas y el formulario del dictamen.',
+            '<b>O caso aberto.</b> O relato como a pessoa escreveu, os anexos e a linha do tempo. O rótulo <b>Investigação</b>, no topo, é o tipo da etapa em que o caso está agora.',
+            '<b>The case, open.</b> The report exactly as it was written, the attachments and the timeline. The <b>Investigation</b> label at the top is the type of the stage the case is on right now.',
+            '<b>El caso abierto.</b> El relato tal como lo escribió la persona, los adjuntos y la línea de tiempo. La etiqueta <b>Investigación</b>, arriba, es el tipo de la etapa en la que está el caso ahora.',
           ),
         }],
       },
@@ -307,9 +307,9 @@ export const CAPITULOS: ManualCapitulo[] = [
     id: 'acompanhamentos',
     titulo: t3('Meus acompanhamentos', 'What I follow', 'Mis seguimientos'),
     resumo: t3(
-      'Os casos que você observa, sem responder por nenhuma etapa deles.',
-      'The cases you watch, without answering for any of their stages.',
-      'Los casos que observas, sin responder por ninguna de sus etapas.',
+      'Os casos que você observa. Aqui você só lê — nada depende de você.',
+      'The cases you watch. Here you only read — nothing depends on you.',
+      'Los casos que observas. Aquí solo lees — nada depende de ti.',
     ),
     tela: 'watching',
     secoes: [
@@ -317,16 +317,16 @@ export const CAPITULOS: ManualCapitulo[] = [
         id: 'o-que-e',
         titulo: t3('O que entra aqui', 'What lands here', 'Qué entra aquí'),
         corpo: [t3(
-          'Você aparece como observador de uma etapa quando o fluxo o inclui nela. Recebe os avisos e enxerga o andamento, mas não precisa responder nada.',
-          'You appear as a watcher of a stage when the workflow includes you in it. You get the notices and see the progress, but you do not have to answer anything.',
-          'Apareces como observador de una etapa cuando el flujo te incluye en ella. Recibes los avisos y ves el avance, pero no tienes que responder nada.',
+          'Você aparece aqui quando o fluxo inclui você como <b>observador</b> de uma etapa. Observador só lê: acompanha o andamento e recebe os avisos, mas não responde, não anexa nada e não move o caso. Nenhum prazo corre contra você por estes casos.<br>Se você esperava responder e o caso está aqui, você não é o responsável pela etapa — o que depende de você fica em <b>Meus atendimentos</b>.',
+          'You land here when a workflow adds you as a <b>watcher</b> on a stage. A watcher only reads: you follow the progress and get the notices, but you do not answer, attach anything or move the case. No deadline runs against you for these cases.<br>If you expected to answer and the case is here, you are not the person responsible for the stage — what depends on you sits in <b>My cases</b>.',
+          'Apareces aquí cuando el flujo te incluye como <b>observador</b> de una etapa. El observador solo lee: sigue el avance y recibe los avisos, pero no responde, no adjunta nada ni mueve el caso. Ningún plazo corre contra ti por estos casos.<br>Si esperabas responder y el caso está aquí, no eres el responsable de la etapa — lo que depende de ti está en <b>Mis atenciones</b>.',
         )],
         figuras: [{
           src: '12-meus-acompanhamentos',
           legenda: t3(
-            '<b>Meus acompanhamentos.</b> Diferente de Meus atendimentos: aqui nada espera por você.',
-            '<b>What I follow.</b> Unlike My assignments: nothing here is waiting on you.',
-            '<b>Mis seguimientos.</b> A diferencia de Mis atenciones: aquí nada te espera.',
+            '<b>Meus acompanhamentos.</b> Só leitura: você acompanha o andamento e não responde nada. O que exige resposta sua está em <b>Meus atendimentos</b>.',
+            '<b>What I follow.</b> Read-only: you follow the progress and answer nothing. What needs your answer is in <b>My cases</b>.',
+            '<b>Mis seguimientos.</b> Solo lectura: sigues el avance y no respondes nada. Lo que exige tu respuesta está en <b>Mis atenciones</b>.',
           ),
         }],
       },
@@ -337,7 +337,7 @@ export const CAPITULOS: ManualCapitulo[] = [
     id: 'cofre',
     titulo: t3('Cofre de provas', 'Evidence vault', 'Bóveda de pruebas'),
     resumo: t3(
-      'Tudo que foi anexado aos casos, num lugar só — e o que dá para ver sem baixar.',
+      'Tudo que foi anexado aos casos, num lugar só — e o que você pode ver sem baixar.',
       'Everything attached to cases, in one place — and what you can view without downloading.',
       'Todo lo adjuntado a los casos, en un solo lugar — y qué se puede ver sin descargar.',
     ),
@@ -422,7 +422,7 @@ export const CAPITULOS: ManualCapitulo[] = [
         id: 'lado-a-lado',
         titulo: t3('Lado a lado com o caso', 'Side by side with the case', 'Lado a lado con el caso'),
         corpo: [t3(
-          'No computador, abrir uma prova <b>não cobre</b> o caso: a ficha encosta na direita e o arquivo cresce para a esquerda. Dá para ler o laudo e o relato ao mesmo tempo. No celular, onde não há “lado”, o arquivo abre em tela cheia.',
+          'No computador, abrir uma prova <b>não cobre</b> o caso: a ficha encosta na direita e o arquivo cresce para a esquerda. Você pode ler o laudo e o relato ao mesmo tempo. No celular, onde não há “lado”, o arquivo abre em tela cheia.',
           'On a computer, opening a piece of evidence does <b>not cover</b> the case: the card docks to the right and the file grows to the left. You can read the report and the case at the same time. On a phone, where there is no “side”, the file opens full screen.',
           'En la computadora, abrir una prueba <b>no cubre</b> el caso: la ficha se apoya a la derecha y el archivo crece hacia la izquierda. Se puede leer el informe y el relato al mismo tiempo. En el celular, donde no hay “lado”, el archivo se abre a pantalla completa.',
         )],
@@ -555,6 +555,14 @@ export const CAPITULOS: ManualCapitulo[] = [
             ],
           ],
         },
+        notas: [{
+          tipo: 'aviso',
+          texto: t3(
+            '<b>No SAC, etapa parada tem consequência.</b> Os 7 dias corridos são do consumidor, não do fluxo: correm desde a abertura, mesmo que ninguém abra o caso. Quem tem a etapa em <b>Meus atendimentos</b> precisa responder dentro desse prazo. Sem resposta, o prazo vence e a empresa fica exposta.',
+            '<b>On the consumer desk, an unanswered stage has consequences.</b> The 7 calendar days belong to the consumer, not to the workflow: they run from the moment the case opens, even if nobody opens it. Whoever holds the stage in <b>My cases</b> has to answer within that window. With no answer, the deadline passes and the company is exposed.',
+            '<b>En atención al consumidor, una etapa detenida tiene consecuencias.</b> Los 7 días corridos son del consumidor, no del flujo: corren desde la apertura, aunque nadie abra el caso. Quien tiene la etapa en <b>Mis atenciones</b> debe responder dentro de ese plazo. Sin respuesta, el plazo vence y la empresa queda expuesta.',
+          ),
+        }],
         figuras: [
           {
             src: '11-casos-sac',
@@ -610,7 +618,7 @@ export const CAPITULOS: ManualCapitulo[] = [
         titulo: t3('Passo 2 — posicionar os campos', 'Step 2 — place the fields', 'Paso 2 — ubicar los campos'),
         corpo: [
           t3(
-            'O documento abre página a página e você marca <b>onde</b> cada assinatura entra: clique para criar a caixa, arraste para o lugar exato. Dá para posicionar vários campos.',
+            'O documento abre página a página e você marca <b>onde</b> cada assinatura entra: clique para criar a caixa, arraste para o lugar exato. Você pode posicionar vários campos.',
             'The document opens page by page and you mark <b>where</b> each signature goes: click to create the box, drag to the exact spot. You can place several fields.',
             'El documento abre página por página y marcas <b>dónde</b> entra cada firma: haz clic para crear la caja, arrastra al lugar exacto. Puedes ubicar varios campos.',
           ),
@@ -669,7 +677,7 @@ export const CAPITULOS: ManualCapitulo[] = [
             {
               nome: t3('Localização', 'Location', 'Ubicación'),
               desc: t3(
-                'Reforça a prova com o lugar de onde você assinou. Pede a sua permissão, e a do navegador; dá para assinar sem.',
+                'Reforça a prova com o lugar de onde você assinou. Pede a sua permissão, e a do navegador; é possível assinar sem.',
                 'Strengthens the evidence with where you signed from. It asks your permission, and the browser\'s; you can sign without it.',
                 'Refuerza la prueba con el lugar desde donde firmaste. Pide tu permiso, y el del navegador; se puede firmar sin ello.',
               ),
@@ -704,9 +712,9 @@ export const CAPITULOS: ManualCapitulo[] = [
         titulo: t3('As duas formas de assinar', 'The two ways to sign', 'Las dos formas de firmar'),
         corpo: [
           t3(
-            'Você desenha, ou deixa o sistema desenhar a partir do nome digitado — útil no computador, onde desenhar com o mouse quase nunca sai bonito.',
-            'You draw, or you let the system draw from the typed name — handy on a computer, where drawing with a mouse almost never looks good.',
-            'Dibujas, o dejas que el sistema dibuje a partir del nombre escrito — útil en la computadora, donde dibujar con el ratón casi nunca sale bien.',
+            'Você desenha, ou deixa o sistema desenhar a partir do nome digitado — útil no computador, onde desenhar com o mouse raramente produz um traço legível.',
+            'You draw, or you let the system draw from the typed name — handy on a computer, where drawing with a mouse rarely produces a legible stroke.',
+            'Dibujas, o dejas que el sistema dibuje a partir del nombre escrito — útil en la computadora, donde dibujar con el ratón raramente produce un trazo legible.',
           ),
           t3(
             'O valor jurídico é o mesmo nos dois casos: ele vem da assinatura eletrônica (chave, data/hora e trilha), não do traço.',
@@ -905,7 +913,7 @@ export const CAPITULOS: ManualCapitulo[] = [
             'Un rol no es un cargo: es una lista de permisos marcados. Dos personas con el mismo rol ven el mismo sistema; cambiar el rol cambia el menú de todos los que lo tienen.',
           ),
           t3(
-            'Também dá para ajustar a permissão de <b>uma</b> pessoa específica, sem mexer no papel dela.',
+            'Também é possível ajustar a permissão de <b>uma</b> pessoa específica, sem mexer no papel dela.',
             'You can also adjust the permission of <b>one</b> specific person, without touching their role.',
             'También se puede ajustar el permiso de <b>una</b> persona específica, sin tocar su rol.',
           ),
@@ -1184,9 +1192,9 @@ export const CAPITULOS: ManualCapitulo[] = [
         figuras: [{
           src: '71-fluxo-paralelo',
           legenda: t3(
-            '<b>1</b> o rótulo <b>AO MESMO TEMPO</b>: tudo dentro desse bloco corre junto; <b>2</b> o encerramento, que só acontece depois.',
-            '<b>1</b> the <b>AT THE SAME TIME</b> label: everything inside that block runs together; <b>2</b> the closing, which only happens afterwards.',
-            '<b>1</b> la etiqueta <b>AL MISMO TIEMPO</b>: todo lo que está dentro de ese bloque corre junto; <b>2</b> el cierre, que solo ocurre después.',
+            '<b>1</b> a instrução do quadro: arrastar um bloco muda quando ele acontece, e lado a lado significa ao mesmo tempo. Sob o rótulo <b>AO MESMO TEMPO</b>, tudo corre junto; <b>2</b> o encerramento, que só acontece depois.',
+            '<b>1</b> the board instruction: dragging a block changes when it happens, and side by side means at the same time. Under the <b>AT THE SAME TIME</b> label, everything runs together; <b>2</b> the closing, which only happens afterwards.',
+            '<b>1</b> la instrucción del tablero: arrastrar un bloque cambia cuándo ocurre, y lado a lado significa al mismo tiempo. Bajo la etiqueta <b>AL MISMO TIEMPO</b>, todo corre junto; <b>2</b> el cierre, que solo ocurre después.',
           ),
         }],
       },
@@ -1231,9 +1239,9 @@ export const CAPITULOS: ManualCapitulo[] = [
             {
               nome: t3('Observadores', 'Watchers', 'Observadores'),
               desc: t3(
-                'Quem acompanha essa etapa sem responder por ela. Recebem os avisos, não recebem ficha.',
-                'Who follows this stage without answering for it. They get the notices, not the card.',
-                'Quién sigue esa etapa sin responder por ella. Reciben los avisos, no reciben ficha.',
+                'Quem só lê o andamento desta etapa. O caso aparece para essas pessoas em <b>Meus acompanhamentos</b>: recebem os avisos, não recebem ficha e não respondem. Marcar alguém aqui não coloca a etapa na fila dessa pessoa.',
+                'Who only reads the progress of this stage. The case shows up for them under <b>What I follow</b>: they get the notices, they get no card and they do not answer. Naming someone here does not put the stage in their queue.',
+                'Quien solo lee el avance de esta etapa. El caso aparece para esas personas en <b>Mis seguimientos</b>: reciben los avisos, no reciben ficha y no responden. Marcar a alguien aquí no pone la etapa en su cola.',
               ),
               obrigatorio: false,
             },
@@ -1341,7 +1349,7 @@ export const CAPITULOS: ManualCapitulo[] = [
     id: 'plano',
     titulo: t3('Plano, assistente e espaço', 'Plan, assistant and storage', 'Plan, asistente y espacio'),
     resumo: t3(
-      'Quantas pessoas cabem, quanto do assistente dá para usar e quanto espaço há para provas.',
+      'Quantas pessoas cabem, quanto do assistente você pode usar e quanto espaço há para provas.',
       'How many people fit, how much of the assistant you can use, and how much space there is for evidence.',
       'Cuántas personas caben, cuánto del asistente se puede usar y cuánto espacio hay para pruebas.',
     ),
@@ -1485,26 +1493,26 @@ export const CAPITULOS: ManualCapitulo[] = [
     secoes: [
       {
         id: 'meu-menu',
-        titulo: t3('O seu cantinho: o menu do rodapé', 'Your corner: the footer menu', 'Tu rincón: el menú del pie'),
+        titulo: t3('O menu do seu perfil', 'Your profile menu', 'El menú de tu perfil'),
         corpo: [t3(
-          'Tudo que é <b>seu</b> mora num lugar só: o cartãozinho com o seu nome, no rodapé do menu da esquerda. Clique nele e aparecem <b>Trocar foto</b>, <b>Configurações</b>, o <b>seu uso</b> (as barrinhas de inteligência artificial e de armazenamento, com a data em que a cota renova), <b>suas empresas</b> — clique em outra para trocar, sem sair da conta — e <b>Sair</b>.',
-          'Everything that is <b>yours</b> lives in one place: the little card with your name, at the bottom of the left menu. Click it and you get <b>Change photo</b>, <b>Settings</b>, <b>your usage</b> (the AI and storage bars, with the date the quota renews), <b>your companies</b> — click another one to switch without signing out — and <b>Sign out</b>.',
-          'Todo lo que es <b>tuyo</b> vive en un solo lugar: la tarjetita con tu nombre, al pie del menú de la izquierda. Haz clic y aparecen <b>Cambiar foto</b>, <b>Configuración</b>, <b>tu uso</b> (las barras de inteligencia artificial y de almacenamiento, con la fecha en que se renueva la cuota), <b>tus empresas</b> — haz clic en otra para cambiar sin salir de la cuenta — y <b>Salir</b>.',
+          'Tudo que é <b>seu</b> fica num lugar só: o cartão com o seu nome, no rodapé do menu da esquerda. Clique nele e aparecem <b>Trocar foto</b>, <b>Configurações</b>, o <b>seu uso</b> (as barras de inteligência artificial e de armazenamento, com a data em que a cota renova), <b>suas empresas</b> — clique em outra para trocar, sem sair da conta — e <b>Sair</b>.',
+          'Everything that is <b>yours</b> sits in one place: the card with your name, at the bottom of the left menu. Click it and you get <b>Change photo</b>, <b>Settings</b>, <b>your usage</b> (the AI and storage bars, with the date the quota renews), <b>your companies</b> — click another one to switch without signing out — and <b>Sign out</b>.',
+          'Todo lo que es <b>tuyo</b> está en un solo lugar: la tarjeta con tu nombre, al pie del menú de la izquierda. Haz clic y aparecen <b>Cambiar foto</b>, <b>Configuración</b>, <b>tu uso</b> (las barras de inteligencia artificial y de almacenamiento, con la fecha en que se renueva la cuota), <b>tus empresas</b> — haz clic en otra para cambiar sin salir de la cuenta — y <b>Salir</b>.',
         )],
         figuras: [{
           src: '83-menu-perfil',
           legenda: t3(
-            '<b>O menu do seu perfil.</b> <b>1</b> o cartão com o seu nome — clique para abrir. As barrinhas falam por cor: verde é folga, amarelo é hora de olhar, vermelho é fim.',
-            '<b>Your profile menu.</b> <b>1</b> the card with your name — click to open. The bars speak in colour: green is room to spare, amber means look, red means done.',
-            '<b>El menú de tu perfil.</b> <b>1</b> la tarjeta con tu nombre — haz clic para abrir. Las barras hablan por color: verde hay holgura, ámbar toca mirar, rojo se acabó.',
+            '<b>O menu do seu perfil.</b> <b>1</b> o cartão com o seu nome — clique para abrir. As barras indicam o consumo por cor: verde é folga, amarelo pede atenção, vermelho é limite atingido.',
+            '<b>Your profile menu.</b> <b>1</b> the card with your name — click to open. The bars show usage by colour: green is room to spare, amber asks for attention, red means the limit is reached.',
+            '<b>El menú de tu perfil.</b> <b>1</b> la tarjeta con tu nombre — haz clic para abrir. Las barras indican el consumo por color: verde hay holgura, ámbar pide atención, rojo es límite alcanzado.',
           ),
         }],
         notas: [{
           tipo: 'ok',
           texto: t3(
-            'A cota de inteligência artificial <b>renova sozinha todo mês</b>, e a data da próxima renovação fica ali no menu.',
-            'The AI quota <b>renews on its own every month</b>, and the next renewal date is right there in the menu.',
-            'La cuota de inteligencia artificial <b>se renueva sola cada mes</b>, y la fecha de la próxima renovación está ahí en el menú.',
+            'A cota de inteligência artificial <b>renova todo mês</b>, e a data da próxima renovação fica logo abaixo, no menu.',
+            'The AI quota <b>renews every month</b>, and the next renewal date is shown just below it, in the menu.',
+            'La cuota de inteligencia artificial <b>se renueva cada mes</b>, y la fecha de la próxima renovación aparece justo debajo, en el menú.',
           ),
         }],
       },
@@ -1512,7 +1520,7 @@ export const CAPITULOS: ManualCapitulo[] = [
         id: 'minha-foto',
         titulo: t3('Colocar a sua foto', 'Setting your photo', 'Poner tu foto'),
         corpo: [t3(
-          'A foto aparece ao lado do seu nome em todas as listas de pessoas — é o que faz a equipe te achar de primeira, sem ler nome nenhum. Escolha a imagem e ajuste o enquadramento: <b>arraste</b> para posicionar e use a <b>roda do mouse</b> (ou dois dedos, no celular) para aproximar e afastar. O círculo é exatamente o que vai aparecer. Para reenquadrar depois, abra de novo: a sua foto original volta como estava.',
+          'A foto aparece ao lado do seu nome em todas as listas de pessoas: a equipe identifica você de relance, sem precisar ler o nome. Escolha a imagem e ajuste o enquadramento: <b>arraste</b> para posicionar e use a <b>roda do mouse</b> (ou dois dedos, no celular) para aproximar e afastar. O círculo é exatamente o que vai aparecer. Para reenquadrar depois, abra de novo: a sua foto original volta como estava.',
           'Your photo shows next to your name in every people list — it is what lets the team find you at a glance. Pick the image and adjust the framing: <b>drag</b> to position and use the <b>mouse wheel</b> (or two fingers on a phone) to zoom in and out. The circle is exactly what will show. To reframe later, open it again: your original photo comes back as it was.',
           'Tu foto aparece junto a tu nombre en todas las listas de personas — es lo que permite al equipo encontrarte de un vistazo. Elige la imagen y ajusta el encuadre: <b>arrastra</b> para posicionar y usa la <b>rueda del ratón</b> (o dos dedos en el celular) para acercar y alejar. El círculo es exactamente lo que se verá. Para reencuadrar después, ábrelo de nuevo: tu foto original vuelve como estaba.',
         )],
