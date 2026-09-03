@@ -10,6 +10,7 @@ import { EvidenceUploader } from './EvidenceUploader'
 import { carregarTiposAceitos, megabytes, paraAccept, type TiposAceitos } from '../lib/uploads'
 import PrefSwitcher from './PrefSwitcher'
 import ParecerSignModal from '../app/screens/signature/ParecerSignModal'
+import { mascaraPara } from '../lib/mascaras'
 
 interface FF { key: string; type: string; label: string; help: string; required: boolean; options: string[]; sensitive: boolean }
 interface PublicForm { tenant_slug: string; tenant_name: string; channel_name: string; module?: string; title: string; intro: string; identification: string; fields: FF[]; published: boolean; lang?: string; available_langs?: string[] }
@@ -29,17 +30,17 @@ const SAC_WORDS = {
         another: 'Enviar outra demanda', signTitle: 'Assine sua demanda',
         emailHint: 'Usaremos só para responder sua demanda.',
         idRequired: 'Este canal exige identificação para podermos responder.',
-        signNote: 'Ao se identificar, você assina digitalmente a demanda (rubrica + localização opcional).' },
+        signNote: 'Para garantir o retorno e o registro do seu SAC, assine digitalmente: rubrica, CPF e localização opcional.' },
   en: { identifyLegend: 'Your contact details', send: 'Send request', doneTitle: 'Request received',
         another: 'Send another request', signTitle: 'Sign your request',
         emailHint: 'Only used to reply to your request.',
         idRequired: 'This channel requires identification so we can reply.',
-        signNote: 'By identifying yourself, you digitally sign the request (signature + optional location).' },
+        signNote: 'To guarantee the reply and the record of your request, sign digitally: signature, CPF and optional location.' },
   es: { identifyLegend: 'Tus datos de contacto', send: 'Enviar demanda', doneTitle: 'Demanda registrada',
         another: 'Enviar otra demanda', signTitle: 'Firma tu demanda',
         emailHint: 'Solo para responder tu demanda.',
         idRequired: 'Este canal exige identificación para poder responderte.',
-        signNote: 'Al identificarte, firmas digitalmente la demanda (firma + ubicación opcional).' },
+        signNote: 'Para garantizar la respuesta y el registro de tu solicitud, firma digitalmente: firma, CPF y ubicación opcional.' },
 } as const
 
 export function isPublicReportPath(): boolean {
@@ -280,7 +281,21 @@ export default function PublicReport() {
                       ))}
                     </div>
                   )
-                  : <input className="app-input" style={input} value={(v as string) ?? ''} onChange={(e) => setAns(f.key, e.target.value)} />}
+                  : (() => {
+                      // Telefone, CPF, CNPJ e CEP ganham máscara SOZINHOS,
+                      // pelo rótulo do campo — o formulário é dinâmico (até o
+                      // agente de IA monta), então não há onde configurar isso.
+                      const m = mascaraPara(f.label, f.key)
+                      return (
+                        <input
+                          className="app-input"
+                          style={input}
+                          value={(v as string) ?? ''}
+                          inputMode={m?.inputMode}
+                          onChange={(e) => setAns(f.key, m ? m.aplicar(e.target.value) : e.target.value)}
+                        />
+                      )
+                    })()}
               </div>
             )
           })}
@@ -408,6 +423,9 @@ export default function PublicReport() {
         title={tr.signTitle}
         kicker={tr.signKicker}
         cta={tr.signCta}
+        // Quem se identifica ASSINA, e assinatura sem CPF o servidor recusa
+        // (422): o modal cobra na frente, com o botão travado até validar.
+        requireCpf
       />
     </div>
   )

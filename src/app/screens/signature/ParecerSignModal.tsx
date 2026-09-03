@@ -87,7 +87,16 @@ export default function ParecerSignModal({ open, busy, onClose, onConfirm, title
 
           {err && <div style={{ background: 'rgba(217,83,79,.12)', border: '1px solid rgba(217,83,79,.4)', color: '#e08585', borderRadius: 12, padding: '11px 14px', fontSize: 13.5 }}>{err}</div>}
 
-          <Button onClick={submit} loading={busy} leftIcon="signature" style={{ padding: '14px 24px', fontSize: 15.5 }}>
+          {/* Com CPF obrigatório o botão fica TRAVADO até o número validar
+              (dígitos verificadores) — errar e descobrir só no clique é o
+              atrito que faz a pessoa desistir no meio. */}
+          <Button
+            onClick={submit}
+            loading={busy}
+            disabled={requireCpf ? !cpfValido(cpf) : false}
+            leftIcon="signature"
+            style={{ padding: '14px 24px', fontSize: 15.5 }}
+          >
             {busy ? t.sig.signing : (cta ?? t.cases.inv.signAndSend)}
           </Button>
         </div>
