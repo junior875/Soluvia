@@ -502,6 +502,7 @@ export interface AiUsage {
 }
 
 export interface AiMemberRow {
+  shared?: boolean
   membership_id: string
   name: string | null
   email: string | null

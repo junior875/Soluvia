@@ -1392,6 +1392,24 @@ export const CAPITULOS: ManualCapitulo[] = [
           ),
         }],
       },
+      {
+        id: 'creditos-equipe',
+        titulo: t3('A cota da equipe: divisão automática', 'The team quota: automatic split', 'La cuota del equipo: división automática'),
+        requires: { anyOf: ['admin.manage_users'] },
+        corpo: [t3(
+          'Quando a empresa tem <b>teto de tokens</b>, ninguém fica com infinito: cada pessoa ativa recebe a <b>parte igual da cota</b> (cota ÷ pessoas ativas) — sem isso, uma pessoa sozinha poderia queimar o mês de todo mundo. O crédito individual, dado pelo <b>+ tokens</b>, passa por cima da divisão. Empresa sem teto não divide nada: todo mundo aparece com ∞.',
+          'When the company has a <b>token cap</b>, nobody gets infinity: each active person receives an <b>equal share of the quota</b> (quota ÷ active people) — without this, one person alone could burn through the whole month. An individual credit, granted via <b>+ tokens</b>, overrides the split. A company without a cap splits nothing: everyone shows ∞.',
+          'Cuando la empresa tiene <b>tope de tokens</b>, nadie queda con infinito: cada persona activa recibe la <b>parte igual de la cuota</b> (cuota ÷ personas activas) — sin esto, una sola persona podría quemar el mes de todos. El crédito individual, dado por <b>+ tokens</b>, pasa por encima de la división. Empresa sin tope no divide nada: todos aparecen con ∞.',
+        )],
+        figuras: [{
+          src: '85-creditos-equipe',
+          legenda: t3(
+            '<b>Créditos de IA da equipe.</b> Sem crédito próprio, cada linha mostra a parte da cota da empresa e quanto resta dela; o crédito dado à mão substitui a divisão.',
+            '<b>Team AI credits.</b> Without a credit of their own, each row shows that person\u2019s share of the company quota and what remains; a hand-granted credit replaces the split.',
+            '<b>Créditos de IA del equipo.</b> Sin crédito propio, cada línea muestra la parte de la cuota de la empresa y cuánto queda; el crédito dado a mano sustituye la división.',
+          ),
+        }],
+      },
     ],
   },
 

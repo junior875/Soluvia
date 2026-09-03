@@ -288,6 +288,9 @@ export default function Settings() {
                     <div style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 14 }}>{m.name} <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 12.5 }}>{m.email}</span></div>
                     <div style={{ color: 'var(--text-muted)', fontSize: 12.5, margin: '4px 0 6px' }}>
                       {fmtNum(m.used)} / {m.limit > 0 ? fmtNum(m.limit) : '∞'} {t.settings.aiTokens}
+                      {/* De onde veio o número: parte igual da cota da empresa
+                          (cota ÷ ativos) ou crédito dado à mão. */}
+                      {m.shared && <> · {t.settings.aiShared}</>}
                       {m.limit > 0 && <> · {t.settings.aiRemaining} {fmtNum(m.remaining ?? 0)}</>}
                     </div>
                     {m.limit > 0 && <TokenBar pct={pct} />}
