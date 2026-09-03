@@ -18,11 +18,14 @@ interface PermSnapshot { effective: string[]; overrides: PermOverride[] }
 // i18n LOCAL (PT · EN · ES) — evita tocar em strings.ts compartilhado.
 const PERM_I18N: Record<Lang, {
   manage: string; title: string; intro: string
+  self: string; selfHint: string
   fromRole: string; ovGrant: string; ovRevoke: string
   empty: string; loadErr: string; saveErr: string; close: string
 }> = {
   pt: {
     manage: 'Permissões',
+    self: 'você',
+    selfHint: 'Ninguém altera as próprias permissões — peça a outro administrador.',
     title: 'Permissões desta pessoa',
     intro: 'Marcado = pode. A função marca o padrão; o que você mudar aqui vale só para esta pessoa — e desmarcar de volta desfaz o ajuste.',
     fromRole: 'Da função',
@@ -33,6 +36,8 @@ const PERM_I18N: Record<Lang, {
   },
   en: {
     manage: 'Permissions',
+    self: 'you',
+    selfHint: 'Nobody changes their own permissions — ask another administrator.',
     title: "This person's permissions",
     intro: 'Checked = allowed. The role sets the default; whatever you change here applies to this person only — and unchecking it back undoes the tweak.',
     fromRole: 'From role',
@@ -43,6 +48,8 @@ const PERM_I18N: Record<Lang, {
   },
   es: {
     manage: 'Permisos',
+    self: 'tú',
+    selfHint: 'Nadie cambia sus propios permisos — pide a otro administrador.',
     title: 'Permisos de esta persona',
     intro: 'Marcado = puede. El rol marca el estándar; lo que cambies aquí vale solo para esta persona — y desmarcar de vuelta deshace el ajuste.',
     fromRole: 'Del rol',
@@ -293,10 +300,19 @@ export default function People() {
                     {resendId === m.id ? t.people.resending : t.people.resend}
                   </button>
                 )}
-                {canManage && (
+                {/* Ninguém edita as PRÓPRIAS permissões: um administrador
+                    que se rebaixa por engano fica sem o botão que desfaria o
+                    engano. O servidor recusa também (403) — esconder botão
+                    não é segurança, é cortesia. */}
+                {canManage && m.email !== ctx.user.email && (
                   <button onClick={() => setPermMember(m)} className="app-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '5px 12px', borderRadius: 100, fontSize: 12.5, fontWeight: 700, background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)' }}>
                     {permL.manage}
                   </button>
+                )}
+                {canManage && m.email === ctx.user.email && (
+                  <span title={permL.selfHint} style={{ color: 'var(--text-muted)', fontSize: 12, padding: '5px 4px' }}>
+                    {permL.self}
+                  </span>
                 )}
               </div>
             </div>
