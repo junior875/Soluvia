@@ -55,6 +55,7 @@ export default function PdfViewer({ documentId, canManage, initialFields, onPend
 
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [loadError, setLoadError] = useState<string | null>(null)
+  const bytesRef = useRef<ArrayBuffer | null>(null)
   const [numPages, setNumPages] = useState(1)
   const [page, setPage] = useState(1)
   const [scale, setScale] = useState(1.1)
@@ -96,7 +97,11 @@ export default function PdfViewer({ documentId, canManage, initialFields, onPend
         }
         const buf = await resp.arrayBuffer()
         if (cancelled) return
-        const task = getDocument({ data: buf })
+        // Guarda os bytes: se o pdf.js recusar o arquivo, a pessoa ainda
+        // consegue baixá-lo e abrir no leitor dela — sem isso, um PDF que só
+        // este renderizador não entende viraria um beco sem saída.
+        bytesRef.current = buf
+        const task = getDocument({ data: buf.slice(0) })
         taskRef.current = task
         const pdf = await task.promise
         if (cancelled) { void task.destroy(); return }
@@ -341,11 +346,31 @@ export default function PdfViewer({ documentId, canManage, initialFields, onPend
     return <Card style={{ minHeight: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>{t.sig.loadingPdf}</Card>
   }
   if (status === 'error') {
+    // "Invalid PDF structure" é o pdf.js falando com quem o escreveu, não com
+    // quem só quer assinar um documento. Traduz, e oferece a saída de baixar.
+    const cru = (loadError ?? '').toLowerCase()
+    const arquivoRuim = cru.includes('invalid pdf') || cru.includes('structure') || cru.includes('corrupt')
+    const mensagem = arquivoRuim ? t.sig.pdfBroken : (loadError ?? t.sig.pdfFail)
     return (
-      <Card style={{ minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 24 }}>
-        <p style={{ color: loadError ? 'var(--heading)' : 'var(--text-muted)', fontSize: 14, lineHeight: 1.65, maxWidth: 460, margin: 0 }}>
-          {loadError ?? t.sig.pdfFail}
+      <Card style={{ minHeight: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 24, gap: 14 }}>
+        <p style={{ color: 'var(--heading)', fontSize: 14, lineHeight: 1.65, maxWidth: 460, margin: 0 }}>
+          {mensagem}
         </p>
+        {bytesRef.current && (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              const url = URL.createObjectURL(new Blob([bytesRef.current!], { type: 'application/pdf' }))
+              const a = document.createElement('a')
+              a.href = url
+              a.download = 'documento.pdf'
+              a.click()
+              setTimeout(() => URL.revokeObjectURL(url), 4000)
+            }}
+          >
+            {t.sig.pdfDownloadRaw}
+          </Button>
+        )}
       </Card>
     )
   }

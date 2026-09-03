@@ -2,13 +2,14 @@
 // empresas, usuários, canais, casos e consumo de IA — com manutenção (cota de IA,
 // reset, suspender). Standalone (#plataforma): não depende do painel de tenant.
 import { useCallback, useEffect, useState, type CSSProperties } from 'react'
-import { api, listPlans, logout } from '../lib/api'
-import type { ApiError, PlanOut, PlatformOverview, PlatformTenantDetail, PlatformTenantRow } from '../lib/types'
+import { api, listPlans, logout, switchTenant } from '../lib/api'
+import type { ApiError, MeResponse, PlanOut, PlatformOverview, PlatformTenantDetail, PlatformTenantRow } from '../lib/types'
 import { useTranslation } from '../i18n/LanguageProvider'
 import PrefSwitcher from './PrefSwitcher'
 import { DuoIcon, Icon, type IconName } from '../app/icons'
 import { Avatar } from '../app/ui'
 import AvatarEditor from './AvatarEditor'
+import UsageBar from './UsageBar'
 import { ManualView } from '../app/manual/ManualView'
 import { CAPITULOS_PLATAFORMA } from '../app/manual/conteudoPlataforma'
 import { Button, Card, EmptyState } from '../app/ui'
@@ -21,7 +22,7 @@ import { PasswordInput } from '../app/ui'
 
 const L = {
   pt: {
-    kicker: 'Console Soluqtion', subtitle: 'Visão total da plataforma', logout: 'Sair', menuUsage: 'Uso da plataforma',
+    menuCompanies: 'Suas empresas', menuNoLimit: 'sem limite', kicker: 'Console Soluqtion', subtitle: 'Visão total da plataforma', logout: 'Sair', menuUsage: 'Uso da plataforma',
     photoTitle: 'Sua foto de perfil', photoChange: 'Trocar sua foto', photoPick: 'Escolher imagem',
     photoHint: 'Arraste para posicionar; o zoom ajusta o enquadramento.', photoSaved: 'Foto salva.',
     tenants: 'Empresas', users: 'Usuários', channels: 'Canais', cases: 'Casos', openCases: 'Casos abertos',
@@ -118,7 +119,7 @@ const L = {
     hEvery: 'Varredura a cada', hAwaiting: 'Casos aguardando triagem', hEnvironment: 'Ambiente', hSentTotal: 'Enviados (total)', hSent30d: 'Últimos 30 dias', hSentToday: 'Hoje',
   },
   en: {
-    kicker: 'Soluqtion Console', subtitle: 'Full platform view', logout: 'Sign out', menuUsage: 'Platform usage',
+    menuCompanies: 'Your companies', menuNoLimit: 'no limit', kicker: 'Soluqtion Console', subtitle: 'Full platform view', logout: 'Sign out', menuUsage: 'Platform usage',
     photoTitle: 'Your profile photo', photoChange: 'Change your photo', photoPick: 'Choose image',
     photoHint: 'Drag to position; zoom adjusts the framing.', photoSaved: 'Photo saved.',
     tenants: 'Companies', users: 'Users', channels: 'Channels', cases: 'Cases', openCases: 'Open cases',
@@ -215,7 +216,7 @@ const L = {
     hEvery: 'Scan every', hAwaiting: 'Cases awaiting triage', hEnvironment: 'Environment', hSentTotal: 'Sent (total)', hSent30d: 'Last 30 days', hSentToday: 'Today',
   },
   es: {
-    kicker: 'Consola Soluqtion', subtitle: 'Vista total de la plataforma', logout: 'Salir', menuUsage: 'Uso de la plataforma',
+    menuCompanies: 'Tus empresas', menuNoLimit: 'sin límite', kicker: 'Consola Soluqtion', subtitle: 'Vista total de la plataforma', logout: 'Salir', menuUsage: 'Uso de la plataforma',
     photoTitle: 'Tu foto de perfil', photoChange: 'Cambiar tu foto', photoPick: 'Elegir imagen',
     photoHint: 'Arrastra para posicionar; el zoom ajusta el encuadre.', photoSaved: 'Foto guardada.',
     tenants: 'Empresas', users: 'Usuarios', channels: 'Canales', cases: 'Casos', openCases: 'Casos abiertos',
@@ -431,28 +432,43 @@ export default function PlatformConsole() {
   const [editorFoto, setEditorFoto] = useState(false)
   const [meuEmail, setMeuEmail] = useState('')
   const [menuPerfil, setMenuPerfil] = useState(false)
-  type BarraUso = { rotulo: string; texto: string; pct: number | null }
+  type BarraUso = { rotulo: string; usado: number; limite: number; formatar: (n: number) => string }
   const [usoPlataforma, setUsoPlataforma] = useState<BarraUso[] | null>(null)
+  /** As empresas em que a PESSOA tem vínculo. O console é da plataforma, mas
+   *  quem o opera também trabalha dentro das empresas — e voltava ao login só
+   *  para entrar numa delas. */
+  const [minhasEmpresas, setMinhasEmpresas] = useState<{ id: string; tenant_id: string; tenant_name: string }[]>([])
+
+  /** Entra no painel daquela empresa, saindo do console.
+   *
+   *  Troca o token pelo do tenant (o mesmo caminho do hub) antes de mudar o
+   *  hash: sem isso o painel abriria e só então descobriria que o contexto é
+   *  de outra empresa — e voltaria para a escolha, piscando a tela. */
+  async function entrarNaEmpresa(tenantId: string) {
+    try {
+      await switchTenant(tenantId)
+      window.location.hash = 'painel'
+    } catch {
+      // Falhou a troca? O hub do painel resolve — é a mesma escolha.
+      window.location.hash = 'painel'
+    }
+  }
 
   /** Os totais que só o dono vê: tokens da plataforma inteira e o
    *  armazenamento usado contra o teto do disco. Buscados ao ABRIR o menu. */
   async function carregarUsoPlataforma() {
     try {
-      const [ov, st] = await Promise.all([
+      const [ov, st, me] = await Promise.all([
         api.get<{ ai_tokens_used: number }>('/platform/overview').catch(() => null),
         api.get<{ total_bytes: number; ceiling_bytes: number }>('/platform/storage').catch(() => null),
+        api.get<MeResponse>('/auth/me').catch(() => null),
       ])
+      const gb = (n: number) => `${(n / 1024 ** 3).toFixed(n >= 10 * 1024 ** 3 ? 0 : 1)} GB`
       const barras: BarraUso[] = []
-      if (ov) barras.push({ rotulo: tr.tab_tokens, texto: num(ov.ai_tokens_used, lang), pct: null })
-      if (st) {
-        const gb = (n: number) => `${(n / 1024 / 1024 / 1024).toFixed(n >= 10 * 1024 ** 3 ? 0 : 1)} GB`
-        barras.push({
-          rotulo: tr.tab_armazenamento,
-          texto: `${gb(st.total_bytes)} / ${st.ceiling_bytes > 0 ? gb(st.ceiling_bytes) : '∞'}`,
-          pct: st.ceiling_bytes > 0 ? Math.min(100, (st.total_bytes / st.ceiling_bytes) * 100) : null,
-        })
-      }
+      if (ov) barras.push({ rotulo: tr.tab_tokens, usado: ov.ai_tokens_used, limite: 0, formatar: (n) => num(n, lang) })
+      if (st) barras.push({ rotulo: tr.tab_armazenamento, usado: st.total_bytes, limite: st.ceiling_bytes, formatar: gb })
       setUsoPlataforma(barras)
+      if (me) setMinhasEmpresas(me.memberships.filter((m) => m.status === 'active'))
     } catch { setUsoPlataforma(null) }
   }
   /** A seção aberta no painel da empresa. O modal antigo despejava tudo num
@@ -703,21 +719,35 @@ export default function PlatformConsole() {
                 {usoPlataforma && (
                   <div style={{ margin: '6px 4px', padding: '11px 13px', background: 'var(--surface-2)', borderRadius: 12 }}>
                     <div style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 9 }}>{tr.menuUsage}</div>
-                    {usoPlataforma.map((b, i) => {
-                      const cor = b.pct === null ? 'var(--accent)' : b.pct >= 90 ? '#e11d48' : b.pct >= 70 ? '#f59e0b' : '#16a34a'
-                      return (
-                        <div key={b.rotulo} style={{ marginTop: i ? 10 : 0 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 11.5, marginBottom: 4 }}>
-                            <span style={{ color: 'var(--heading)', fontWeight: 700 }}>{b.rotulo}</span>
-                            <span style={{ color: 'var(--text-muted)' }}>{b.texto}</span>
-                          </div>
-                          <div style={{ height: 6, borderRadius: 100, background: 'var(--surface)', overflow: 'hidden' }}>
-                            <div style={{ width: `${b.pct ?? 100}%`, height: '100%', borderRadius: 100, background: cor, opacity: b.pct === null ? 0.35 : 1 }} />
-                          </div>
-                        </div>
-                      )
-                    })}
+                    {usoPlataforma.map((b, i) => (
+                      <UsageBar
+                        key={b.rotulo}
+                        rotulo={b.rotulo}
+                        usado={b.usado}
+                        limite={b.limite}
+                        formatar={b.formatar}
+                        semLimiteTexto={tr.menuNoLimit}
+                        style={{ marginTop: i ? 12 : 0 }}
+                      />
+                    ))}
                   </div>
+                )}
+                {minhasEmpresas.length > 0 && (
+                  <>
+                    <div style={{ height: 1, background: 'var(--border)', margin: '4px 8px' }} />
+                    <div style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em', padding: '6px 12px 4px' }}>{tr.menuCompanies}</div>
+                    {minhasEmpresas.map((m) => (
+                      <button
+                        key={m.id}
+                        className="app-btn"
+                        onClick={() => { void entrarNaEmpresa(m.tenant_id) }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', background: 'none', border: 'none', borderRadius: 10, padding: '9px 12px', color: 'var(--heading)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        <DuoIcon name="channels" size={16} />
+                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.tenant_name}</span>
+                      </button>
+                    ))}
+                  </>
                 )}
                 <div style={{ height: 1, background: 'var(--border)', margin: '4px 8px' }} />
                 <button className="app-btn" onClick={() => void doLogout()}

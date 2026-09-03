@@ -10,6 +10,7 @@ import { useCaps } from './capabilities'
 import { useT } from './strings'
 import { SCREENS, evaluate, type ScreenState } from './registry'
 import type { MembershipSummary, MeResponse } from '../lib/types'
+import UsageBar from '../components/UsageBar'
 import { currentScreenId, goScreen } from './nav'
 import { Avatar, IconButton } from './ui'
 import { DuoIcon, Icon } from './icons'
@@ -105,7 +106,7 @@ export default function Shell() {
   const [fotoOriginal, setFotoOriginal] = useState<string | null>(ctx.user.avatar_original_url ?? null)
   const [editorFoto, setEditorFoto] = useState(false)
   const [menuPerfil, setMenuPerfil] = useState(false)
-  type UsoBarra = { rotulo: string; texto: string; pct: number | null }
+  type UsoBarra = { rotulo: string; usado: number; limite: number; formatar: (n: number) => string }
   const [usoMenu, setUsoMenu] = useState<{ barras: UsoBarra[]; renova?: string } | null>(null)
   /** As empresas da pessoa, RECÉM-BUSCADAS ao abrir o menu.
    *
@@ -121,24 +122,29 @@ export default function Shell() {
       const fmt = (n: number) => n.toLocaleString()
       const mb = (b: number) => b >= 1024 ** 3 ? (b / 1024 ** 3).toFixed(1) + ' GB' : Math.round(b / 1024 ** 2) + ' MB'
       const [ia, st, me] = await Promise.all([
-        api.get<{ my_used: number; my_limit: number; renews_at?: string }>('/ai/usage').catch(() => null),
+        api.get<{ my_used: number; my_limit: number; used: number; limit: number; renews_at?: string }>('/ai/usage').catch(() => null),
         api.get<{ used_bytes: number; limit_bytes: number; unlimited: boolean }>('/storage/usage').catch(() => null),
         api.get<MeResponse>('/auth/me').catch(() => null),
       ])
       if (me) setEmpresasMenu(me.memberships.filter((m) => m.status === 'active'))
       const barras: UsoBarra[] = []
       if (ia) {
+        // Sem crédito pessoal, o teto que de fato limita esta pessoa é o da
+        // EMPRESA — mostrar "sem limite" ali seria mentira confortável.
+        const pessoal = ia.my_limit > 0
         barras.push({
           rotulo: 'IA',
-          texto: fmt(ia.my_used) + (ia.my_limit > 0 ? ' / ' + fmt(ia.my_limit) : ''),
-          pct: ia.my_limit > 0 ? Math.min(100, (ia.my_used / ia.my_limit) * 100) : null,
+          usado: pessoal ? ia.my_used : ia.used,
+          limite: pessoal ? ia.my_limit : ia.limit,
+          formatar: fmt,
         })
       }
       if (st) {
         barras.push({
           rotulo: t.settings.storageTitle,
-          texto: mb(st.used_bytes) + ' / ' + (st.unlimited ? '∞' : mb(st.limit_bytes)),
-          pct: st.unlimited || st.limit_bytes <= 0 ? null : Math.min(100, (st.used_bytes / st.limit_bytes) * 100),
+          usado: st.used_bytes,
+          limite: st.unlimited ? 0 : st.limit_bytes,
+          formatar: mb,
         })
       }
       setUsoMenu({
@@ -292,22 +298,17 @@ export default function Shell() {
                 {usoMenu && usoMenu.barras.length > 0 && (
                   <div style={{ margin: '6px 4px', padding: '11px 13px', background: 'var(--surface-2)', borderRadius: 12 }}>
                     <div style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 9 }}>{t.settings.menuUsage}</div>
-                    {usoMenu.barras.map((b, i) => {
-                      // Semáforo: verde folgado, âmbar apertando (>=70), vermelho
-                      // no fim (>=90). Sem limite, a barra some — não há o que medir.
-                      const cor = b.pct === null ? 'var(--accent)' : b.pct >= 90 ? '#e11d48' : b.pct >= 70 ? '#f59e0b' : '#16a34a'
-                      return (
-                        <div key={b.rotulo} style={{ marginTop: i ? 10 : 0 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 11.5, marginBottom: 4 }}>
-                            <span style={{ color: 'var(--heading)', fontWeight: 700 }}>{b.rotulo}</span>
-                            <span style={{ color: 'var(--text-muted)' }}>{b.texto}</span>
-                          </div>
-                          <div style={{ height: 6, borderRadius: 100, background: 'var(--surface)', overflow: 'hidden' }}>
-                            <div style={{ width: `${b.pct ?? 100}%`, height: '100%', borderRadius: 100, background: cor, opacity: b.pct === null ? 0.35 : 1, transition: 'width .3s' }} />
-                          </div>
-                        </div>
-                      )
-                    })}
+                    {usoMenu.barras.map((b, i) => (
+                      <UsageBar
+                        key={b.rotulo}
+                        rotulo={b.rotulo}
+                        usado={b.usado}
+                        limite={b.limite}
+                        formatar={b.formatar}
+                        semLimiteTexto={t.settings.menuNoLimit}
+                        style={{ marginTop: i ? 12 : 0 }}
+                      />
+                    ))}
                     {usoMenu.renova && (
                       <div style={{ color: 'var(--text-muted)', fontSize: 11.5, marginTop: 9 }}>
                         {t.settings.menuRenews} <b style={{ color: 'var(--heading)' }}>{usoMenu.renova}</b>
