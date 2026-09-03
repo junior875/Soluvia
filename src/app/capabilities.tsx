@@ -48,6 +48,10 @@ interface Caps {
   switchTenant: (tenantId: string) => Promise<void>
   /** Permissões ganhas desde a última visita ao manual — vira o número na nav. */
   manualNovas: string[]
+  /** A pessoa também opera o console da plataforma? O hub do login já oferecia
+   *  essa porta; o menu de perfil não, e quem tinha as duas coisas ficava sem
+   *  caminho de volta ao console sem deslogar. */
+  ehPlataforma: boolean
 }
 
 const CapCtx = createContext<Caps | null>(null)
@@ -169,6 +173,7 @@ export function CapabilityProvider({ children }: { children: ReactNode }) {
               goHome()
             },
             memberships: vinculos,
+            ehPlataforma,
             // Reusa o estado 'select' do boot: o MESMO hub das duas portas —
             // login e troca — para a pessoa nunca aprender duas telas.
             openHub: () => {
@@ -193,7 +198,7 @@ export function CapabilityProvider({ children }: { children: ReactNode }) {
             },
           }
         : null,
-    [ctx, loadContext, vinculos],
+    [ctx, loadContext, vinculos, ehPlataforma],
   )
 
   // ── Estados não-prontos (mesma identidade visual) ──────────────

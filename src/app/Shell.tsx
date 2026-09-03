@@ -324,6 +324,20 @@ export default function Shell() {
                   </div>
                 )}
 
+                {/* O console da plataforma é uma "empresa" a mais para quem
+                    opera a Soluqtion: o hub do login já oferecia essa porta, o
+                    menu não — e voltar ao console exigia deslogar. */}
+                {caps.ehPlataforma && (
+                  <>
+                    <div style={{ height: 1, background: 'var(--border)', margin: '6px 4px' }} />
+                    <MenuItem
+                      icone="settings"
+                      rotulo={t.settings.menuConsole}
+                      onClick={() => { setMenuPerfil(false); window.location.hash = 'plataforma' }}
+                    />
+                  </>
+                )}
+
                 {/* Empresas: a troca mora AQUI agora (saiu do topo). */}
                 {/* Sempre visível, mesmo com uma empresa só: a lista com o ✓
                     diz "o sistema conhece estas" — a seção sumindo por

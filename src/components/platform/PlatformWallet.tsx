@@ -43,7 +43,8 @@ const I18N: Record<Lang, Record<string, string>> = {
     sub: 'O estoque da plataforma: o que compramos, o que prometemos às empresas e o que sobra.',
     comprado: 'Comprado', alocado: 'Alocado às empresas', consumido: 'Consumido', livre: 'Livre para alocar',
     livreHint: 'comprado − alocado', restante: 'restante no provedor',
-    precoMedio: 'preço médio', porMilhao: '/ milhão',
+    precoMedio: 'preço médio', porMilhao: '/ milhão', salvarPreco: 'Salvar preço',
+    ancorado: 'O estoque acompanha este saldo: recarga feita no provedor entra sozinha no extrato.',
     overbooked: 'Prometido acima do estoque — nem toda empresa usa a cota, mas a decisão é sua.',
     lancar: 'Lançar carga', tokens: 'Tokens (negativo = estorno)', custo: 'Custo (US$, opcional)',
     nota: 'Origem (ex.: compra DeepSeek 28/08)', enviar: 'Lançar',
@@ -56,7 +57,8 @@ const I18N: Record<Lang, Record<string, string>> = {
     sub: "The platform's stock: what we bought, what we promised to companies, and what's left.",
     comprado: 'Purchased', alocado: 'Allocated to companies', consumido: 'Consumed', livre: 'Free to allocate',
     livreHint: 'purchased − allocated', restante: 'remaining at the provider',
-    precoMedio: 'average price', porMilhao: '/ million',
+    precoMedio: 'average price', porMilhao: '/ million', salvarPreco: 'Save price',
+    ancorado: 'Stock follows this balance: a top-up made at the provider lands in the ledger on its own.',
     overbooked: 'Promised beyond the stock — not every company uses its quota, but the call is yours.',
     lancar: 'Add load', tokens: 'Tokens (negative = refund)', custo: 'Cost (US$, optional)',
     nota: 'Source (e.g. DeepSeek purchase 08/28)', enviar: 'Add',
@@ -69,7 +71,8 @@ const I18N: Record<Lang, Record<string, string>> = {
     sub: 'El stock de la plataforma: lo comprado, lo prometido a las empresas y lo que queda.',
     comprado: 'Comprado', alocado: 'Asignado a empresas', consumido: 'Consumido', livre: 'Libre para asignar',
     livreHint: 'comprado − asignado', restante: 'restante en el proveedor',
-    precoMedio: 'precio medio', porMilhao: '/ millón',
+    precoMedio: 'precio medio', porMilhao: '/ millón', salvarPreco: 'Guardar precio',
+    ancorado: 'El stock sigue este saldo: una recarga hecha en el proveedor entra sola en el extracto.',
     overbooked: 'Prometido por encima del stock — no toda empresa usa su cuota, pero la decisión es tuya.',
     lancar: 'Registrar carga', tokens: 'Tokens (negativo = reembolso)', custo: 'Costo (US$, opcional)',
     nota: 'Origen (ej.: compra DeepSeek 28/08)', enviar: 'Registrar',
@@ -106,7 +109,7 @@ export default function PlatformWallet({ lang, formatar, onToast, onSaldo }: {
   }, [])
 
   // Saldo REAL no provedor + preço por milhão editável (config sem deploy).
-  const [saldo, setSaldo] = useState<{ configured: boolean; available?: boolean | null; balances?: { currency: string; total: string; granted: string; topped_up: string }[]; error?: string } | null>(null)
+  const [saldo, setSaldo] = useState<{ configured: boolean; available?: boolean | null; balances?: { currency: string; total: string; granted: string; topped_up: string }[]; error?: string; reconciled?: { recarga_cents?: number } } | null>(null)
   const [precoMilhao, setPrecoMilhao] = useState('')
   useEffect(() => {
     api.get<Carteira>('/platform/wallet').then(aplicar).catch(() => setW(null))
@@ -199,17 +202,29 @@ export default function PlatformWallet({ lang, formatar, onToast, onSaldo }: {
             {saldo.error ? (
               <div style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>provedor sem resposta agora</div>
             ) : (
-              <div style={{ color: 'var(--heading)', fontSize: 22, fontWeight: 800, marginTop: 2 }}>
-                {saldo.balances?.[0] ? `${saldo.balances[0].currency} ${saldo.balances[0].total}` : '—'}
-                {saldo.available === false && <span style={{ color: '#e11d48', fontSize: 12, marginLeft: 8 }}>esgotado</span>}
-              </div>
+              <>
+                <div style={{ color: 'var(--heading)', fontSize: 22, fontWeight: 800, marginTop: 2 }}>
+                  {saldo.balances?.[0] ? `${saldo.balances[0].currency} ${saldo.balances[0].total}` : '—'}
+                  {saldo.available === false && <span style={{ color: '#e11d48', fontSize: 12, marginLeft: 8 }}>esgotado</span>}
+                </div>
+                {/* O elo que faltava: dizer que este número CONVERSA com o
+                    estoque. Recarga feita no site do provedor entra sozinha no
+                    extrato — ninguém precisa lembrar de lançar. */}
+                <div style={{ color: 'var(--text-muted)', fontSize: 11.5, marginTop: 3, maxWidth: 300, lineHeight: 1.5 }}>
+                  {saldo.reconciled?.recarga_cents
+                    ? `Recarga de US$ ${(saldo.reconciled.recarga_cents / 100).toFixed(2)} detectada e lançada no estoque.`
+                    : L.ancorado}
+                </div>
+              </>
             )}
           </div>
           <label style={{ display: 'grid', gap: 4, fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 700, marginLeft: 'auto' }}>
             {L.precoMedio} (US$ {L.porMilhao})
             <span style={{ display: 'flex', gap: 6 }}>
               <input value={precoMilhao} onChange={(e) => setPrecoMilhao(e.target.value)} inputMode="decimal" style={{ ...fld, width: 110 }} />
-              <button onClick={() => void salvarPreco()} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '7px 14px', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}>OK</button>
+              {/* Este botão SALVA o preço de referência — ele não compra
+                  nada. Rotulado "OK" parecia confirmar um lançamento. */}
+              <button onClick={() => void salvarPreco()} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '7px 14px', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}>{L.salvarPreco}</button>
             </span>
           </label>
         </div>

@@ -45,7 +45,10 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
   )
 }
 
-function TokenBar({ pct }: { pct: number }) {
+function TokenBar({ pct, limite }: { pct: number; limite?: number }) {
+  // Sem teto (ou teto zero) não há o que medir: a barra vazia sugeria que a
+  // cota existe e está intacta — e cota zerada é justamente o contrário.
+  if (limite !== undefined && limite <= 0) return null
   const color = pct >= 100 ? '#e11d48' : pct >= 85 ? '#f59e0b' : 'var(--accent)'
   return (
     <div style={{ height: 9, borderRadius: 100, background: 'rgba(120,140,160,.2)', overflow: 'hidden' }}>
@@ -214,7 +217,7 @@ export default function Settings() {
                 <span>{fmtNum(ai.my_used)} / {fmtNum(ai.my_limit)} {t.settings.aiTokens}</span>
                 <span>{pctOf(ai.my_used, ai.my_limit)}%</span>
               </div>
-              <TokenBar pct={pctOf(ai.my_used, ai.my_limit)} />
+              <TokenBar pct={pctOf(ai.my_used, ai.my_limit)} limite={ai.my_limit} />
               <p style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: 8 }}>
                 {t.settings.aiRemaining}: <strong style={{ color: 'var(--heading)' }}>{fmtNum(ai.my_remaining ?? 0)}</strong> {t.settings.aiTokens}
               </p>
@@ -229,7 +232,7 @@ export default function Settings() {
               é o pior jeito de descobrir. */}
           {!ai.unlimited && (
             <div style={{ marginTop: 10 }}>
-              <TokenBar pct={pctOf(ai.used, ai.limit)} />
+              <TokenBar pct={pctOf(ai.used, ai.limit)} limite={ai.limit} />
               {pctOf(ai.used, ai.limit) >= 85 && (
                 <p style={{ color: pctOf(ai.used, ai.limit) >= 100 ? '#e11d48' : '#b45309', fontSize: 12.5, marginTop: 8, fontWeight: 600 }}>
                   {pctOf(ai.used, ai.limit) >= 100 ? t.settings.aiCompanyFull : t.settings.aiCompanyWarn}
