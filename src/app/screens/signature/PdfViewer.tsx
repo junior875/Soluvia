@@ -89,20 +89,40 @@ export default function PdfViewer({ documentId, canManage, initialFields, onPend
         // evidência no fim, o que atrapalha na hora de marcar onde assinar.
         // O RENDER: o PDF derivado do arquivo, seja ele qual for. É sobre ele
         // que os campos são marcados — coordenada de página só existe em PDF.
-        // Se o servidor ainda não tem a rota (deploy em andamento), cai no
-        // original, que para PDF é o mesmo arquivo.
+        //
+        // REGRA DE SOBREVIVÊNCIA: qualquer problema com o render — rota que
+        // ainda não existe, 409, ou bytes que não são PDF — cai no ORIGINAL,
+        // que é o caminho que sempre funcionou. O render é uma melhoria; ele
+        // não tem o direito de derrubar a visualização que já existia.
         const cab: RequestInit = { credentials: 'include', headers: token ? { Authorization: `Bearer ${token}` } : {} }
+        // O %PDF- pode vir depois de até 1 KB de lixo (mesma folga do pdf.js).
+        const ehPdf = (b: ArrayBuffer) => {
+          const v = new Uint8Array(b.slice(0, 1024))
+          for (let i = 0; i + 4 < v.length; i++) {
+            if (v[i] === 0x25 && v[i + 1] === 0x50 && v[i + 2] === 0x44 && v[i + 3] === 0x46) return true
+          }
+          return false
+        }
         let resp = await fetch(`${BASE_URL}/signature/documents/${documentId}/download?variant=render`, cab)
-        if (resp.status === 404 || resp.status === 422) {
+        let buf = resp.ok ? await resp.arrayBuffer() : null
+        if (!buf || !ehPdf(buf)) {
+          const suspeito = buf
           resp = await fetch(`${BASE_URL}/signature/documents/${documentId}/download?original=true`, cab)
+          if (!resp.ok) {
+            const detail = await resp.json().then((b) => b?.detail).catch(() => null)
+            throw new Error(typeof detail === 'string' ? detail : 'fetch')
+          }
+          buf = await resp.arrayBuffer()
+          if (!ehPdf(buf)) {
+            // Nem o original é PDF: o diagnóstico diz O QUE veio no lugar —
+            // é a diferença entre adivinhar e saber, no próximo print.
+            const texto = new TextDecoder().decode(buf.slice(0, 60)).replace(/[^ -~]/g, '·')
+            throw new Error(
+              `O servidor devolveu ${buf.byteLength} bytes que não são um PDF ` +
+              `(início: "${texto}"${suspeito ? `; render veio com ${suspeito.byteLength} bytes` : ''}).`,
+            )
+          }
         }
-        if (!resp.ok) {
-          // Mostra o motivo que o servidor deu (ex.: arquivo perdido por falta de
-          // volume persistente) em vez do genérico "não foi possível renderizar".
-          const detail = await resp.json().then((b) => b?.detail).catch(() => null)
-          throw new Error(typeof detail === 'string' ? detail : 'fetch')
-        }
-        const buf = await resp.arrayBuffer()
         if (cancelled) return
         // Guarda os bytes: se o pdf.js recusar o arquivo, a pessoa ainda
         // consegue baixá-lo e abrir no leitor dela — sem isso, um PDF que só
