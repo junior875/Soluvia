@@ -17,10 +17,14 @@ import { Icon } from '../icons'
 type FieldType =
   | 'short_text' | 'long_text' | 'single_choice' | 'multi_choice'
   | 'dropdown' | 'date' | 'yes_no' | 'rating' | 'section' | 'info'
+  | 'privacy_notice'
 
 interface FF {
   key: string; type: FieldType; label: string; help: string
   required: boolean; options: string[]; sensitive: boolean; conditional: null
+  // Link do aviso (só o `privacy_notice` usa). Opcional porque os formulários
+  // já publicados não têm a chave.
+  url?: string
 }
 interface FormData {
   channel_id: string; title: string; intro: string; identification: string
@@ -32,7 +36,9 @@ interface ChatMsg { role: 'you' | 'assistant'; content: string }
 interface ChatSummary { chat_id: string; title: string; messages: number; updated_at: number | null }
 interface AIReply { chat_id: string; message: string; form: { title: string; intro: string; identification: string; fields: Omit<FF, 'conditional'>[] } }
 
-const TYPES: FieldType[] = ['short_text', 'long_text', 'single_choice', 'multi_choice', 'dropdown', 'date', 'yes_no', 'section', 'info']
+const TYPES: FieldType[] = ['short_text', 'long_text', 'single_choice', 'multi_choice', 'dropdown', 'date', 'yes_no', 'section', 'info', 'privacy_notice']
+/** O link do aviso: http/https ou nada — mesma regra do servidor. */
+const urlValida = (u: string) => !u.trim() || /^https?:\/\/[^\s/]+/i.test(u.trim())
 const LANGS: { v: Lang; label: string }[] = [{ v: 'pt', label: 'PT' }, { v: 'en', label: 'EN' }, { v: 'es', label: 'ES' }]
 const hasOptions = (t: FieldType) => t === 'single_choice' || t === 'multi_choice' || t === 'dropdown'
 const slug = (s: string) => s.normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase() || 'campo'
@@ -69,16 +75,30 @@ const NOTIFY_I18N = {
   },
 } as const
 
+// O que muda no SAC: o canal não é de denúncia, então "avisar a empresa" dá
+// lugar a divulgar o canal de atendimento. Só as frases que mudam.
+const NOTIFY_SAC = {
+  pt: { button: 'Divulgar o canal', title: 'Divulgar o canal de atendimento',
+        intro: 'Envie o link do formulário por e-mail para os membros da empresa, para que divulguem o canal aos clientes.' },
+  en: { button: 'Share the channel', title: 'Share the service channel',
+        intro: 'Email the form link to the company members so they can share the channel with customers.' },
+  es: { button: 'Difundir el canal', title: 'Difundir el canal de atención',
+        intro: 'Envía el enlace del formulario por correo a los miembros de la empresa, para que difundan el canal entre los clientes.' },
+} as const
+
 export default function FormBuilder() {
   const t = useT()
   // Idioma da INTERFACE (≠ idioma do formulário, que é o `lang` mais abaixo).
   const { lang: uiLang } = useTranslation()
-  const nt = NOTIFY_I18N[uiLang]
   const [channels, setChannels] = useState<ChannelOut[] | null>(null)
   const [channelId, setChannelId] = useState<string | null>(null)
   // O canal da vez: a prévia precisa dele para resolver `{prazo}` com o prazo
   // DE VERDADE, e não com um número que alguém digitou na introdução.
   const canalAtual = (channels ?? []).find((c) => c.id === channelId) ?? null
+  // O vocabulário do aviso segue o MÓDULO do canal selecionado.
+  const nt = canalAtual?.module === 'sac'
+    ? { ...NOTIFY_I18N[uiLang], ...NOTIFY_SAC[uiLang] }
+    : NOTIFY_I18N[uiLang]
   const [form, setForm] = useState<FormData | null>(null)
   // Assinatura do conteúdo no último salvamento. `null` = ainda carregando.
   const [salvo, setSalvo] = useState<string | null>(null)
@@ -182,7 +202,7 @@ export default function FormBuilder() {
     if (!f) return f
     const fields = f.fields.slice(); fields[i] = { ...fields[i], ...p }; return { ...f, fields }
   })
-  const addField = () => setForm((f) => f ? { ...f, fields: [...f.fields, { key: `campo_${f.fields.length + 1}`, type: 'short_text', label: 'Nova pergunta', help: '', required: false, options: [], sensitive: false, conditional: null }] } : f)
+  const addField = () => setForm((f) => f ? { ...f, fields: [...f.fields, { key: `campo_${f.fields.length + 1}`, type: 'short_text', label: 'Nova pergunta', help: '', required: false, options: [], sensitive: false, conditional: null, url: '' }] } : f)
   const removeField = (i: number) => setForm((f) => f ? { ...f, fields: f.fields.filter((_, k) => k !== i) } : f)
   const move = (i: number, dir: -1 | 1) => setForm((f) => {
     if (!f) return f
@@ -464,6 +484,21 @@ export default function FormBuilder() {
                     </Select>
                     <Input value={f.help} onChange={(e) => updateField(i, { help: e.target.value })} placeholder={t.fb.help} />
                   </div>
+                  {/* O aviso de privacidade precisa de um ENDEREÇO para virar
+                      link clicável na página pública — colar <a href> no
+                      rótulo não funciona (sai como texto, por segurança). */}
+                  {f.type === 'privacy_notice' && (
+                    <div style={{ marginTop: 10 }}>
+                      <Input
+                        value={f.url ?? ''}
+                        onChange={(e) => updateField(i, { url: e.target.value })}
+                        placeholder={t.fb.privacyUrlPh}
+                      />
+                      <p style={{ color: urlValida(f.url ?? '') ? 'var(--text-muted)' : '#d9534f', fontSize: 12, marginTop: 5 }}>
+                        {urlValida(f.url ?? '') ? t.fb.privacyUrlHint : t.fb.privacyUrlBad}
+                      </p>
+                    </div>
+                  )}
                   {hasOptions(f.type) && (
                     <textarea
                       value={f.options.join('\n')}
@@ -509,7 +544,9 @@ export default function FormBuilder() {
               </p>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 18 }}>
-              {(previewForm ?? form).fields.map((f, i) => <Preview key={i} f={f} t={t} />)}
+              {/* A prévia fala a língua do MÓDULO do canal, como a página
+                  pública: num SAC quem responde é consumidor, não denunciante. */}
+              {(previewForm ?? form).fields.map((f, i) => <Preview key={i} f={f} t={t} isSac={canalAtual?.module === 'sac'} />)}
             </div>
             {publicUrl && (
               <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
@@ -749,17 +786,42 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
   )
 }
 
-function Preview({ f, t }: { f: FF; t: ReturnType<typeof useT> }) {
+function Preview({ f, t, isSac }: { f: FF; t: ReturnType<typeof useT>; isSac?: boolean }) {
+  // "Resposta do denunciante" num canal de SAC era a prévia contradizendo a
+  // página pública, que já diz "demanda" — o módulo decide a palavra.
+  const answerPh = isSac ? t.fb.answerPhSac : t.fb.answerPhEtica
   if (f.type === 'section') return <h3 style={{ color: 'var(--heading)', fontWeight: 800, fontSize: 16, borderBottom: '1px solid var(--border)', paddingBottom: 6 }}>{f.label}</h3>
   if (f.type === 'info') return <p style={{ color: 'var(--text-muted)', fontSize: 13.5 }}>{f.label}</p>
   const inputStyle: CSSProperties = { width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', color: 'var(--text-muted)', fontSize: 14, boxSizing: 'border-box' }
+  // Prévia do aviso: o mesmo checkbox + link que a página pública mostra, para
+  // quem edita conferir o endereço antes de publicar.
+  if (f.type === 'privacy_notice') {
+    const link = (f.url ?? '').trim()
+    const linkOk = /^https?:\/\/[^\s/]+/i.test(link)
+    return (
+      <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 12, background: 'var(--surface-2)' }}>
+        {f.help && <p style={{ color: 'var(--text-muted)', fontSize: 12.5, lineHeight: 1.6, margin: '0 0 8px', whiteSpace: 'pre-wrap' }}>{f.help}</p>}
+        <span style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13.5, color: 'var(--text)', lineHeight: 1.5 }}>
+          <span style={{ width: 16, height: 16, minWidth: 16, borderRadius: 4, border: '2px solid var(--border)', marginTop: 2 }} />
+          <span>
+            {t.fb.privacyRead}{' '}
+            {linkOk
+              ? <a href={link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontWeight: 700, textDecoration: 'underline' }}>{f.label}</a>
+              : <strong style={{ color: 'var(--heading)' }}>{f.label}</strong>}
+            <span style={{ color: 'var(--accent)' }}> *</span>
+            {!linkOk && <span style={{ display: 'block', color: '#e0a23c', fontSize: 11.5 }}>{t.fb.privacyUrlMissing}</span>}
+          </span>
+        </span>
+      </div>
+    )
+  }
   return (
     <div>
       <label style={{ display: 'block', color: 'var(--heading)', fontWeight: 600, fontSize: 14, marginBottom: 6 }}>
         {f.label} {f.required && <span style={{ color: 'var(--accent)' }}>*</span>}
       </label>
       {f.help && <p style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: -3, marginBottom: 6 }}>{f.help}</p>}
-      {f.type === 'long_text' ? <div style={{ ...inputStyle, minHeight: 64 }}>{t.fb.answerPh}</div>
+      {f.type === 'long_text' ? <div style={{ ...inputStyle, minHeight: 64 }}>{answerPh}</div>
         : f.type === 'date' ? <div style={inputStyle}>dd/mm/aaaa</div>
         : f.type === 'dropdown' ? <div style={inputStyle}>{f.options[0] ?? t.fb.choosePh} ▾</div>
         : f.type === 'single_choice' || f.type === 'multi_choice' ? (
@@ -772,7 +834,7 @@ function Preview({ f, t }: { f: FF; t: ReturnType<typeof useT> }) {
           </div>
         )
         : f.type === 'yes_no' ? <div style={{ display: 'flex', gap: 8 }}><span style={inputStyle}>{t.fb.previewYes}</span><span style={inputStyle}>{t.fb.previewNo}</span></div>
-        : <div style={inputStyle}>{t.fb.answerPh}</div>}
+        : <div style={inputStyle}>{answerPh}</div>}
     </div>
   )
 }
