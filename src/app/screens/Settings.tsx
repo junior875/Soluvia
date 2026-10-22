@@ -82,6 +82,11 @@ export default function Settings() {
   const t = useT()
   const { ctx, can } = useCaps()
   const canManageUsers = can('admin.manage_users')
+  // Feriados exigem a MESMA permissão que configurar canal (`manage_roles`),
+  // porque mexer no calendário muda o prazo de todo canal da empresa. Gate
+  // igual ao do servidor de propósito: com `manage_users` aqui, quem só
+  // convida gente veria os botões e levaria 403 ao clicar.
+  const canManageHolidays = can('admin.manage_roles')
   const { theme, setTheme } = useTheme()
   const { lang, setLang } = useTranslation()
   const [themePref, setThemePref] = useState<ThemePref>(getThemePref())
@@ -243,7 +248,7 @@ export default function Settings() {
           />
         </div>
 
-        {canManageUsers && (
+        {canManageHolidays && (
           <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 10, alignItems: 'end', marginBottom: 14 }} className="rb-id">
             <Field label={t.settings.hol.addDay}>
               <Input type="date" value={holDay} onChange={(e) => setHolDay(e.target.value)} />
@@ -273,7 +278,7 @@ export default function Settings() {
                     {h.origem === 'nacional' ? t.settings.hol.national : t.settings.hol.company}
                   </p>
                 </div>
-                {canManageUsers && (
+                {canManageHolidays && (
                   h.origem === 'nacional'
                     ? <Toggle on={h.ativo} onChange={() => { if (!holBusy) void alternarFeriado(h) }} />
                     : (
