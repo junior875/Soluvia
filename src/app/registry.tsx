@@ -10,6 +10,7 @@ import Overview from './screens/Overview'
 import Cases from './screens/Cases'
 import Signature from './screens/Signature'
 import People from './screens/People'
+import AccessReport from './screens/AccessReport'
 import Roles from './screens/Roles'
 import Channels from './screens/Channels'
 import FormBuilder from './screens/FormBuilder'
@@ -87,6 +88,14 @@ export const SCREENS: ScreenDef[] = [
   {
     id: 'roles', navKey: 'roles', icon: 'roles', group: 'admin', Component: Roles,
     requires: { allOf: ['admin.manage_roles'] },
+  },
+  {
+    // Relatório de acesso efetivo (item 20): ao lado de Pessoas e Papéis,
+    // porque é a resposta da pergunta que as duas telas levantam — "quem,
+    // hoje, alcança o quê?". Quem administra pessoas OU quem audita entra: o
+    // auditor costuma ter só `admin.view_audit`, e é ele quem mais precisa.
+    id: 'access', navKey: 'access', icon: 'shield', group: 'admin', Component: AccessReport,
+    requires: { anyOf: ['admin.manage_users', 'admin.view_audit'] },
   },
   {
     id: 'channels', navKey: 'channels', icon: 'channels', group: 'config', Component: Channels,
