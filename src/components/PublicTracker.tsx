@@ -4,6 +4,7 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { BASE_URL } from '../lib/api'
 import { useTranslation } from '../i18n/LanguageProvider'
+import { maskProtocolo } from '../lib/mascaras'
 import PrefSwitcher from './PrefSwitcher'
 
 interface Ev { type: string; content: string; created_at: string; from_reporter: boolean }
@@ -15,9 +16,12 @@ const STATUS_LABEL: Record<string, Record<string, string>> = {
   es: { received: 'Recibido', triage: 'En triaje', investigation: 'En investigación', responded: 'Respondido', closed: 'Cerrado' },
 }
 const L = {
-  pt: { title: 'Acompanhar relato', sub: 'Informe o protocolo e o código de acesso que você guardou.', protocol: 'Protocolo', code: 'Código de acesso', track: 'Acompanhar', tracking: 'Buscando…', notfound: 'Protocolo ou código inválido.', status: 'Status', timeline: 'Andamento', you: 'Você', team: 'Equipe responsável', yourReport: 'Seu relato', reply: 'Responder / complementar', send: 'Enviar', sending: 'Enviando…', back: 'Consultar outro', empty: 'Ainda não há mensagens.' },
-  en: { title: 'Track report', sub: 'Enter the protocol and access code you saved.', protocol: 'Protocol', code: 'Access code', track: 'Track', tracking: 'Searching…', notfound: 'Invalid protocol or code.', status: 'Status', timeline: 'Progress', you: 'You', team: 'Handling team', yourReport: 'Your report', reply: 'Reply / add info', send: 'Send', sending: 'Sending…', back: 'Look up another', empty: 'No messages yet.' },
-  es: { title: 'Seguir denuncia', sub: 'Ingresa el protocolo y el código de acceso que guardaste.', protocol: 'Protocolo', code: 'Código de acceso', track: 'Seguir', tracking: 'Buscando…', notfound: 'Protocolo o código inválido.', status: 'Estado', timeline: 'Progreso', you: 'Tú', team: 'Equipo responsable', yourReport: 'Tu denuncia', reply: 'Responder / añadir', send: 'Enviar', sending: 'Enviando…', back: 'Consultar otro', empty: 'Aún no hay mensajes.' },
+  // `offline` e `oops` existem porque "Protocolo ou código inválido" era a
+  // resposta para TUDO que dava errado, inclusive internet caída: a pessoa
+  // relia o protocolo certo procurando um erro que não estava ali.
+  pt: { title: 'Acompanhar relato', sub: 'Informe o protocolo e o código de acesso que você guardou.', protocol: 'Protocolo', code: 'Código de acesso', track: 'Acompanhar', tracking: 'Buscando…', notfound: 'Protocolo ou código inválido.', offline: 'Não conseguimos falar com o servidor. Confira sua conexão e tente de novo — o protocolo continua válido.', oops: 'Algo falhou do nosso lado. Tente de novo em instantes; o protocolo continua válido.', status: 'Status', timeline: 'Andamento', you: 'Você', team: 'Equipe responsável', yourReport: 'Seu relato', reply: 'Responder / complementar', send: 'Enviar', sending: 'Enviando…', back: 'Consultar outro', empty: 'Ainda não há mensagens.' },
+  en: { title: 'Track report', sub: 'Enter the protocol and access code you saved.', protocol: 'Protocol', code: 'Access code', track: 'Track', tracking: 'Searching…', notfound: 'Invalid protocol or code.', offline: 'We could not reach the server. Check your connection and try again — your protocol is still valid.', oops: 'Something failed on our side. Please try again shortly; your protocol is still valid.', status: 'Status', timeline: 'Progress', you: 'You', team: 'Handling team', yourReport: 'Your report', reply: 'Reply / add info', send: 'Send', sending: 'Sending…', back: 'Look up another', empty: 'No messages yet.' },
+  es: { title: 'Seguir denuncia', sub: 'Ingresa el protocolo y el código de acceso que guardaste.', protocol: 'Protocolo', code: 'Código de acceso', track: 'Seguir', tracking: 'Buscando…', notfound: 'Protocolo o código inválido.', offline: 'No pudimos contactar al servidor. Revisa tu conexión e inténtalo de nuevo — tu protocolo sigue siendo válido.', oops: 'Algo falló de nuestro lado. Inténtalo de nuevo en unos instantes; tu protocolo sigue siendo válido.', status: 'Estado', timeline: 'Progreso', you: 'Tú', team: 'Equipo responsable', yourReport: 'Tu denuncia', reply: 'Responder / añadir', send: 'Enviar', sending: 'Enviando…', back: 'Consultar otro', empty: 'Aún no hay mensajes.' },
 }
 
 export default function PublicTracker() {
@@ -43,11 +47,22 @@ export default function PublicTracker() {
     try {
       const r = await fetch(`${BASE_URL}/public/cases/lookup`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ protocol: protocol.trim(), access_hash: code.trim() }),
+        // Normalizado também aqui, e não só no que o campo mostra: o valor
+        // pode ter vindo de um autofill, que não passa pelo `onChange`.
+        body: JSON.stringify({ protocol: maskProtocolo(protocol), access_hash: code.trim() }),
       })
-      if (!r.ok) throw new Error()
+      // 404 = protocolo/código não conferem (é o que o servidor devolve para
+      // os dois, de propósito). Qualquer outro status é problema NOSSO, e
+      // dizer "protocolo inválido" nesse caso manda a pessoa caçar erro onde
+      // não tem.
+      if (r.status === 404) { setErr(tr.notfound); return }
+      if (!r.ok) { setErr(tr.oops); return }
       setView(await r.json())
-    } catch { setErr(tr.notfound) } finally { setBusy(false) }
+    } catch {
+      // `fetch` só rejeita quando a requisição não chegou a ter resposta:
+      // rede caída, DNS, servidor fora do ar.
+      setErr(tr.offline)
+    } finally { setBusy(false) }
   }
   async function sendReply() {
     if (!reply.trim() || !view) return
@@ -92,14 +107,21 @@ export default function PublicTracker() {
   )
 
   return (
-    <div style={wrap}>{header}
+    // `data-public-tracker` é o gancho estável do reteste de navegador: sem
+    // ele, "o overlay saiu da tela?" dependia de adivinhar texto da landing.
+    <div style={wrap} data-public-tracker>{header}
       <div style={card} className="app-modal">
         {!view ? (
           <>
             <h1 style={{ color: 'var(--heading)', fontSize: 'clamp(22px,4vw,28px)', fontWeight: 800 }}>{tr.title}</h1>
             <p style={{ color: 'var(--text-muted)', fontSize: 14.5, marginTop: 6 }}>{tr.sub}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 20 }}>
-              <div><label style={labelS}>{tr.protocol}</label><input style={input} value={protocol} onChange={(e) => setProtocol(e.target.value)} placeholder="DG-XXXX-XXXX" autoFocus /></div>
+              {/* Máscara no `onChange`: o campo se formata em DG-XXXX-XXXX
+                  enquanto a pessoa digita, então o que ela vê é a mesma
+                  grafia que o servidor gravou. `autoCapitalize`/`autoCorrect`
+                  são para o celular, que entrava em minúsculas e "corrigia"
+                  os blocos. */}
+              <div><label style={labelS}>{tr.protocol}</label><input style={{ ...input, textTransform: 'uppercase', letterSpacing: 0.5 }} value={protocol} onChange={(e) => setProtocol(maskProtocolo(e.target.value))} placeholder="DG-XXXX-XXXX" maxLength={12} autoCapitalize="characters" autoCorrect="off" spellCheck={false} autoComplete="off" autoFocus /></div>
               <div><label style={labelS}>{tr.code}</label><input style={input} value={code} onChange={(e) => setCode(e.target.value)} placeholder="••••••••" /></div>
               {err && <div style={{ background: 'rgba(217,83,79,.12)', border: '1px solid rgba(217,83,79,.4)', color: '#e08585', borderRadius: 12, padding: '11px 14px', fontSize: 13.5 }}>{err}</div>}
               <button onClick={() => void lookup()} disabled={busy} className="app-btn cta-sheen" style={{ background: 'linear-gradient(135deg,var(--accent),var(--accent-2))', color: '#fff', border: 'none', borderRadius: 100, padding: '14px 28px', fontSize: 16, fontWeight: 800, cursor: 'pointer', boxShadow: '0 12px 30px var(--accent-shadow)', opacity: busy ? 0.6 : 1 }}>{busy ? tr.tracking : tr.track}</button>

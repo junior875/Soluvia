@@ -26,6 +26,27 @@ export function maskCnpj(bruto: string): string {
     .replace(/(\d{4})(\d)/, '$1-$2')
 }
 
+/** DG-XXXX-XXXX — o protocolo do relato, como ele é gerado.
+ *
+ * O campo de acompanhamento recebia texto cru: quem colava o protocolo do
+ * e-mail em minúsculas, sem os hífens ou com um espaço no meio, levava
+ * "Protocolo ou código inválido" com o código certo na mão. A máscara faz o
+ * campo mostrar desde a digitação a MESMA grafia que o servidor gravou.
+ *
+ * O prefixo é sempre `DG`, então oito caracteres sem ele significam que a
+ * pessoa colou só os dois blocos — espelha a `normalizar_protocolo` do
+ * backend, que é a fonte da verdade.
+ */
+export function maskProtocolo(bruto: string): string {
+  let d = (bruto || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10)
+  if (d.length === 8 && !d.startsWith('DG')) d = `DG${d}`
+  if (d.length <= 2) return d
+  // Os dois primeiros caracteres são repetidos como vieram, e não fixados em
+  // "DG": prefixo errado tem de ficar visível para a pessoa ver que errou.
+  if (d.length <= 6) return `${d.slice(0, 2)}-${d.slice(2)}`
+  return `${d.slice(0, 2)}-${d.slice(2, 6)}-${d.slice(6)}`
+}
+
 /** 00000-000 */
 export function maskCep(bruto: string): string {
   const d = bruto.replace(/\D/g, '').slice(0, 8)
