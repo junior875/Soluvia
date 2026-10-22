@@ -153,10 +153,25 @@ export interface AuditRow {
   created_at: string
 }
 
+/** A condição de uma etapa do fluxo: "esta etapa só acontece se a resposta X for Y".
+ *
+ *  `campo` é a CHAVE do campo no formulário do canal (`FormField.key`) — nunca o
+ *  índice, nunca o rótulo: a chave é o único identificador que sobrevive a
+ *  traduzir o rótulo e a reordenar o formulário, e é por ela que `case.answers`
+ *  é indexado. O servidor valida este objeto ao salvar o fluxo e o avalia na
+ *  liberação (`app/services/condicao.py`).
+ *
+ *  O formato antigo (`{field, op, value}`, com `field: 'severity'`) nunca foi
+ *  lido pelo motor e foi substituído por este. */
 export interface FlowCondition {
-  field: string
-  op: string
-  value: string
+  /** Versão do formato. Só `1` existe; outra coisa = condição inválida. */
+  v: 1
+  campo: string
+  op: 'eq' | 'neq' | 'in' | 'nin' | 'contem' | 'vazio' | 'preenchido'
+  /** Lista só em `in`/`nin`; ignorado em `vazio`/`preenchido`. */
+  valor?: string | number | boolean | Array<string | number | boolean>
+  /** `roda` (padrão) = a etapa acontece quando casa; `pula` = o contrário. */
+  efeito?: 'roda' | 'pula'
 }
 
 /** LEGADO: os interruptores que o `kind` substituiu. Fluxo antigo ainda tem. */

@@ -12,7 +12,7 @@ import { KIND_VISUAL, kindDoConfig } from '../../lib/flowKinds'
 import { templatesDoModulo, type FlowTemplate } from '../../lib/flowTemplates'
 import { localizeRole } from '../../lib/systemNames'
 import { STAGE_KINDS } from '../../lib/types'
-import type { ApiError, ChannelOut, FlowOut, FlowStageIn, MemberRow, PrazoModo, RoleOut, StageKind } from '../../lib/types'
+import type { ApiError, ChannelOut, FlowCondition, FlowOut, FlowStageIn, FormFieldSnap, MemberRow, PrazoModo, RoleOut, StageKind } from '../../lib/types'
 import { rotuloPrazo } from '../../lib/prazo'
 import { useCaps } from '../capabilities'
 import { useT } from '../strings'
@@ -105,6 +105,58 @@ export function reguaDaEtapa(s: { sla_mode?: PrazoModo; sla_value?: number; sla_
 }
 const SEVS = ['low', 'medium', 'high', 'critical'] as const
 const uid = () => Math.random().toString(36).slice(2, 9)
+
+// ── Condição da etapa ────────────────────────────────────────────
+/** Comparações que o servidor entende, na ordem em que fazem sentido escolher. */
+export const COND_OPS = ['eq', 'neq', 'in', 'nin', 'contem', 'vazio', 'preenchido'] as const
+/** Comparações que NÃO usam valor: olham só se a pessoa respondeu. */
+const COND_SEM_VALOR: readonly string[] = ['vazio', 'preenchido']
+/** Comparações cujo valor é uma LISTA. */
+const COND_DE_LISTA: readonly string[] = ['in', 'nin']
+
+/** A condição que veio do servidor, se for do formato que o motor avalia.
+ *
+ *  Fluxo salvo antes do contrato traz `{field: 'severity', op: 'gte'}` — um
+ *  formato que o motor NUNCA leu. Devolvê-lo ao servidor hoje volta 422, então
+ *  ele é descartado aqui: a etapa aparece sem condição, que é exatamente como
+ *  ela se comportava. */
+export function normalizarCondicao(c: unknown): FlowCondition | null {
+  if (!c || typeof c !== 'object') return null
+  const bruto = c as Record<string, unknown>
+  if (bruto.v !== 1 || typeof bruto.campo !== 'string' || !bruto.campo) return null
+  if (typeof bruto.op !== 'string' || !(COND_OPS as readonly string[]).includes(bruto.op)) return null
+  return {
+    v: 1,
+    campo: bruto.campo,
+    op: bruto.op as FlowCondition['op'],
+    valor: bruto.valor as FlowCondition['valor'],
+    efeito: bruto.efeito === 'pula' ? 'pula' : 'roda',
+  }
+}
+
+/** O valor da condição como texto do campo (lista vira "a, b"). */
+function valorEmTexto(cond: FlowCondition): string {
+  const v = cond.valor
+  if (Array.isArray(v)) return v.join(', ')
+  return v === undefined || v === null ? '' : String(v)
+}
+
+/** O texto do campo de volta para o `valor` do contrato. */
+function textoEmValor(op: string, texto: string): FlowCondition['valor'] {
+  if (COND_SEM_VALOR.includes(op)) return undefined
+  if (COND_DE_LISTA.includes(op)) {
+    return texto.split(',').map((x) => x.trim()).filter(Boolean)
+  }
+  return texto
+}
+
+/** A condição está completa o bastante para o servidor aceitar? */
+export function condicaoValida(cond: FlowCondition | null): boolean {
+  if (!cond || !cond.campo) return false
+  if (COND_SEM_VALOR.includes(cond.op)) return true
+  if (COND_DE_LISTA.includes(cond.op)) return Array.isArray(cond.valor) && cond.valor.length > 0
+  return cond.valor !== undefined && cond.valor !== null && String(cond.valor) !== ''
+}
 
 /**
  * Deixa os grupos contíguos (0,1,2…) e joga fora os que ficaram vazios.
@@ -244,7 +296,11 @@ export default function FlowBuilder() {
       ...(() => { const r = reguaDaEtapa(s); return {
         sla_mode: r.modo, sla_value: r.valor, sla_hours: horasEquivalentes(r.valor, r.modo),
       } })(),
-      is_conditional: s.is_conditional, condition: s.condition,
+      // A condição só continua ligada se o que está gravado for avaliável —
+      // ver `normalizarCondicao`.
+      ...(() => { const c = normalizarCondicao(s.condition); return {
+        is_conditional: !!s.is_conditional && c !== null, condition: c,
+      } })(),
     }))))
   }
 
@@ -259,6 +315,27 @@ export default function FlowBuilder() {
     // relistar aqui refaria o GET a cada troca de idioma, jogando fora o que a
     // pessoa tivesse acabado de editar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelId])
+
+  // Os campos do FORMULÁRIO deste canal — é contra eles que a condição de uma
+  // etapa é escrita (a condição aponta para a `key` de um campo, nunca para o
+  // rótulo, que muda de idioma, nem para a posição, que muda de ordem).
+  //
+  // Falha em silêncio de propósito: quem monta o fluxo pode não ter permissão
+  // de construir formulário, e aí a seção de condição explica que não há campo
+  // para escolher em vez de a tela inteira quebrar.
+  const [formFields, setFormFields] = useState<FormFieldSnap[]>([])
+  useEffect(() => {
+    if (!channelId) { setFormFields([]); return }
+    let vivo = true
+    api.get<{ fields: FormFieldSnap[] }>(`/channels/${channelId}/form`)
+      .then((f) => {
+        if (!vivo) return
+        // `section` e `info` são texto na tela: não têm resposta para comparar.
+        setFormFields((f.fields ?? []).filter((c) => c.type !== 'section' && c.type !== 'info'))
+      })
+      .catch(() => { if (vivo) setFormFields([]) })
+    return () => { vivo = false }
   }, [channelId])
 
   const patch = (key: string, p: Partial<Draft>) =>
@@ -629,9 +706,14 @@ export default function FlowBuilder() {
           sla_value: Math.max(0, Math.trunc(Number(s.sla_value) || 0)),
           sla_hours: Math.max(0, Math.round(Number(s.sla_hours) || 0)) || null,
           sla_days: Math.max(0, Math.round((Number(s.sla_hours) || 0) / 24)),
-          // A etapa condicional saiu do produto: sempre desligada.
-          is_conditional: false,
-          condition: null,
+          // A CONDIÇÃO da etapa, como a pessoa montou no painel. Ia sempre
+          // `false`/`null` daqui, e era por isso que o recurso não existia na
+          // prática: o modelo tinha os campos, o servidor os aceitava, e a
+          // tela os apagava a cada salvamento. Condição pela metade vai
+          // desligada — o servidor recusaria (422) e a pessoa perderia o
+          // fluxo inteiro por causa de um campo em branco.
+          is_conditional: !!s.is_conditional && condicaoValida(s.condition),
+          condition: s.condition ?? null,
         })),
       }
       await api.put(`/channels/${channelId}/flow`, payload)
@@ -1088,7 +1170,50 @@ export default function FlowBuilder() {
                     )}
                   </Sec>
 
-                  {/* 5 · Assinatura — interruptor, não checkbox perdido. */}
+                  {/* 5 · CONDIÇÃO — "esta etapa só acontece se a resposta
+                      for…". Os campos existiam no modelo e no schema desde o
+                      começo e nunca chegaram à tela: o construtor gravava
+                      sempre desligado e o motor nunca lia a condição. Sem
+                      isto, não havia como mandar um elogio direto ao
+                      Encerramento — o caso passava por todos os blocos. */}
+                  <Sec num="5" titulo={t.flow.conditional}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px', background: 'var(--surface-2)' }}>
+                      <span style={{ color: 'var(--accent)', display: 'flex', marginTop: 2 }}><Icon name="flow" size={17} /></span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: 'var(--heading)', fontWeight: 800, fontSize: 13.5 }}>{t.flow.conditional}</div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5, marginTop: 2 }}>{t.flow.condHint}</div>
+                      </div>
+                      <Switch
+                        on={!!s.is_conditional}
+                        // Sem campo no formulário não há condição possível —
+                        // mas quem já tem uma gravada continua podendo
+                        // desligá-la.
+                        disabled={!canEdit || (formFields.length === 0 && !s.is_conditional)}
+                        onToggle={(v) => patch(s.key, {
+                          is_conditional: v,
+                          // Ligar monta a condição no primeiro campo do
+                          // formulário; desligar PRESERVA o que estava escrito
+                          // (quem liga de novo não perde o trabalho).
+                          condition: v
+                            ? (s.condition ?? { v: 1, campo: formFields[0]?.key ?? '', op: 'eq', valor: '', efeito: 'roda' })
+                            : s.condition,
+                        })}
+                      />
+                    </div>
+                    {formFields.length === 0 && (
+                      <p style={{ color: 'var(--text-muted)', fontSize: 12, margin: '8px 0 0', lineHeight: 1.5 }}>{t.flow.condNoFields}</p>
+                    )}
+                    {s.is_conditional && s.condition && (
+                      <div style={{ marginTop: 12 }}>
+                        <CondicaoEditor
+                          cond={s.condition} campos={formFields} disabled={!canEdit} t={t}
+                          onChange={(c) => patch(s.key, { condition: c })}
+                        />
+                      </div>
+                    )}
+                  </Sec>
+
+                  {/* 6 · Assinatura — interruptor, não checkbox perdido. */}
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px', background: 'var(--surface-2)' }}>
                     <span style={{ color: 'var(--accent)', display: 'flex', marginTop: 2 }}><Icon name="signature" size={17} /></span>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -1184,6 +1309,97 @@ export default function FlowBuilder() {
  * uma faixa: 430px fixos num celular cobririam a tela inteira sem a pessoa
  * saber que há algo atrás.
  */
+/**
+ * Editor da condição da etapa: "se o campo X for Y".
+ *
+ * O campo é escolhido por NOME, mas o que se grava é a `key` — o rótulo muda
+ * de idioma e a posição muda de ordem; a chave é o que sobrevive. Um campo que
+ * saiu do formulário continua aparecendo (a condição dele ainda está gravada),
+ * com o aviso de que a etapa vai rodar sempre.
+ */
+function CondicaoEditor({ cond, campos, disabled, t, onChange }: {
+  cond: FlowCondition
+  campos: FormFieldSnap[]
+  disabled: boolean
+  t: ReturnType<typeof useT>
+  onChange: (c: FlowCondition) => void
+}) {
+  const tf = t.flow
+  const semValor = COND_SEM_VALOR.includes(cond.op)
+  const deLista = COND_DE_LISTA.includes(cond.op)
+  const campo = campos.find((c) => c.key === cond.campo)
+  const orfao = !!cond.campo && !campo
+  const opcoes = campo?.options ?? []
+  return (
+    <div style={{ display: 'grid', gap: 10 }}>
+      <Field label={tf.condField}>
+        <Select value={cond.campo} disabled={disabled} onChange={(e) => onChange({ ...cond, campo: e.target.value })}>
+          {/* O campo órfão fica na lista para não ser trocado por acidente. */}
+          {orfao && <option value={cond.campo}>{cond.campo}</option>}
+          {campos.map((c) => <option key={c.key} value={c.key}>{c.label || c.key}</option>)}
+        </Select>
+      </Field>
+      <Field label={tf.condOp}>
+        <Select
+          value={cond.op} disabled={disabled}
+          onChange={(e) => {
+            const op = e.target.value as FlowCondition['op']
+            // Trocar a comparação CONVERTE o valor: "está entre" guarda lista,
+            // "é igual a" guarda texto. Sem isto, trocar de uma para a outra
+            // deixava no payload um valor do tipo errado — e o servidor
+            // recusava o fluxo inteiro.
+            onChange({ ...cond, op, valor: textoEmValor(op, valorEmTexto(cond)) })
+          }}
+        >
+          {COND_OPS.map((o) => <option key={o} value={o}>{tf.condOps[o]}</option>)}
+        </Select>
+      </Field>
+      {!semValor && (
+        <Field label={tf.condValue}>
+          {opcoes.length > 0 && !deLista ? (
+            <Select value={valorEmTexto(cond)} disabled={disabled} onChange={(e) => onChange({ ...cond, valor: e.target.value })}>
+              <option value="">—</option>
+              {opcoes.map((o) => <option key={o} value={o}>{o}</option>)}
+            </Select>
+          ) : (
+            <Input
+              value={valorEmTexto(cond)} disabled={disabled}
+              placeholder={opcoes.length > 0 ? opcoes.slice(0, 2).join(', ') : ''}
+              onChange={(e) => onChange({ ...cond, valor: textoEmValor(cond.op, e.target.value) })}
+            />
+          )}
+        </Field>
+      )}
+      {deLista && (
+        <p style={{ color: 'var(--text-muted)', fontSize: 12, margin: 0, lineHeight: 1.5 }}>{tf.condValueHint}</p>
+      )}
+      <div>
+        <div style={{ color: 'var(--text-muted)', fontSize: 11.5, fontWeight: 700, margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '.03em' }}>{tf.condEffect}</div>
+        <div style={{ display: 'inline-flex', background: 'var(--surface-2)', borderRadius: 100, padding: 3 }}>
+          {([['roda', tf.condEffectRun], ['pula', tf.condEffectSkip]] as const).map(([modo, rotulo]) => {
+            const on = (cond.efeito ?? 'roda') === modo
+            return (
+              <button
+                key={modo} type="button" disabled={disabled} className="app-btn"
+                onClick={() => onChange({ ...cond, efeito: modo })}
+                style={{ border: 'none', cursor: disabled ? 'default' : 'pointer', padding: '7px 14px', borderRadius: 100, fontWeight: 800, fontSize: 12.5, background: on ? 'var(--accent)' : 'transparent', color: on ? '#fff' : 'var(--text-muted)' }}
+              >
+                {rotulo}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+      {orfao && (
+        <p style={{ color: '#d97706', fontSize: 12, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'flex-start', gap: 6, lineHeight: 1.5 }}>
+          <Icon name="bell" size={12} /> <span>{tf.condOrphan(cond.campo)}</span>
+        </p>
+      )}
+      <p style={{ color: 'var(--text-muted)', fontSize: 12, margin: 0, lineHeight: 1.5 }}>{tf.condUneval}</p>
+    </div>
+  )
+}
+
 /** Seção numerada do painel: a ordem 1-2-3-4 é o roteiro de preencher um bloco. */
 function Sec({ num, titulo, children }: { num: string; titulo: string; children: ReactNode }) {
   return (
