@@ -42,7 +42,10 @@ export default function Cases({ module = 'etica' }: CasesProps) {
   const moduleLogo = isSac
     ? (lang === 'en' ? '/sac-en.svg' : lang === 'es' ? '/sac-es.svg' : '/sac.svg')
     : (lang === 'en' ? '/canal-denuncias-en.png' : '/canal-denuncias.png')
-  const sevL = (s: string) => (t.cases.sev as Record<string, string>)[s] ?? s
+  // Gravidade nula = caso que a triagem ainda não classificou. Sem o `unset` o
+  // chip saía VAZIO, que é pior que a "Média" inventada de antes.
+  const sevL = (s: string | null | undefined) =>
+    (t.cases.sev as Record<string, string>)[s ?? 'unset'] ?? s ?? ''
   const statL = (s: string) => (t.cases.stat as Record<string, string>)[s] ?? s
   const [cases, setCases] = useState<CaseOut[] | null>(null)
   const [detail, setDetail] = useState<CaseDetail | null>(null)
@@ -138,7 +141,9 @@ export default function Cases({ module = 'etica' }: CasesProps) {
     setOpen(true); setDetail(null); setReply(''); setNote(''); setResolution('')
     try {
       const d = await api.get<CaseDetail>(`/cases/${id}`)
-      setDetail(d); setSeverity(d.severity)
+      // O seletor de "Aplicar gravidade" precisa de um valor; caso não
+      // classificado abre em "Média" como sugestão, sem gravar nada.
+      setDetail(d); setSeverity(d.severity ?? 'medium')
     } catch (e) { flash((e as ApiError).detail ?? tx.failOpen); setOpen(false) }
   }
   async function act(fn: () => Promise<unknown>) {

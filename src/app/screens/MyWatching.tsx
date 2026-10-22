@@ -22,7 +22,7 @@ type Acompanhado = {
   protocol: string
   title: string
   status: string
-  severity: string
+  severity: string | null   // nula até a triagem classificar
   module: string
   last_event_at: string | null
   last_seen_at: string | null

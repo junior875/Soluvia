@@ -230,7 +230,8 @@ export interface CaseOut {
   channel_id: string
   protocol: string
   status: string
-  severity: string
+  /** Nula enquanto a triagem não classifica — a tela mostra "Não classificada". */
+  severity: string | null
   title: string
   is_anonymous: boolean
   current_stage_id: string | null
