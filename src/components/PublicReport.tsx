@@ -294,7 +294,9 @@ export default function PublicReport() {
               pessoa digitar nome, telefone e e-mail para depois ver tudo isso
               desaparecer ao marcar "Anônimo". Controle vem antes do que ele
               controla. */}
-          <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: 18 }}>
+          {/* `data-identificacao`: gancho estável para o reteste de navegador
+              provar que este bloco está ACIMA das perguntas. */}
+          <div data-identificacao style={{ borderBottom: '1px solid var(--border)', paddingBottom: 18 }}>
             <label style={labelS}>{tr.identifyLegend}</label>
             {form.identification === 'forbidden' ? <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>🔒 {tr.anonForced}</p>
               : form.identification === 'required' ? (
@@ -340,7 +342,7 @@ export default function PublicReport() {
               const aceite = `${tr.privacyRead.replace('{aviso}', f.label)}${linkOk ? ` — ${link}` : ''}`
               const marcado = Boolean(answers[f.key])
               return (
-                <div key={f.key} style={{ border: '1px solid var(--border)', borderRadius: 14, padding: 14, background: 'var(--surface-2)' }}>
+                <div key={f.key} data-privacy-notice style={{ border: '1px solid var(--border)', borderRadius: 14, padding: 14, background: 'var(--surface-2)' }}>
                   {f.help && <p style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.6, margin: '0 0 10px', whiteSpace: 'pre-wrap' }}>{f.help}</p>}
                   <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', color: 'var(--text)', fontSize: 14, lineHeight: 1.5 }}>
                     <input
