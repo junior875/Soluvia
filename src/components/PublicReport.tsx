@@ -14,7 +14,9 @@ import { mascaraPara } from '../lib/mascaras'
 import { campoIdentifica } from '../lib/anonimato'
 import { resolverPrazo } from '../lib/prazo'
 
-interface FF { key: string; type: string; label: string; help: string; required: boolean; options: string[]; sensitive: boolean }
+// `url` só existe no campo `privacy_notice`: é o endereço do aviso que a
+// página transforma em link DE VERDADE. Opcional nos campos antigos.
+interface FF { key: string; type: string; label: string; help: string; required: boolean; options: string[]; sensitive: boolean; url?: string }
 interface PublicForm {
   tenant_slug: string; tenant_name: string; channel_name: string; module?: string
   title: string; intro: string; identification: string; fields: FF[]; published: boolean
@@ -27,9 +29,9 @@ interface PublicForm {
 interface Receipt { protocol: string; access_hash: string }
 
 const L = {
-  pt: { loading: 'Carregando…', unavailable: 'Canal indisponível', unavailableBody: 'Este canal ainda não tem um formulário publicado, ou o link é inválido.', identifyLegend: 'Como você quer relatar?', anon: 'Anônimo', anonHint: 'Não pediremos nada que te identifique.', identify: 'Identificar-me', email: 'Seu e-mail', emailHint: 'Usaremos só para dar retorno do seu relato.', anonForced: 'Este canal é 100% anônimo.', idRequired: 'Este canal exige identificação.', send: 'Enviar relato', sending: 'Enviando…', waitUpload: 'Aguardando o anexo…', required: 'Preencha os campos obrigatórios.', sendFail: 'Falha ao enviar. Tente novamente.', doneTitle: 'Relato registrado', doneBody: 'Guarde o protocolo e o código abaixo — é a única forma de acompanhar (inclusive de forma anônima).', protocol: 'Protocolo', code: 'Código de acesso', copy: 'Copiar', copied: 'Copiado!', track: 'Acompanhar depois em', another: 'Enviar outro relato', secure: 'Ambiente seguro e confidencial', yes: 'Sim', no: 'Não', choose: 'Selecione', signTitle: 'Assine seu relato', signKicker: 'Identificação', signCta: 'Assinar e enviar', verifTitle: 'Confirme seu e-mail', verifBody: 'Enviamos um código de 8 dígitos para', verifConfirm: 'Confirmar e assinar', verifResend: 'Reenviar código', verifFail: 'Não foi possível enviar o código. Tente de novo.', verifBad: 'Código inválido ou expirado.', signNote: 'Ao se identificar, você assina digitalmente o relato (rubrica + localização opcional).', evidenceTitle: 'Provas (opcional)', evidenceHelp: 'Fotos, vídeos, áudios ou documentos que ajudem a comprovar o que você está relatando.', evidenceChoose: 'Escolher arquivos', evidenceDrop: 'ou arraste e solte aqui', evidenceRemove: 'Remover', evidenceSending: 'Enviando…', evidenceFailed: 'Não foi possível enviar este arquivo.', evidenceLimit: 'Limite de arquivos atingido.', evidenceAccepted: 'Formatos aceitos', fmtImage: 'Imagens', fmtVideo: 'Vídeos', fmtAudio: 'Áudios', fmtDocument: 'Documentos', evidenceLimits: 'Até {n} arquivos, {mb} MB cada.' },
-  en: { loading: 'Loading…', unavailable: 'Channel unavailable', unavailableBody: 'This channel has no published form yet, or the link is invalid.', identifyLegend: 'How do you want to report?', anon: 'Anonymous', anonHint: 'We will not ask anything that identifies you.', identify: 'Identify myself', email: 'Your email', emailHint: 'We use it only to reply about your report.', anonForced: 'This channel is 100% anonymous.', idRequired: 'This channel requires identification.', send: 'Send report', sending: 'Sending…', waitUpload: 'Waiting for the upload…', required: 'Please fill in the required fields.', sendFail: 'We could not send your report. Please try again.', doneTitle: 'Report received', doneBody: 'Keep the protocol and the code below — they are the only way to follow up, even anonymously.', protocol: 'Protocol', code: 'Access code', copy: 'Copy', copied: 'Copied!', track: 'Follow up later at', another: 'Send another report', secure: 'Secure & confidential', yes: 'Yes', no: 'No', choose: 'Select', signTitle: 'Sign your report', signKicker: 'Identification', signCta: 'Sign & send', verifTitle: 'Confirm your email', verifBody: 'We sent an 8-digit code to', verifConfirm: 'Confirm & sign', verifResend: 'Resend code', verifFail: 'We could not send the code. Try again.', verifBad: 'Invalid or expired code.', signNote: 'By identifying yourself, you digitally sign the report (signature + optional location).', evidenceTitle: 'Evidence (optional)', evidenceHelp: 'Photos, videos, audio or documents that support what you are reporting.', evidenceChoose: 'Choose files', evidenceDrop: 'or drag and drop here', evidenceRemove: 'Remove', evidenceSending: 'Uploading…', evidenceFailed: 'This file could not be uploaded.', evidenceLimit: 'File limit reached.', evidenceAccepted: 'Accepted formats', fmtImage: 'Images', fmtVideo: 'Videos', fmtAudio: 'Audio', fmtDocument: 'Documents', evidenceLimits: 'Up to {n} files, {mb} MB each.' },
-  es: { loading: 'Cargando…', unavailable: 'Canal no disponible', unavailableBody: 'Este canal aún no tiene un formulario publicado, o el enlace no es válido.', identifyLegend: '¿Cómo quieres denunciar?', anon: 'Anónimo', anonHint: 'No pediremos nada que te identifique.', identify: 'Identificarme', email: 'Tu correo', emailHint: 'Solo lo usamos para dar seguimiento a tu denuncia.', anonForced: 'Este canal es 100% anónimo.', idRequired: 'Este canal exige identificación.', send: 'Enviar denuncia', sending: 'Enviando…', waitUpload: 'Esperando el archivo…', required: 'Completa los campos obligatorios.', sendFail: 'No pudimos enviar tu denuncia. Inténtalo de nuevo.', doneTitle: 'Denuncia registrada', doneBody: 'Guarda el protocolo y el código — son la única forma de dar seguimiento, incluso de forma anónima.', protocol: 'Protocolo', code: 'Código de acceso', copy: 'Copiar', copied: '¡Copiado!', track: 'Haz el seguimiento después en', another: 'Enviar otra denuncia', secure: 'Entorno seguro y confidencial', yes: 'Sí', no: 'No', choose: 'Selecciona', signTitle: 'Firma tu denuncia', signKicker: 'Identificación', signCta: 'Firmar y enviar', verifTitle: 'Confirma tu correo', verifBody: 'Enviamos un código de 8 dígitos a', verifConfirm: 'Confirmar y firmar', verifResend: 'Reenviar código', verifFail: 'No pudimos enviar el código. Intenta de nuevo.', verifBad: 'Código inválido o vencido.', signNote: 'Al identificarte, firmas digitalmente la denuncia (firma + ubicación opcional).', evidenceTitle: 'Pruebas (opcional)', evidenceHelp: 'Fotos, videos, audios o documentos que respalden lo que estás relatando.', evidenceChoose: 'Elegir archivos', evidenceDrop: 'o arrastra y suelta aquí', evidenceRemove: 'Quitar', evidenceSending: 'Enviando…', evidenceFailed: 'No fue posible enviar este archivo.', evidenceLimit: 'Límite de archivos alcanzado.', evidenceAccepted: 'Formatos aceptados', fmtImage: 'Imágenes', fmtVideo: 'Videos', fmtAudio: 'Audios', fmtDocument: 'Documentos', evidenceLimits: 'Hasta {n} archivos, {mb} MB cada uno.' },
+  pt: { loading: 'Carregando…', unavailable: 'Canal indisponível', unavailableBody: 'Este canal ainda não tem um formulário publicado, ou o link é inválido.', identifyLegend: 'Como você quer relatar?', anon: 'Anônimo', anonHint: 'Não pediremos nada que te identifique.', identify: 'Identificar-me', email: 'Seu e-mail', emailHint: 'Usaremos só para dar retorno do seu relato.', anonForced: 'Este canal é 100% anônimo.', idRequired: 'Este canal exige identificação.', send: 'Enviar relato', sending: 'Enviando…', waitUpload: 'Aguardando o anexo…', required: 'Preencha os campos obrigatórios.', sendFail: 'Falha ao enviar. Tente novamente.', doneTitle: 'Relato registrado', doneBody: 'Guarde o protocolo e o código abaixo — é a única forma de acompanhar (inclusive de forma anônima).', protocol: 'Protocolo', code: 'Código de acesso', copy: 'Copiar', copied: 'Copiado!', track: 'Acompanhar depois em', another: 'Enviar outro relato', secure: 'Ambiente seguro e confidencial', yes: 'Sim', no: 'Não', choose: 'Selecione', signTitle: 'Assine seu relato', signKicker: 'Identificação', signCta: 'Assinar e enviar', verifTitle: 'Confirme seu e-mail', verifBody: 'Enviamos um código de 8 dígitos para', verifConfirm: 'Confirmar e assinar', verifResend: 'Reenviar código', verifFail: 'Não foi possível enviar o código. Tente de novo.', verifBad: 'Código inválido ou expirado.', signNote: 'Ao se identificar, você assina digitalmente o relato (rubrica + localização opcional).', evidenceTitle: 'Provas (opcional)', evidenceHelp: 'Fotos, vídeos, áudios ou documentos que ajudem a comprovar o que você está relatando.', evidenceChoose: 'Escolher arquivos', evidenceDrop: 'ou arraste e solte aqui', evidenceRemove: 'Remover', evidenceSending: 'Enviando…', evidenceFailed: 'Não foi possível enviar este arquivo.', evidenceLimit: 'Limite de arquivos atingido.', evidenceAccepted: 'Formatos aceitos', fmtImage: 'Imagens', fmtVideo: 'Vídeos', fmtAudio: 'Áudios', fmtDocument: 'Documentos', evidenceLimits: 'Até {n} arquivos, {mb} MB cada.', privacyRead: 'Li e entendi o {aviso}', privacyRequired: 'Para enviar, é preciso ler e aceitar o aviso de privacidade.', privacyOpen: 'abre em nova aba' },
+  en: { loading: 'Loading…', unavailable: 'Channel unavailable', unavailableBody: 'This channel has no published form yet, or the link is invalid.', identifyLegend: 'How do you want to report?', anon: 'Anonymous', anonHint: 'We will not ask anything that identifies you.', identify: 'Identify myself', email: 'Your email', emailHint: 'We use it only to reply about your report.', anonForced: 'This channel is 100% anonymous.', idRequired: 'This channel requires identification.', send: 'Send report', sending: 'Sending…', waitUpload: 'Waiting for the upload…', required: 'Please fill in the required fields.', sendFail: 'We could not send your report. Please try again.', doneTitle: 'Report received', doneBody: 'Keep the protocol and the code below — they are the only way to follow up, even anonymously.', protocol: 'Protocol', code: 'Access code', copy: 'Copy', copied: 'Copied!', track: 'Follow up later at', another: 'Send another report', secure: 'Secure & confidential', yes: 'Yes', no: 'No', choose: 'Select', signTitle: 'Sign your report', signKicker: 'Identification', signCta: 'Sign & send', verifTitle: 'Confirm your email', verifBody: 'We sent an 8-digit code to', verifConfirm: 'Confirm & sign', verifResend: 'Resend code', verifFail: 'We could not send the code. Try again.', verifBad: 'Invalid or expired code.', signNote: 'By identifying yourself, you digitally sign the report (signature + optional location).', evidenceTitle: 'Evidence (optional)', evidenceHelp: 'Photos, videos, audio or documents that support what you are reporting.', evidenceChoose: 'Choose files', evidenceDrop: 'or drag and drop here', evidenceRemove: 'Remove', evidenceSending: 'Uploading…', evidenceFailed: 'This file could not be uploaded.', evidenceLimit: 'File limit reached.', evidenceAccepted: 'Accepted formats', fmtImage: 'Images', fmtVideo: 'Videos', fmtAudio: 'Audio', fmtDocument: 'Documents', evidenceLimits: 'Up to {n} files, {mb} MB each.', privacyRead: 'I have read and understood the {aviso}', privacyRequired: 'To send, you must read and accept the privacy notice.', privacyOpen: 'opens in a new tab' },
+  es: { loading: 'Cargando…', unavailable: 'Canal no disponible', unavailableBody: 'Este canal aún no tiene un formulario publicado, o el enlace no es válido.', identifyLegend: '¿Cómo quieres denunciar?', anon: 'Anónimo', anonHint: 'No pediremos nada que te identifique.', identify: 'Identificarme', email: 'Tu correo', emailHint: 'Solo lo usamos para dar seguimiento a tu denuncia.', anonForced: 'Este canal es 100% anónimo.', idRequired: 'Este canal exige identificación.', send: 'Enviar denuncia', sending: 'Enviando…', waitUpload: 'Esperando el archivo…', required: 'Completa los campos obligatorios.', sendFail: 'No pudimos enviar tu denuncia. Inténtalo de nuevo.', doneTitle: 'Denuncia registrada', doneBody: 'Guarda el protocolo y el código — son la única forma de dar seguimiento, incluso de forma anónima.', protocol: 'Protocolo', code: 'Código de acceso', copy: 'Copiar', copied: '¡Copiado!', track: 'Haz el seguimiento después en', another: 'Enviar otra denuncia', secure: 'Entorno seguro y confidencial', yes: 'Sí', no: 'No', choose: 'Selecciona', signTitle: 'Firma tu denuncia', signKicker: 'Identificación', signCta: 'Firmar y enviar', verifTitle: 'Confirma tu correo', verifBody: 'Enviamos un código de 8 dígitos a', verifConfirm: 'Confirmar y firmar', verifResend: 'Reenviar código', verifFail: 'No pudimos enviar el código. Intenta de nuevo.', verifBad: 'Código inválido o vencido.', signNote: 'Al identificarte, firmas digitalmente la denuncia (firma + ubicación opcional).', evidenceTitle: 'Pruebas (opcional)', evidenceHelp: 'Fotos, videos, audios o documentos que respalden lo que estás relatando.', evidenceChoose: 'Elegir archivos', evidenceDrop: 'o arrastra y suelta aquí', evidenceRemove: 'Quitar', evidenceSending: 'Enviando…', evidenceFailed: 'No fue posible enviar este archivo.', evidenceLimit: 'Límite de archivos alcanzado.', evidenceAccepted: 'Formatos aceptados', fmtImage: 'Imágenes', fmtVideo: 'Videos', fmtAudio: 'Audios', fmtDocument: 'Documentos', evidenceLimits: 'Hasta {n} archivos, {mb} MB cada uno.', privacyRead: 'He leído y entiendo el {aviso}', privacyRequired: 'Para enviar, debes leer y aceptar el aviso de privacidad.', privacyOpen: 'se abre en una pestaña nueva' },
 }
 
 
@@ -40,17 +42,34 @@ const SAC_WORDS = {
         another: 'Enviar outra demanda', signTitle: 'Assine sua demanda',
         emailHint: 'Usaremos só para responder sua demanda.',
         idRequired: 'Este canal exige identificação para podermos responder.',
-        signNote: 'Para garantir o retorno e o registro do seu SAC, assine digitalmente: rubrica, CPF e localização opcional.' },
+        signNote: 'Para garantir o retorno e o registro do seu SAC, assine digitalmente: rubrica, CPF e localização opcional.',
+        // A área de anexos é fixa (não vem do construtor), então o rótulo dela
+        // só muda aqui. "Provas" é vocabulário de denúncia: no SAC quem escreve
+        // não precisa COMPROVAR nada, só ajudar a entender a demanda.
+        evidenceTitle: 'Anexos (opcional)',
+        evidenceHelp: 'Fotos, documentos, notas fiscais ou comprovantes que ajudem a entender sua demanda.',
+        // O SAC exige identificação, então prometer acompanhamento "anônimo"
+        // era instrução que não se aplica a quem está nesta tela.
+        doneBody: 'Guarde o protocolo e o código de acesso abaixo — é com eles que você acompanha sua demanda e lê a resposta.',
+        track: 'Acompanhe sua demanda em' },
   en: { identifyLegend: 'Your contact details', send: 'Send request', doneTitle: 'Request received',
         another: 'Send another request', signTitle: 'Sign your request',
         emailHint: 'Only used to reply to your request.',
         idRequired: 'This channel requires identification so we can reply.',
-        signNote: 'To guarantee the reply and the record of your request, sign it digitally with your signature, your CPF and, if you wish, your location.' },
+        signNote: 'To guarantee the reply and the record of your request, sign it digitally with your signature, your CPF and, if you wish, your location.',
+        evidenceTitle: 'Attachments (optional)',
+        evidenceHelp: 'Photos, documents, invoices or receipts that help us understand your request.',
+        doneBody: 'Keep the protocol and the access code below — they are how you follow your request and read our reply.',
+        track: 'Follow your request at' },
   es: { identifyLegend: 'Tus datos de contacto', send: 'Enviar demanda', doneTitle: 'Demanda registrada',
         another: 'Enviar otra demanda', signTitle: 'Firma tu demanda',
         emailHint: 'Solo para responder tu demanda.',
         idRequired: 'Este canal exige identificación para poder responderte.',
-        signNote: 'Para garantizar la respuesta y el registro de tu demanda, fírmala digitalmente con tu rúbrica, tu CPF y, si quieres, tu ubicación.' },
+        signNote: 'Para garantizar la respuesta y el registro de tu demanda, fírmala digitalmente con tu rúbrica, tu CPF y, si quieres, tu ubicación.',
+        evidenceTitle: 'Adjuntos (opcional)',
+        evidenceHelp: 'Fotos, documentos, facturas o comprobantes que ayuden a entender tu demanda.',
+        doneBody: 'Guarda el protocolo y el código de acceso — con ellos haces el seguimiento de tu demanda y lees la respuesta.',
+        track: 'Haz el seguimiento de tu demanda en' },
 } as const
 
 export function isPublicReportPath(): boolean {
@@ -110,10 +129,25 @@ export default function PublicReport() {
       : form.identification === 'required' ? true
       : identifyMode === 'id')
 
+  // Uma pergunta aparece na tela? O aviso de privacidade aparece SEMPRE (o
+  // consentimento não depende de a pessoa se identificar); as perguntas que
+  // identificam quem relata só existem para quem escolheu se identificar.
+  const campoVisivel = (f: FF) =>
+    f.type === 'privacy_notice' || willIdentify || !campoIdentifica(f.label, f.key)
+
   function submit() {
     if (form === null || form === 'error') return
     setErr(null)
     for (const f of form.fields) {
+      // Campo escondido não se cobra: com anonimato, exigir "Seu nome"
+      // obrigatório trancava o envio num erro sem campo na tela para resolver.
+      if (!campoVisivel(f)) continue
+      // Consentimento é explícito ou não é consentimento: o aceite do aviso de
+      // privacidade é obrigatório mesmo que o campo não esteja marcado assim.
+      if (f.type === 'privacy_notice') {
+        if (!answers[f.key]) { setErr(tr.privacyRequired); return }
+        continue
+      }
       if (f.required && f.type !== 'section' && f.type !== 'info') {
         const v = answers[f.key]
         if (v == null || v === '' || (Array.isArray(v) && v.length === 0)) { setErr(tr.required); return }
@@ -254,13 +288,78 @@ export default function PublicReport() {
         })()}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 24 }}>
+          {/* Identificação — PRIMEIRA coisa da página, não a última.
+              Esta escolha decide quais perguntas existem (o filtro
+              `campoIdentifica` abaixo depende dela): deixá-la no fim fazia a
+              pessoa digitar nome, telefone e e-mail para depois ver tudo isso
+              desaparecer ao marcar "Anônimo". Controle vem antes do que ele
+              controla. */}
+          <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: 18 }}>
+            <label style={labelS}>{tr.identifyLegend}</label>
+            {form.identification === 'forbidden' ? <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>🔒 {tr.anonForced}</p>
+              : form.identification === 'required' ? (
+                <div>
+                  <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 8 }}>{tr.idRequired}</p>
+                  <input className="app-input" type="email" style={input} placeholder={tr.email} value={email} onChange={(e) => setEmail(e.target.value)} />
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {(['anon', 'id'] as const).map((m) => (
+                    <label key={m} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', padding: 12, borderRadius: 12, border: `1px solid ${identifyMode === m ? 'var(--accent)' : 'var(--border)'}`, background: identifyMode === m ? 'var(--accent-soft)' : 'transparent' }}>
+                      <input type="radio" name="idmode" checked={identifyMode === m} onChange={() => setIdentifyMode(m)} style={{ marginTop: 3 }} />
+                      <span>
+                        <span style={{ color: 'var(--heading)', fontWeight: 700 }}>{m === 'anon' ? tr.anon : tr.identify}</span>
+                        <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12.5 }}>{m === 'anon' ? tr.anonHint : tr.emailHint}</span>
+                      </span>
+                    </label>
+                  ))}
+                  {identifyMode === 'id' && <input className="app-input" type="email" style={input} placeholder={tr.email} value={email} onChange={(e) => setEmail(e.target.value)} />}
+                </div>
+              )}
+            {willIdentify && <p style={{ color: 'var(--text-muted)', fontSize: 12.5, display: 'flex', gap: 6, alignItems: 'flex-start', lineHeight: 1.5, marginTop: 10, marginBottom: 0 }}>✍️ {tr.signNote}</p>}
+          </div>
+
           {form.fields.map((f) => {
             // Anônimo não vê o que o servidor vai descartar: pedir o nome a
             // quem escolheu anonimato é quebrar a promessa do canal na cara
             // da pessoa — e convidá-la a digitar o que não devia.
-            if (!willIdentify && campoIdentifica(f.label, f.key)) return null
+            if (!campoVisivel(f)) return null
             if (f.type === 'section') return <h3 key={f.key} style={{ color: 'var(--heading)', fontWeight: 800, fontSize: 17, borderBottom: '1px solid var(--border)', paddingBottom: 6 }}>{f.label}</h3>
             if (f.type === 'info') return <p key={f.key} style={{ color: 'var(--text-muted)', fontSize: 14 }}>{f.label}</p>
+            // Aviso de privacidade: texto para ler + LINK clicável + aceite.
+            // O rótulo e a ajuda continuam sendo texto (JSX escapa), e o <a> é
+            // montado AQUI a partir de `f.url` — nada que o cliente digite no
+            // construtor vira markup nesta página. Só http/https viram link:
+            // `javascript:` num href seria execução de script com cara de aviso.
+            if (f.type === 'privacy_notice') {
+              const link = (f.url ?? '').trim()
+              const linkOk = /^https?:\/\//i.test(link)
+              // Frase nativa (traduzida pela própria página, sem depender da
+              // tradução por IA do formulário) com o rótulo do cliente no meio.
+              const [antes, depois] = tr.privacyRead.split('{aviso}')
+              const aceite = `${tr.privacyRead.replace('{aviso}', f.label)}${linkOk ? ` — ${link}` : ''}`
+              const marcado = Boolean(answers[f.key])
+              return (
+                <div key={f.key} style={{ border: '1px solid var(--border)', borderRadius: 14, padding: 14, background: 'var(--surface-2)' }}>
+                  {f.help && <p style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.6, margin: '0 0 10px', whiteSpace: 'pre-wrap' }}>{f.help}</p>}
+                  <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', color: 'var(--text)', fontSize: 14, lineHeight: 1.5 }}>
+                    <input
+                      type="checkbox" checked={marcado} style={{ marginTop: 3 }}
+                      onChange={(e) => setAns(f.key, e.target.checked ? aceite : '')}
+                    />
+                    <span>
+                      {antes}
+                      {linkOk
+                        ? <a href={link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontWeight: 700, textDecoration: 'underline' }}>{f.label}</a>
+                        : <strong style={{ color: 'var(--heading)' }}>{f.label}</strong>}
+                      {depois ?? ''}
+                      <span style={{ color: 'var(--accent)' }}> *</span>
+                      {linkOk && <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 11.5 }}>↗ {tr.privacyOpen}</span>}
+                    </span>
+                  </label>
+                </div>
+              )
+            }
             const v = answers[f.key]
             return (
               <div key={f.key}>
@@ -368,34 +467,7 @@ export default function PublicReport() {
             onChange={setAttachmentIds}
           />
 
-          {/* Identificação */}
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 18 }}>
-            <label style={labelS}>{tr.identifyLegend}</label>
-            {form.identification === 'forbidden' ? <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>🔒 {tr.anonForced}</p>
-              : form.identification === 'required' ? (
-                <div>
-                  <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 8 }}>{tr.idRequired}</p>
-                  <input className="app-input" type="email" style={input} placeholder={tr.email} value={email} onChange={(e) => setEmail(e.target.value)} />
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {(['anon', 'id'] as const).map((m) => (
-                    <label key={m} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', padding: 12, borderRadius: 12, border: `1px solid ${identifyMode === m ? 'var(--accent)' : 'var(--border)'}`, background: identifyMode === m ? 'var(--accent-soft)' : 'transparent' }}>
-                      <input type="radio" name="idmode" checked={identifyMode === m} onChange={() => setIdentifyMode(m)} style={{ marginTop: 3 }} />
-                      <span>
-                        <span style={{ color: 'var(--heading)', fontWeight: 700 }}>{m === 'anon' ? tr.anon : tr.identify}</span>
-                        <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12.5 }}>{m === 'anon' ? tr.anonHint : tr.emailHint}</span>
-                      </span>
-                    </label>
-                  ))}
-                  {identifyMode === 'id' && <input className="app-input" type="email" style={input} placeholder={tr.email} value={email} onChange={(e) => setEmail(e.target.value)} />}
-                </div>
-              )}
-          </div>
-
-          {willIdentify && <p style={{ color: 'var(--text-muted)', fontSize: 12.5, display: 'flex', gap: 6, alignItems: 'flex-start', lineHeight: 1.5 }}>✍️ {tr.signNote}</p>}
-
-          {err && <div style={{ background: 'rgba(217,83,79,.12)', border: '1px solid rgba(217,83,79,.4)', color: '#e08585', borderRadius: 12, padding: '11px 14px', fontSize: 13.5 }}>{err}</div>}
+          {err &&<div style={{ background: 'rgba(217,83,79,.12)', border: '1px solid rgba(217,83,79,.4)', color: '#e08585', borderRadius: 12, padding: '11px 14px', fontSize: 13.5 }}>{err}</div>}
 
           <button onClick={() => submit()} disabled={busy || subindoAnexo} className="app-btn cta-sheen" style={{ background: 'linear-gradient(135deg,var(--accent),var(--accent-2))', color: '#fff', border: 'none', borderRadius: 100, padding: '15px 28px', fontSize: 16, fontWeight: 800, cursor: (busy || subindoAnexo) ? 'not-allowed' : 'pointer', boxShadow: '0 12px 30px var(--accent-shadow)', opacity: (busy || subindoAnexo) ? 0.6 : 1 }}>{busy ? tr.sending : subindoAnexo ? tr.waitUpload : tr.send}</button>
           <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 12.5 }}>🔒 {tr.secure}</p>
