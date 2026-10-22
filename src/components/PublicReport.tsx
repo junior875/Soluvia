@@ -12,9 +12,18 @@ import PrefSwitcher from './PrefSwitcher'
 import ParecerSignModal from '../app/screens/signature/ParecerSignModal'
 import { mascaraPara } from '../lib/mascaras'
 import { campoIdentifica } from '../lib/anonimato'
+import { resolverPrazo } from '../lib/prazo'
 
 interface FF { key: string; type: string; label: string; help: string; required: boolean; options: string[]; sensitive: boolean }
-interface PublicForm { tenant_slug: string; tenant_name: string; channel_name: string; module?: string; title: string; intro: string; identification: string; fields: FF[]; published: boolean; lang?: string; available_langs?: string[] }
+interface PublicForm {
+  tenant_slug: string; tenant_name: string; channel_name: string; module?: string
+  title: string; intro: string; identification: string; fields: FF[]; published: boolean
+  lang?: string; available_langs?: string[]
+  // O PRAZO vem como DADO do canal. A introdução era texto livre, e quem
+  // administrava digitava um número que o e-mail não conhecia — a página
+  // prometia 5 dias úteis e o comprovante dizia 7 corridos.
+  prazo_valor?: number; prazo_modo?: 'horas' | 'corridos' | 'uteis'; prazo_label?: string
+}
 interface Receipt { protocol: string; access_hash: string }
 
 const L = {
@@ -235,7 +244,14 @@ export default function PublicReport() {
       <div style={card}>
         <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--accent)' }}>{form.tenant_name} · {form.channel_name}</div>
         <h1 style={{ color: 'var(--heading)', fontSize: 'clamp(24px,4vw,32px)', fontWeight: 800, marginTop: 6, letterSpacing: '-0.5px' }}>{form.title}</h1>
-        {form.intro && <p style={{ color: 'var(--text-muted)', fontSize: 15, marginTop: 8, lineHeight: 1.6 }}>{form.intro}</p>}
+        {/* `{prazo}` resolvido AQUI, no cliente: o mesmo texto aparece na
+            prévia do construtor, onde quem edita precisa ver que há um
+            placeholder — se o servidor entregasse a frase pronta, a pessoa
+            voltaria a digitar o número à mão, que era o defeito. */}
+        {(() => {
+          const intro = resolverPrazo(form.intro, form.prazo_label ?? '')
+          return intro ? <p style={{ color: 'var(--text-muted)', fontSize: 15, marginTop: 8, lineHeight: 1.6 }}>{intro}</p> : null
+        })()}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 24 }}>
           {form.fields.map((f) => {

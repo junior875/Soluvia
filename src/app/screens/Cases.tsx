@@ -4,7 +4,8 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { api, downloadAuthedFile } from '../../lib/api'
-import type { ApiError, CaseDetail, CaseOut, SigGeo } from '../../lib/types'
+import type { ApiError, CaseDetail, CaseOut, PrazoModo, SigGeo } from '../../lib/types'
+import { diasRestantes } from '../../lib/prazo'
 import { useCaps } from '../capabilities'
 import { modPerm } from '../modulePerms'
 import { goScreen } from '../nav'
@@ -203,21 +204,27 @@ export default function Cases({ module = 'etica' }: CasesProps) {
   const activeCases = filtered.filter((c) => c.status !== 'closed')
   const finishedCases = filtered.filter((c) => c.status === 'closed')
 
-  /** Selo do prazo do Decreto 11.034/2022 (7 dias corridos). Só no SAC e só
-   *  enquanto a demanda está aberta — depois de encerrada não faz sentido. */
-  /** Data do backend pode vir SEM fuso (driver que devolve datetime naive). O JS
-   *  leria como hora LOCAL e, em UTC-3, o prazo aparecia um dia MAIOR do que é. */
-  const parseUtc = (s: string) => new Date(/(Z|[+-]\d{2}:?\d{2})$/.test(s) ? s : `${s}Z`)
-
+  /** Selo do prazo de resposta. Aparece em QUALQUER módulo que tenha prazo
+   *  configurado no canal — deixou de ser exclusivo do SAC porque o prazo
+   *  deixou de ser constante do SAC: um canal de ética com 30 dias corridos
+   *  também tem data a cumprir.
+   *
+   *  A contagem respeita a RÉGUA congelada no caso (`response_sla_mode`): em
+   *  dias úteis, "faltam 3 d" numa sexta estaria errado, porque dois deles
+   *  seriam sábado e domingo. Caso antigo (sem a régua) continua contado em
+   *  dias corridos — é a régua com que ele nasceu. */
   const dueChip = (c: CaseOut) => {
-    if (!isSac || !c.response_due_at || c.status === 'closed') return null
-    const ms = parseUtc(c.response_due_at).getTime() - Date.now()
-    const dias = Math.ceil(ms / 86_400_000)
+    if (!c.response_due_at || c.status === 'closed') return null
+    const modo = (c.response_sla_mode as PrazoModo | null) ?? 'corridos'
+    const dias = diasRestantes(c.response_due_at, modo)
+    if (dias === null) return null
+    const uteis = modo === 'uteis'
+    const rotulo = uteis ? t.sac.due.inBusinessDays : t.sac.due.inDays
     // A paleta de Chip não tem vermelho; 'accent' (laranja) é o tom de alerta do
     // app — o mesmo usado em gravidade alta/crítica. Atrasado ganha ênfase extra.
     if (dias < 0) return <Chip tone="accent"><strong>{t.sac.due.late}</strong></Chip>
     if (dias === 0) return <Chip tone="accent">{t.sac.due.today}</Chip>
-    return <Chip tone={dias <= 2 ? 'accent' : 'green'}>{t.sac.due.inDays.replace('{n}', String(dias))}</Chip>
+    return <Chip tone={dias <= 2 ? 'accent' : 'green'}>{rotulo.replace('{n}', String(dias))}</Chip>
   }
 
   const caseCard = (c: CaseOut) => (

@@ -12,7 +12,8 @@ import { KIND_VISUAL, kindDoConfig } from '../../lib/flowKinds'
 import { templatesDoModulo, type FlowTemplate } from '../../lib/flowTemplates'
 import { localizeRole } from '../../lib/systemNames'
 import { STAGE_KINDS } from '../../lib/types'
-import type { ApiError, ChannelOut, FlowOut, FlowStageIn, MemberRow, RoleOut, StageKind } from '../../lib/types'
+import type { ApiError, ChannelOut, FlowOut, FlowStageIn, MemberRow, PrazoModo, RoleOut, StageKind } from '../../lib/types'
+import { rotuloPrazo } from '../../lib/prazo'
 import { useCaps } from '../capabilities'
 import { useT } from '../strings'
 import { useTranslation } from '../../i18n/LanguageProvider'
@@ -55,8 +56,13 @@ type FlowAIReply = {
 
 // `kind` obrigatório no rascunho (e opcional no contrato): dentro da tela todo
 // bloco TEM um tipo, e deixá-lo opcional aqui espalharia `?? 'decisao'` por
-// cada lugar que desenha ou salva. `sla_hours` é a ÚNICA fonte do prazo no
-// rascunho (dias viram horas no carregamento) — duas fontes divergem.
+// cada lugar que desenha ou salva.
+//
+// O PRAZO do rascunho é o par `sla_mode`/`sla_value` — a mesma régua que o
+// servidor congela na ficha. `sla_hours` continua no rascunho como valor
+// DERIVADO (o agente de IA e os modelos de fluxo falam em horas), e quem mexe
+// no prazo mexe nos três de uma vez, por `setPrazo`: foi ter duas fontes que
+// produziu o defeito original.
 type Draft = FlowStageIn & {
   key: string
   group_index: number
@@ -64,12 +70,38 @@ type Draft = FlowStageIn & {
   watcher_all: boolean
   watcher_membership_ids: string[]
   sla_hours: number
+  sla_mode: PrazoModo
+  sla_value: number
 }
 
 /** Prazo legível: 48h vira "2 d", 36h fica "36 h". */
 export function prazoLegivel(horas: number): { valor: number; unidade: 'h' | 'd' } {
   if (horas >= 24 && horas % 24 === 0) return { valor: horas / 24, unidade: 'd' }
   return { valor: horas, unidade: 'h' }
+}
+
+/** Horas equivalentes a um prazo em dias. Serve ao `sla_hours` derivado e aos
+ *  dois consumidores que só entendem horas (agente de IA e modelos).
+ *
+ *  Dia útil e dia corrido valem 24h AQUI de propósito: esta conversão existe
+ *  só para o campo de compatibilidade. Quem decide vencimento é o servidor,
+ *  pelo par — converter dias úteis em horas para calcular prazo é justamente o
+ *  que fazia a etapa de sexta vencer no domingo. */
+export function horasEquivalentes(valor: number, modo: PrazoModo): number {
+  const v = Math.max(0, Math.trunc(valor || 0))
+  return modo === 'horas' ? v : v * 24
+}
+
+/** A régua que uma etapa carregada do servidor declara.
+ *
+ *  Fluxo salvo antes de existirem os campos chega sem o par: vale HORAS, que é
+ *  a régua com que ele foi montado. Mudar a interpretação de um fluxo antigo
+ *  mudaria o prazo de casos que ainda vão ser liberados por ele. */
+export function reguaDaEtapa(s: { sla_mode?: PrazoModo; sla_value?: number; sla_hours?: number | null; sla_days?: number }): { modo: PrazoModo; valor: number } {
+  const valor = Math.trunc(s.sla_value ?? 0)
+  const modo = s.sla_mode
+  if (valor > 0 && (modo === 'horas' || modo === 'corridos' || modo === 'uteis')) return { modo, valor }
+  return { modo: 'horas', valor: s.sla_hours ?? (s.sla_days ?? 0) * 24 }
 }
 const SEVS = ['low', 'medium', 'high', 'critical'] as const
 const uid = () => Math.random().toString(36).slice(2, 9)
@@ -208,9 +240,10 @@ export default function FlowBuilder() {
       watcher_role_ids: s.watcher_role_ids ?? [],
       watcher_membership_ids: s.watcher_membership_ids ?? [],
       sla_days: s.sla_days,
-      // Fluxo antigo só tem dias: vira horas aqui, uma vez, e o rascunho
-      // inteiro fala uma língua só.
-      sla_hours: s.sla_hours ?? (s.sla_days || 0) * 24,
+      // A régua vem do servidor; fluxo antigo (sem o par) vale em HORAS.
+      ...(() => { const r = reguaDaEtapa(s); return {
+        sla_mode: r.modo, sla_value: r.valor, sla_hours: horasEquivalentes(r.valor, r.modo),
+      } })(),
       is_conditional: s.is_conditional, condition: s.condition,
     }))))
   }
@@ -243,7 +276,7 @@ export default function FlowBuilder() {
       return normalizar([...atual, {
         key, name: '', kind: 'decisao', operator_role_id: null, operator_membership_id: null, parecer_config: {},
         require_signature: false, watcher_all: false, watcher_role_ids: [], watcher_membership_ids: [],
-        sla_days: 5, sla_hours: 120, is_conditional: false,
+        sla_days: 5, sla_hours: 120, sla_mode: 'corridos', sla_value: 5, is_conditional: false,
         condition: null, group_index: destino,
       }])
     })
@@ -294,7 +327,7 @@ export default function FlowBuilder() {
     setStages((s) => inserirApos(s ?? [], deKey, {
       key, name: '', kind: 'decisao', operator_role_id: null, operator_membership_id: null, parecer_config: {},
       require_signature: false, watcher_all: false, watcher_role_ids: [], watcher_membership_ids: [],
-      sla_days: 5, sla_hours: 120, is_conditional: false,
+      sla_days: 5, sla_hours: 120, sla_mode: 'corridos', sla_value: 5, is_conditional: false,
       condition: null, group_index: 0,
     }))
     setSelecionado(key)
@@ -316,8 +349,29 @@ export default function FlowBuilder() {
   // ── Modelos prontos ────────────────────────────────────────────
   const [tplAberto, setTplAberto] = useState(false)
 
-  // Unidade do prazo POR BLOCO (h/d) — só apresentação; o rascunho guarda horas.
-  const [slaUnit, setSlaUnit] = useState<Record<string, 'h' | 'd'>>({})
+  // ── Prazo: o teto é o do CANAL ─────────────────────────────────
+  // O canal passou a ter prazo de resposta próprio, e é contra ele que a soma
+  // das etapas tem de caber. A conta é feita aqui só para AVISAR; o servidor
+  // repete a validação em `flow_service.save` e recusa com 400 — quem chama a
+  // API direto não passa por esta tela.
+  const prazoCanalValor = channel?.response_sla_value ?? 0
+  const prazoCanalModo: PrazoModo = (channel?.response_sla_mode as PrazoModo) ?? 'corridos'
+  const prazoDoCanal = channel?.prazo_label || rotuloPrazo(prazoCanalValor, prazoCanalModo, lang)
+
+  const avisoDaSoma = useMemo(() => {
+    if (!prazoCanalValor || !stages?.length) return null
+    // A soma é feita na régua DO CANAL: etapa em horas entra arredondada para
+    // cima em dias, porque meia jornada de etapa continua ocupando um dia do
+    // prazo que a empresa prometeu.
+    const emDias = (s: Draft) =>
+      s.sla_mode === 'horas' ? Math.ceil((s.sla_value || 0) / 24) : (s.sla_value || 0)
+    const soma = stages.reduce((acc, s) => acc + emDias(s), 0)
+    if (soma <= prazoCanalValor) return null
+    return t.flow.slaOverChannel(
+      rotuloPrazo(soma, prazoCanalModo, lang),
+      rotuloPrazo(prazoCanalValor, prazoCanalModo, lang),
+    )
+  }, [stages, prazoCanalValor, prazoCanalModo, t, lang])
 
   // ── Modo IA ────────────────────────────────────────────────────
   // Mesma ideia do Form Builder: "montar na mão" e "montar com IA" são duas
@@ -433,7 +487,8 @@ export default function FlowBuilder() {
           watcher_role_ids: s.watcher_role_ids,
           watcher_membership_ids: s.watcher_membership_ids,
           sla_days: Math.max(0, Math.round(s.sla_hours / 24)),
-          sla_hours: s.sla_hours,
+          // O agente conversa em HORAS; a régua acompanha o que ele devolveu.
+          sla_hours: s.sla_hours, sla_mode: 'horas', sla_value: s.sla_hours,
           is_conditional: false,
           condition: null,
         }))))
@@ -516,7 +571,9 @@ export default function FlowBuilder() {
       watcher_role_ids: [],
       watcher_membership_ids: [],
       sla_days: s.sla_days,
-      sla_hours: s.sla_days * 24,
+      // Modelo declara em DIAS; sem régua explícita, dias CORRIDOS — é o que o
+      // modelo queria dizer, e quem precisar de úteis troca na seção de prazo.
+      sla_hours: s.sla_days * 24, sla_mode: 'corridos', sla_value: s.sla_days,
       is_conditional: false,
       condition: null,
     }))))
@@ -566,7 +623,10 @@ export default function FlowBuilder() {
           watcher_all: !!s.watcher_all,
           watcher_role_ids: s.watcher_role_ids,
           watcher_membership_ids: s.watcher_membership_ids,
-          // Horas mandam; dias vão junto arredondados por compatibilidade.
+          // A RÉGUA é o par; horas e dias vão junto por compatibilidade com
+          // fluxo antigo e com o que a ficha já liberada guarda.
+          sla_mode: s.sla_mode,
+          sla_value: Math.max(0, Math.trunc(Number(s.sla_value) || 0)),
           sla_hours: Math.max(0, Math.round(Number(s.sla_hours) || 0)) || null,
           sla_days: Math.max(0, Math.round((Number(s.sla_hours) || 0) / 24)),
           // A etapa condicional saiu do produto: sempre desligada.
@@ -846,11 +906,15 @@ export default function FlowBuilder() {
                   produto. */}
               {stages.filter((s) => s.key === selecionado).map((s) => {
                 const vis = KIND_VISUAL[s.kind]
-                const prazo = prazoLegivel(s.sla_hours)
-                const unidade = slaUnit[s.key] ?? prazo.unidade
-                const valorPrazo = unidade === 'd' ? Math.max(1, Math.round(s.sla_hours / 24)) : s.sla_hours
-                const setPrazo = (valor: number, un: 'h' | 'd') =>
-                  patch(s.key, { sla_hours: Math.max(1, Math.min(un === 'd' ? valor * 24 : valor, 24 * 365)) })
+                // A régua da etapa vem do próprio rascunho: não há mais um
+                // estado de unidade por fora, que podia discordar do valor.
+                const unidade: PrazoModo = s.sla_mode
+                const valorPrazo = Math.max(1, s.sla_value || 1)
+                const tetoPrazo = unidade === 'horas' ? 24 * 365 : 365
+                const setPrazo = (valor: number, modo: PrazoModo) => {
+                  const v = Math.max(1, Math.min(valor, modo === 'horas' ? 24 * 365 : 365))
+                  patch(s.key, { sla_mode: modo, sla_value: v, sla_hours: horasEquivalentes(v, modo) })
+                }
                 const modoObs: 'ninguem' | 'todos' | 'escolher' =
                   s.watcher_all ? 'todos'
                     : (s.watcher_role_ids.length || s.watcher_membership_ids.length) ? 'escolher' : 'ninguem'
@@ -929,33 +993,51 @@ export default function FlowBuilder() {
                     )}
                   </Sec>
 
-                  {/* 3 · PRAZO — valor + unidade (horas para o SAC caber). */}
+                  {/* 3 · PRAZO — valor + unidade. "Dias úteis" existe porque
+                      uma etapa de 2 dias liberada na sexta vencia no domingo:
+                      o prazo era sempre duração de relógio. */}
                   <Sec num="3" titulo={t.flow.sla}>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                       <Input
-                        type="number" min={1} max={unidade === 'd' ? 365 : 24 * 365}
+                        type="number" min={1} max={tetoPrazo}
                         value={String(valorPrazo)} disabled={!canEdit}
                         onChange={(e) => setPrazo(Math.max(1, Number(e.target.value) || 1), unidade)}
                         style={{ maxWidth: 110 }}
                       />
                       <div style={{ display: 'inline-flex', background: 'var(--surface-2)', borderRadius: 100, padding: 3 }}>
-                        {(['h', 'd'] as const).map((u) => (
+                        {([['horas', t.flow.unitHours], ['corridos', t.flow.unitDays], ['uteis', t.flow.unitBusinessDays]] as const).map(([m, rotulo]) => (
                           <button
-                            key={u} type="button" disabled={!canEdit} className="app-btn"
-                            onClick={() => { setSlaUnit((m) => ({ ...m, [s.key]: u })); setPrazo(u === 'd' ? Math.max(1, Math.round(s.sla_hours / 24)) : s.sla_hours, u) }}
-                            style={{ border: 'none', cursor: canEdit ? 'pointer' : 'default', padding: '7px 14px', borderRadius: 100, fontWeight: 800, fontSize: 12.5, background: unidade === u ? 'var(--accent)' : 'transparent', color: unidade === u ? '#fff' : 'var(--text-muted)' }}
+                            key={m} type="button" disabled={!canEdit} className="app-btn"
+                            onClick={() => {
+                              // Trocar de unidade CONVERTE o valor em vez de
+                              // reinterpretá-lo: 48 horas viram 2 dias, não
+                              // "48 dias". Reinterpretar multiplicaria o prazo
+                              // por 24 num clique — e em silêncio.
+                              const atual = s.sla_value || 1
+                              const emDias = () => (unidade === 'horas' ? Math.max(1, Math.round(atual / 24)) : atual)
+                              const emHoras = () => (unidade === 'horas' ? atual : atual * 24)
+                              setPrazo(m === 'horas' ? emHoras() : emDias(), m)
+                            }}
+                            style={{ border: 'none', cursor: canEdit ? 'pointer' : 'default', padding: '7px 14px', borderRadius: 100, fontWeight: 800, fontSize: 12.5, background: unidade === m ? 'var(--accent)' : 'transparent', color: unidade === m ? '#fff' : 'var(--text-muted)' }}
                           >
-                            {u === 'h' ? t.flow.unitHours : t.flow.unitDays}
+                            {rotulo}
                           </button>
                         ))}
                       </div>
                     </div>
                     <p style={{ color: 'var(--text-muted)', fontSize: 12, margin: '8px 0 0', lineHeight: 1.5 }}>
-                      {t.flow.slaHint(s.sla_hours)}
-                      {isSac && s.sla_hours > 168 && (
-                        <b style={{ color: '#d97706' }}> {t.flow.slaSacWarn}</b>
-                      )}
+                      {t.flow.slaHint(valorPrazo, unidade)}
+                      {prazoDoCanal && <> {t.flow.slaChannelBudget(prazoDoCanal)}</>}
                     </p>
+                    {/* O aviso olha a SOMA de TODAS as etapas contra o prazo do
+                        canal. A checagem antiga comparava UMA etapa contra
+                        168h, e por isso 1+3+1 dias passava sem um pio. O
+                        servidor repete a validação ao salvar. */}
+                    {avisoDaSoma && (
+                      <p style={{ color: '#d97706', fontSize: 12, fontWeight: 700, margin: '8px 0 0', display: 'flex', alignItems: 'flex-start', gap: 6, lineHeight: 1.5 }}>
+                        <Icon name="bell" size={12} /> <span>{avisoDaSoma}</span>
+                      </p>
+                    )}
                   </Sec>
 
                   {/* 4 · Quem ACOMPANHA — ninguém, todos, ou escolhidos. */}

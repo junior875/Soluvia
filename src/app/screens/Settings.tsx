@@ -1,7 +1,20 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { api, deleteAccount, downloadAuthedFile } from '../../lib/api'
 import type { AiMemberRow, AiUsage, ApiError } from '../../lib/types'
+
+/** Espelho do GET /holidays — um dia do calendário da empresa.
+ *
+ *  `id` nulo = feriado nacional que a empresa não tocou (não existe linha no
+ *  banco; ela só aparece quando a empresa o suprime). */
+type HolidayRow = {
+  id: string | null
+  day: string
+  name: string
+  kind: string
+  origem: 'nacional' | 'empresa'
+  ativo: boolean
+}
 
 /** Espelho do GET /storage/usage — o teto de armazenamento visto de dentro. */
 type StorageUsage = {
@@ -17,7 +30,7 @@ import type { Lang } from '../../i18n/translations'
 import { FONT_STEPS, applyFontScale, applyThemePref, getFontScale, getThemePref, pushPrefs, type ThemePref } from '../../lib/prefs'
 import { useCaps } from '../capabilities'
 import { useT } from '../strings'
-import { Avatar, Button, Card, Field, Input, Modal, PageHeader, SectionLabel, PasswordInput } from '../ui'
+import { Avatar, Button, Card, Field, Input, Modal, PageHeader, SectionLabel, PasswordInput, Skeleton } from '../ui'
 import AvatarEditor from '../../components/AvatarEditor'
 import { Icon } from '../icons'
 
@@ -91,6 +104,53 @@ export default function Settings() {
   const [storage, setStorage] = useState<StorageUsage | null>(null)
   const [members, setMembers] = useState<AiMemberRow[] | null>(null)
   const [creditInputs, setCreditInputs] = useState<Record<string, string>>({})
+  // ── Dias úteis e feriados ───────────────────────────────────
+  // O calendário vale para a EMPRESA inteira: é o que os prazos em dias úteis
+  // consultam (do canal e das etapas do fluxo). Fica em Configurações, e não
+  // no canal, porque um feriado não é de um canal só.
+  const [holYear, setHolYear] = useState(new Date().getFullYear())
+  const [hols, setHols] = useState<HolidayRow[] | null>(null)
+  const [holDay, setHolDay] = useState('')
+  const [holName, setHolName] = useState('')
+  const [holBusy, setHolBusy] = useState(false)
+
+  const carregarFeriados = useCallback(async (ano: number) => {
+    try { setHols(await api.get<HolidayRow[]>(`/holidays?ano=${ano}`)) }
+    catch { setHols([]) }
+  }, [])
+  useEffect(() => { void carregarFeriados(holYear) }, [holYear, carregarFeriados])
+
+  /** Liga/desliga um dia do calendário.
+   *
+   *  Um feriado NACIONAL desmarcado grava uma "supressão" (a empresa trabalha
+   *  nele) em vez de apagar algo — o nacional não é da empresa e não pode ser
+   *  removido; religá-lo é apagar a supressão. É a razão de a tabela guardar
+   *  os dois sentidos.
+   */
+  async function alternarFeriado(row: HolidayRow) {
+    setHolBusy(true)
+    try {
+      if (row.id) await api.delete(`/holidays/${row.id}`)
+      else await api.post('/holidays', { day: row.day, name: row.name, kind: 'supressao' })
+      await carregarFeriados(holYear)
+    } catch (e) { flash((e as ApiError).detail ?? t.settings.hol.saveFail) }
+    finally { setHolBusy(false) }
+  }
+
+  async function adicionarFeriado() {
+    if (!holDay) return
+    setHolBusy(true)
+    try {
+      await api.post('/holidays', { day: holDay, name: holName.trim(), kind: 'feriado' })
+      setHolDay(''); setHolName('')
+      // O ano da lista acompanha o dia cadastrado: cadastrar 2027 e continuar
+      // vendo 2026 pareceria que nada foi salvo.
+      const ano = Number(holDay.slice(0, 4))
+      if (ano && ano !== holYear) setHolYear(ano); else await carregarFeriados(holYear)
+      flash(t.settings.saved)
+    } catch (e) { flash((e as ApiError).detail ?? t.settings.hol.saveFail) }
+    finally { setHolBusy(false) }
+  }
 
   useEffect(() => { void api.get<AiUsage>('/ai/usage').then(setAi).catch(() => setAi(null)) }, [])
   useEffect(() => { void api.get<StorageUsage>('/storage/usage').then(setStorage).catch(() => setStorage(null)) }, [])
@@ -161,6 +221,74 @@ export default function Settings() {
         <Row label={t.settings.language} hint={t.settings.langHint}>
           <Segmented<Lang> value={lang} onChange={chooseLang} options={[{ v: 'pt', label: 'PT' }, { v: 'en', label: 'EN' }, { v: 'es', label: 'ES' }]} />
         </Row>
+      </Card>
+
+      {/* DIAS ÚTEIS E FERIADOS — o calendário que os prazos consultam.
+          Só quem administra edita; todo mundo pode VER, porque saber se a
+          quinta-feira conta é informação de trabalho de quem atende. */}
+      <Card style={{ marginBottom: 16 }}>
+        <SectionLabel>{t.settings.hol.title}</SectionLabel>
+        <p style={{ color: 'var(--text-muted)', fontSize: 12.5, margin: '0 0 12px', lineHeight: 1.55 }}>
+          {t.settings.hol.hint} {t.settings.hol.weekend}
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+          <span style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 600 }}>{t.settings.hol.year}</span>
+          <Segmented<number>
+            value={holYear}
+            onChange={setHolYear}
+            options={[-1, 0, 1].map((d) => {
+              const a = new Date().getFullYear() + d
+              return { v: a, label: String(a) }
+            })}
+          />
+        </div>
+
+        {canManageUsers && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 10, alignItems: 'end', marginBottom: 14 }} className="rb-id">
+            <Field label={t.settings.hol.addDay}>
+              <Input type="date" value={holDay} onChange={(e) => setHolDay(e.target.value)} />
+            </Field>
+            <Field label={t.settings.hol.addName}>
+              <Input value={holName} onChange={(e) => setHolName(e.target.value)} />
+            </Field>
+            <Button variant="outline" loading={holBusy} disabled={!holDay} onClick={() => void adicionarFeriado()}>
+              {t.settings.hol.add}
+            </Button>
+          </div>
+        )}
+
+        {hols === null ? (
+          <Skeleton h={120} r={14} />
+        ) : hols.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>{t.settings.hol.empty}</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {hols.map((h) => (
+              <div key={h.day} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', opacity: h.ativo ? 1 : 0.55 }}>
+                <div style={{ minWidth: 0 }}>
+                  <span style={{ color: 'var(--heading)', fontWeight: 600, fontSize: 14 }}>
+                    {new Date(`${h.day}T12:00:00`).toLocaleDateString()} · {h.name}
+                  </span>
+                  <p style={{ color: 'var(--text-muted)', fontSize: 12, margin: '2px 0 0' }}>
+                    {h.origem === 'nacional' ? t.settings.hol.national : t.settings.hol.company}
+                  </p>
+                </div>
+                {canManageUsers && (
+                  h.origem === 'nacional'
+                    ? <Toggle on={h.ativo} onChange={() => { if (!holBusy) void alternarFeriado(h) }} />
+                    : (
+                      <Button variant="ghost" loading={holBusy} onClick={() => void alternarFeriado(h)}>
+                        {t.settings.hol.remove}
+                      </Button>
+                    )
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        <p style={{ color: 'var(--text-muted)', fontSize: 12, margin: '12px 0 0', lineHeight: 1.5 }}>
+          {t.settings.hol.offHint}
+        </p>
       </Card>
 
       {/* Conta */}

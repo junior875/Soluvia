@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../../lib/api'
+import { resolverPrazo } from '../../lib/prazo'
 import type { ApiError, ChannelOut, MemberRow } from '../../lib/types'
 import { useT } from '../strings'
 import ChipUsoIA from '../../components/ChipUsoIA'
@@ -75,6 +76,9 @@ export default function FormBuilder() {
   const nt = NOTIFY_I18N[uiLang]
   const [channels, setChannels] = useState<ChannelOut[] | null>(null)
   const [channelId, setChannelId] = useState<string | null>(null)
+  // O canal da vez: a prévia precisa dele para resolver `{prazo}` com o prazo
+  // DE VERDADE, e não com um número que alguém digitou na introdução.
+  const canalAtual = (channels ?? []).find((c) => c.id === channelId) ?? null
   const [form, setForm] = useState<FormData | null>(null)
   // Assinatura do conteúdo no último salvamento. `null` = ainda carregando.
   const [salvo, setSalvo] = useState<string | null>(null)
@@ -495,7 +499,15 @@ export default function FormBuilder() {
               </span>
             </div>
             <h2 style={{ color: 'var(--heading)', fontSize: 22, fontWeight: 800 }}>{(previewForm ?? form).title || '—'}</h2>
-            {(previewForm ?? form).intro && <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 4 }}>{(previewForm ?? form).intro}</p>}
+            {/* A prévia RESOLVE `{prazo}` com o prazo do canal, igual à página
+                pública: é assim que quem edita vê que o número não precisa ser
+                digitado — e para de digitá-lo, que era a origem dos três
+                prazos divergentes. */}
+            {(previewForm ?? form).intro && (
+              <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 4 }}>
+                {resolverPrazo((previewForm ?? form).intro, canalAtual?.prazo_label ?? '')}
+              </p>
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 18 }}>
               {(previewForm ?? form).fields.map((f, i) => <Preview key={i} f={f} t={t} />)}
             </div>

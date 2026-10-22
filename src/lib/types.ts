@@ -131,7 +131,16 @@ export interface ChannelOut {
   slug: string
   is_active: boolean
   config: Record<string, unknown>
+  /** Prazo de resposta do canal — a fonte única do número. 0 = sem prazo. */
+  response_sla_value?: number
+  /** 'uteis' | 'corridos'. Canal nunca mede prazo em horas. */
+  response_sla_mode?: PrazoModo
+  /** O prazo já escrito ("5 dias úteis"), montado no servidor. */
+  prazo_label?: string
 }
+
+/** As três réguas de prazo. Canal usa só as duas de dia; etapa usa as três. */
+export type PrazoModo = 'horas' | 'corridos' | 'uteis'
 
 export interface AuditRow {
   id: string
@@ -189,8 +198,12 @@ export interface FlowStageIn {
   watcher_role_ids: string[]
   watcher_membership_ids?: string[]
   sla_days: number
-  /** Prazo em HORAS — manda quando presente (o SAC tem 168h legais no total). */
+  /** LEGADO: prazo em horas de relógio. Continua enviado por compatibilidade;
+   *  a verdade é o par `sla_mode`/`sla_value`. */
   sla_hours?: number | null
+  /** A régua da etapa. 'uteis' é o que faz "2 dias" não vencer no domingo. */
+  sla_mode?: PrazoModo
+  sla_value?: number
   is_conditional: boolean
   condition: FlowCondition | null
 }
@@ -221,8 +234,14 @@ export interface CaseOut {
   title: string
   is_anonymous: boolean
   current_stage_id: string | null
-  /** Prazo de resposta ao consumidor (SAC). Nulo em ouvidoria/ética. */
+  /** Prazo de resposta, pela régua do canal na abertura. Nulo = sem prazo. */
   response_due_at?: string | null
+  /** A régua CONGELADA na abertura. Nula em caso anterior a estes campos — e
+   *  nesse caso a tela mostra só a data, sem inventar o modo. */
+  response_sla_value?: number | null
+  response_sla_mode?: PrazoModo | null
+  /** O prazo prometido a ESTE caso, escrito. Vazio = sem prazo. */
+  prazo_label?: string
   /** Módulo do canal de origem: 'etica' | 'sac'. Ausente em casos antigos. */
   module?: string | null
   created_at: string
@@ -280,6 +299,15 @@ export interface MyAssignment {
   kind: StageKind
   parecer_config: ParecerConfig
   require_signature: boolean
+  /** A régua congelada na liberação desta ficha. */
+  sla_mode?: PrazoModo
+  sla_value?: number
+  sla_hours?: number | null
+  /** O vencimento JÁ CALCULADO no servidor (com os feriados da empresa). A
+   *  tela não tem o calendário — dividir horas por 24 era o que acendia
+   *  "Atrasado" no domingo. */
+  due_at?: string | null
+  prazo_label?: string
 }
 
 export interface CaseDetail extends CaseOut {

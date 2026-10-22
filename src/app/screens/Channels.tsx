@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { api } from '../../lib/api'
-import type { ApiError, ChannelOut } from '../../lib/types'
+import type { ApiError, ChannelOut, PrazoModo } from '../../lib/types'
+import { rotuloPrazo } from '../../lib/prazo'
 import { useCaps } from '../capabilities'
 import { useT } from '../strings'
 import { Button, Card, Chip, EmptyState, Field, Input, Modal, PageHeader, Select, Skeleton } from '../ui'
@@ -13,6 +14,54 @@ const ICONE_DO_MODULO: Record<string, IconName> = { etica: 'cases', sac: 'headse
 const slugify = (s: string) =>
   s.normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase()
 
+/** O campo de PRAZO DE RESPOSTA do canal: número + unidade.
+ *
+ *  Um componente, usado na criação e na edição, porque o prazo é o campo que
+ *  precisa dizer a mesma coisa nos dois lugares — era a divergência entre
+ *  telas que produzia três prazos diferentes no mesmo canal.
+ *
+ *  `0` é escolha legítima e tem rótulo próprio ("Sem prazo de resposta"): um
+ *  canal pode não prometer data, e o campo em branco não deixaria isso claro.
+ */
+function CampoPrazo({
+  valor, modo, onValor, onModo, t,
+}: {
+  valor: number
+  modo: PrazoModo
+  onValor: (v: number) => void
+  onModo: (m: PrazoModo) => void
+  t: ReturnType<typeof useT>
+}) {
+  const label = rotuloPrazo(valor, modo)
+  return (
+    <Field label={t.channels.slaTitle}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Input
+          type="number" min={0} max={365} value={String(valor)}
+          onChange={(e) => onValor(Math.max(0, Math.min(365, Number(e.target.value) || 0)))}
+          style={{ maxWidth: 110 }}
+          aria-label={t.channels.slaTitle}
+        />
+        <div style={{ display: 'inline-flex', background: 'var(--surface-2)', borderRadius: 100, padding: 3 }}>
+          {([['uteis', t.channels.slaUnitBusiness], ['corridos', t.channels.slaUnitCalendar]] as const).map(([m, rotulo]) => (
+            <button
+              key={m} type="button" className="app-btn"
+              onClick={() => onModo(m)}
+              style={{ border: 'none', cursor: 'pointer', padding: '7px 14px', borderRadius: 100, fontWeight: 800, fontSize: 12.5, background: modo === m ? 'var(--accent)' : 'transparent', color: modo === m ? '#fff' : 'var(--text-muted)' }}
+            >
+              {rotulo}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p style={{ color: 'var(--text-muted)', fontSize: 12.5, margin: '8px 0 0', lineHeight: 1.5 }}>
+        <b>{label || t.channels.slaNone}</b> · {t.channels.slaHint}
+        {valor > 0 && modo === 'uteis' && <> {t.channels.slaBusinessHint}</>}
+      </p>
+    </Field>
+  )
+}
+
 export default function Channels() {
   const { ctx, can } = useCaps()
   const t = useT()
@@ -21,6 +70,11 @@ export default function Channels() {
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [moduleCode, setModuleCode] = useState('')
+  // PRAZO na criação: o padrão acompanha o módulo escolhido (SAC responde
+  // consumidor e por isso nasce curto; ouvidoria apura conduta e nasce largo).
+  // Quem cria pode mudar na hora, em vez de criar e editar em seguida.
+  const [slaValor, setSlaValor] = useState(5)
+  const [slaModo, setSlaModo] = useState<PrazoModo>('uteis')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [links, setLinks] = useState<Record<string, string>>({})
@@ -35,6 +89,11 @@ export default function Channels() {
   const load = () => api.get<ChannelOut[]>('/channels').then(setChannels).catch(() => setChannels([]))
   useEffect(() => { void load() }, [])
   useEffect(() => { if (!moduleCode && modules.length) setModuleCode(modules[0]) }, [modules, moduleCode])
+  useEffect(() => {
+    if (!moduleCode) return
+    const [v, m] = moduleCode === 'sac' ? [5, 'uteis' as const] : [30, 'corridos' as const]
+    setSlaValor(v); setSlaModo(m)
+  }, [moduleCode])
 
   async function showLink(id: string) {
     if (links[id]) return
@@ -51,7 +110,10 @@ export default function Channels() {
     e.preventDefault()
     setBusy(true); setError(null)
     try {
-      await api.post('/channels', { module: moduleCode, name: name.trim(), config: {} })
+      await api.post('/channels', {
+        module: moduleCode, name: name.trim(), config: {},
+        response_sla_value: slaValor, response_sla_mode: slaModo,
+      })
       setOpen(false); setName(''); setSlug('')
       await load()
     } catch (err) {
@@ -62,10 +124,14 @@ export default function Channels() {
   // ── Editar (renomear) ──────────────────────────────────────────
   const [editando, setEditando] = useState<ChannelOut | null>(null)
   const [novoNome, setNovoNome] = useState('')
+  const [editValor, setEditValor] = useState(0)
+  const [editModo, setEditModo] = useState<PrazoModo>('corridos')
   const [erroEdit, setErroEdit] = useState<string | null>(null)
 
   function abrirEdicao(c: ChannelOut) {
     setEditando(c); setNovoNome(c.name); setErroEdit(null)
+    setEditValor(c.response_sla_value ?? 0)
+    setEditModo((c.response_sla_mode as PrazoModo) ?? 'corridos')
   }
 
   async function salvarEdicao(e: FormEvent) {
@@ -73,7 +139,10 @@ export default function Channels() {
     if (!editando) return
     setBusy(true); setErroEdit(null)
     try {
-      await api.patch(`/channels/${editando.id}`, { name: novoNome.trim() })
+      await api.patch(`/channels/${editando.id}`, {
+        name: novoNome.trim(),
+        response_sla_value: editValor, response_sla_mode: editModo,
+      })
       setEditando(null)
       await load()
     } catch (err) {
@@ -125,6 +194,9 @@ export default function Channels() {
                 </div>
                 <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   <Chip tone="blue">{t.modules[c.module as keyof typeof t.modules] ?? c.module}</Chip>
+                  {/* O prazo na própria lista: é o número que o consumidor
+                      recebe por e-mail, e conferi-lo não deve exigir um clique. */}
+                  <Chip tone="muted">{c.prazo_label || t.channels.slaNone}</Chip>
                   <Chip tone={c.is_active ? 'green' : 'muted'}>{c.is_active ? t.channels.active : t.channels.inactive}</Chip>
                   {c.is_active && (
                     <Button variant="ghost" leftIcon="copy" onClick={() => void showLink(c.id)}>{t.channels.link}</Button>
@@ -167,6 +239,7 @@ export default function Channels() {
           <Field label={t.channels.name}>
             <Input required value={name} onChange={(e) => setName(e.target.value)} placeholder={t.channels.egName} autoFocus />
           </Field>
+          <CampoPrazo valor={slaValor} modo={slaModo} onValor={setSlaValor} onModo={setSlaModo} t={t} />
           <Button type="submit" loading={busy}>{t.common.create}</Button>
         </form>
       </Modal>
@@ -178,6 +251,7 @@ export default function Channels() {
           <Field label={t.channels.name}>
             <Input required value={novoNome} onChange={(e) => setNovoNome(e.target.value)} autoFocus />
           </Field>
+          <CampoPrazo valor={editValor} modo={editModo} onValor={setEditValor} onModo={setEditModo} t={t} />
           <Button type="submit" loading={busy}>{t.common.save}</Button>
         </form>
       </Modal>

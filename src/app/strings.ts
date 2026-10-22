@@ -171,7 +171,7 @@ const pt = {
       agentEtica: 'Especialista em apuração',
       agentSac: 'Especialista em SAC',
       intro: 'Descreva como a apuração deve acontecer na sua empresa. Eu monto os blocos, ligo o que corre em paralelo e pergunto o que faltar.',
-      introSac: 'Descreva como o atendimento deve correr. Eu monto os blocos dentro do prazo de 7 dias e pergunto o que faltar.',
+      introSac: 'Descreva como o atendimento deve correr. Eu monto os blocos dentro do prazo configurado no canal e pergunto o que faltar.',
       starters: ['Jurídico e RH apuram juntos, diretoria decide', 'Preciso classificar a urgência antes de apurar', 'Quero um fluxo com coleta de provas'],
       startersSac: ['Atendimento simples, um responsável', 'Quero triagem por urgência antes de responder'],
       you: 'Você', assistant: 'Assistente',
@@ -191,9 +191,21 @@ const pt = {
     panelDone: 'Concluído',
     whoAnswers: 'Quem responde',
     ownerMissing: 'Sem responsável, o fluxo trava neste bloco.',
-    unitHours: 'Horas', unitDays: 'Dias',
-    slaHint: (h: number) => h >= 24 && h % 24 === 0 ? `A pessoa terá ${h / 24} dia(s) (${h}h) para responder.` : `A pessoa terá ${h} hora(s) para responder.`,
-    slaSacWarn: 'Acima das 168h do prazo legal do SAC.',
+    unitHours: 'Horas', unitDays: 'Dias', unitBusinessDays: 'Dias úteis',
+    // O texto de ajuda fala na UNIDADE escolhida, e não só em horas: dizer
+    // "2 dia(s) (48h)" para uma etapa de dias úteis era o que fazia a pessoa
+    // acreditar que o prazo venceria no domingo — e vencia.
+    slaHint: (valor: number, modo: 'horas' | 'corridos' | 'uteis' = 'horas') =>
+      modo === 'uteis' ? `A pessoa terá ${valor} dia(s) útil(eis) para responder — fins de semana e feriados não contam.`
+        : modo === 'corridos' ? `A pessoa terá ${valor} dia(s) corrido(s) para responder.`
+          : valor >= 24 && valor % 24 === 0 ? `A pessoa terá ${valor / 24} dia(s) (${valor}h) para responder.`
+            : `A pessoa terá ${valor} hora(s) para responder.`,
+    // O aviso cita os DOIS números — a soma das etapas e o prazo do canal.
+    // A checagem antiga comparava UMA etapa contra 168h, e por isso 1+3+1 dias
+    // passava sem um pio num canal de 5 dias.
+    slaOverChannel: (soma: string, canal: string) =>
+      `A soma das etapas (${soma}) passa do prazo do canal (${canal}). Ajuste as etapas ou o prazo do canal.`,
+    slaChannelBudget: (canal: string) => `Prazo do canal: ${canal}.`,
     obsNone: 'Ninguém', obsAll: 'Empresa inteira', obsPick: 'Escolher',
     obsAllHint: 'Todos os membros ativos acompanham este caso em "Meus acompanhamentos".',
     obsRoles: 'Papéis', obsPeople: 'Pessoas específicas',
@@ -263,7 +275,7 @@ const pt = {
     modulesTitle: 'Seus módulos',
     mod: {
       etica: { name: 'Canal de Denúncias', desc: 'Receba e trate relatos com sigilo e trilha completa.' },
-      sac: { name: 'SAC · Atendimento ao Consumidor', desc: 'Demandas de consumidores com prazo de 7 dias corridos.' },
+      sac: { name: 'SAC · Atendimento ao Consumidor', desc: 'Demandas de consumidores com prazo de resposta por canal.' },
       assinatura: { name: 'Assinatura Digital', desc: 'Assine documentos e etapas com validade e evidência.' },
       nr1: { name: 'NR-1 · Riscos psicossociais', desc: 'Pesquisas e indicadores de saúde mental no trabalho.' },
       privacidade: { name: 'Privacidade (LGPD)', desc: 'Requisições de titulares e conformidade.' },
@@ -363,6 +375,13 @@ const pt = {
     link: 'Link público',
     active: 'ativo',
     inactive: 'inativo',
+    // PRAZO DE RESPOSTA — a fonte única do número. O mesmo valor alimenta o
+    // texto do formulário público, o e-mail ao consumidor e o selo da lista.
+    slaTitle: 'Prazo de resposta',
+    slaHint: 'Vale para o formulário público, o e-mail ao consumidor e o selo da lista. 0 = sem prazo.',
+    slaUnitBusiness: 'Dias úteis', slaUnitCalendar: 'Dias corridos',
+    slaNone: 'Sem prazo de resposta',
+    slaBusinessHint: 'Fins de semana e feriados não contam. Os feriados ficam em Configurações.',
     editTitle: 'Editar canal', editFail: 'Falha ao salvar o canal.',
     archive: 'Arquivar', reactivate: 'Reativar',
     archiveTitle: 'Arquivar este canal?',
@@ -432,7 +451,7 @@ const pt = {
     mode: { manual: 'Manual', ai: 'Montar com IA' },
     langBuild: 'Idioma do formulário', translate: 'Traduzir p/ todos os idiomas', translating: 'Traduzindo…', translated: 'Formulário traduzido (PT · EN · ES).', langsReady: 'Idiomas prontos:',
     previewOffTitle: 'Idioma ainda não traduzido', previewOffBody: 'Este formulário ainda não tem versão neste idioma. Traduza para pré-visualizar.', previewOffCta: 'Traduzir agora',
-    ai: { title: 'Assistente de formulário', intro: 'Descreva o canal que você quer criar e eu monto o formulário — seguindo a NR-1 e a Lei 14.457/2022, com perguntas acolhedoras. Você pode pedir ajustes a qualquer momento.', placeholder: 'Ex.: canal de assédio para uma fábrica, anônimo, com campo de setor…', send: 'Enviar', thinking: 'Montando…', apply: 'Usar este formulário', applied: 'Formulário aplicado — revise e publique.', you: 'Você', assistant: 'Assistente', agentEtica: 'Especialista em ouvidoria', agentSac: 'Especialista em SAC', newChat: 'Nova conversa', deleteChat: 'Apagar conversa', empty: 'Comece descrevendo o canal que você precisa.', starters: ['Assédio moral e sexual', 'Fraude e corrupção', 'Ética e conduta geral'], introSac: 'Descreva como funciona o atendimento da sua empresa e eu monto o formulário do SAC — seguindo o Código de Defesa do Consumidor e o Decreto 11.034/2022. Identificação obrigatória e resposta em até 7 dias corridos já entram por padrão.', startersSac: ['Reclamação de produto', 'Cancelamento de serviço', 'Dúvidas e informações'], waiting: ['Entendendo o que você precisa…', 'Selecionando as melhores perguntas…', 'Aplicando a NR-1 e a Lei 14.457…', 'Ajustando o tom das perguntas…', 'Organizando os campos…', 'Finalizando…'] },
+    ai: { title: 'Assistente de formulário', intro: 'Descreva o canal que você quer criar e eu monto o formulário — seguindo a NR-1 e a Lei 14.457/2022, com perguntas acolhedoras. Você pode pedir ajustes a qualquer momento.', placeholder: 'Ex.: canal de assédio para uma fábrica, anônimo, com campo de setor…', send: 'Enviar', thinking: 'Montando…', apply: 'Usar este formulário', applied: 'Formulário aplicado — revise e publique.', you: 'Você', assistant: 'Assistente', agentEtica: 'Especialista em ouvidoria', agentSac: 'Especialista em SAC', newChat: 'Nova conversa', deleteChat: 'Apagar conversa', empty: 'Comece descrevendo o canal que você precisa.', starters: ['Assédio moral e sexual', 'Fraude e corrupção', 'Ética e conduta geral'], introSac: 'Descreva como funciona o atendimento da sua empresa e eu monto o formulário do SAC — seguindo o Código de Defesa do Consumidor e o Decreto 11.034/2022. Identificação obrigatória já entra por padrão, e o prazo de resposta vem do que está configurado no canal.', startersSac: ['Reclamação de produto', 'Cancelamento de serviço', 'Dúvidas e informações'], waiting: ['Entendendo o que você precisa…', 'Selecionando as melhores perguntas…', 'Aplicando a NR-1 e a Lei 14.457…', 'Ajustando o tom das perguntas…', 'Organizando os campos…', 'Finalizando…'] },
   },
   sig: {
     title: 'Assinatura Digital',
@@ -650,9 +669,9 @@ const pt = {
   // não denunciante. Só as chaves que mudam — o resto vem de t.cases.
   sac: {
     title: 'SAC — Atendimento ao Consumidor',
-    subtitle: 'Demandas de consumidores, com prazo de resposta de 7 dias corridos (Decreto 11.034/2022).',
+    subtitle: 'Demandas de consumidores, com o prazo de resposta configurado em cada canal.',
     createChannel: 'Criar um canal de SAC',
-    due: { late: 'Atrasado', today: 'Vence hoje', inDays: 'Faltam {n} d' },
+    due: { late: 'Atrasado', today: 'Vence hoje', inDays: 'Faltam {n} d', inBusinessDays: 'Faltam {n} d. úteis', noDue: 'Sem prazo' },
     empty: 'Nenhuma demanda no seu escopo ainda.',
     noActive: 'Nenhuma demanda em aberto.', noFinished: 'Nenhuma demanda finalizada ainda.',
     active: 'Em aberto', finished: 'Finalizadas',
@@ -758,6 +777,20 @@ const pt = {
   settings: {
     title: 'Configurações',
     subtitle: 'Preferências, conta e seus dados (LGPD).',
+    // DIAS ÚTEIS E FERIADOS — o calendário que os prazos em dias úteis usam.
+    // Fica aqui porque vale para a empresa inteira, e não para um canal só.
+    hol: {
+      title: 'Dias úteis e feriados',
+      hint: 'Usado pelos prazos contados em dias úteis — do canal e das etapas do fluxo. Os feriados nacionais já vêm marcados.',
+      year: 'Ano',
+      national: 'Nacional', company: 'Da empresa',
+      add: 'Adicionar feriado', addDay: 'Dia', addName: 'Nome (ex.: aniversário da cidade)',
+      remove: 'Remover',
+      offHint: 'Desmarcado = a empresa trabalha neste dia, e ele volta a contar no prazo.',
+      empty: 'Nenhum dia cadastrado para este ano.',
+      saveFail: 'Falha ao salvar o dia.',
+      weekend: 'Sábados e domingos nunca contam como dia útil.',
+    },
     appearance: 'Aparência',
     theme: 'Tema',
     light: 'Claro',
@@ -1015,7 +1048,7 @@ const en: AppStrings = {
       agentEtica: 'Investigation specialist',
       agentSac: 'Customer service specialist',
       intro: 'Describe how the investigation should run at your company. I draw the blocks, set what runs in parallel and ask for whatever is missing.',
-      introSac: 'Describe how the service should run. I draw the blocks within the 7-day deadline and ask for whatever is missing.',
+      introSac: 'Describe how the service should run. I draw the blocks within the deadline configured on the channel and ask for whatever is missing.',
       starters: ['Legal and HR investigate together, board decides', 'I need to rate urgency before investigating', 'I want a flow with evidence gathering'],
       startersSac: ['Simple service, one person responsible', 'I want urgency triage before answering'],
       you: 'You', assistant: 'Assistant',
@@ -1035,9 +1068,15 @@ const en: AppStrings = {
     panelDone: 'Done',
     whoAnswers: 'Who answers',
     ownerMissing: 'Without an owner, the flow stalls at this block.',
-    unitHours: 'Hours', unitDays: 'Days',
-    slaHint: (h: number) => h >= 24 && h % 24 === 0 ? `The person will have ${h / 24} day(s) (${h}h) to answer.` : `The person will have ${h} hour(s) to answer.`,
-    slaSacWarn: 'Above the 168h legal deadline for customer service.',
+    unitHours: 'Hours', unitDays: 'Days', unitBusinessDays: 'Business days',
+    slaHint: (valor: number, modo: 'horas' | 'corridos' | 'uteis' = 'horas') =>
+      modo === 'uteis' ? `The person will have ${valor} business day(s) to answer — weekends and holidays do not count.`
+        : modo === 'corridos' ? `The person will have ${valor} calendar day(s) to answer.`
+          : valor >= 24 && valor % 24 === 0 ? `The person will have ${valor / 24} day(s) (${valor}h) to answer.`
+            : `The person will have ${valor} hour(s) to answer.`,
+    slaOverChannel: (soma: string, canal: string) =>
+      `The stages add up to ${soma}, past the channel deadline (${canal}). Adjust the stages or the channel deadline.`,
+    slaChannelBudget: (canal: string) => `Channel deadline: ${canal}.`,
     obsNone: 'Nobody', obsAll: 'Whole company', obsPick: 'Choose',
     obsAllHint: 'Every active member follows this case in "What I follow".',
     obsRoles: 'Roles', obsPeople: 'Specific people',
@@ -1207,6 +1246,11 @@ const en: AppStrings = {
     link: 'Public link',
     active: 'active',
     inactive: 'inactive',
+    slaTitle: 'Response deadline',
+    slaHint: 'Used by the public form, the email to the consumer and the list badge. 0 = no deadline.',
+    slaUnitBusiness: 'Business days', slaUnitCalendar: 'Calendar days',
+    slaNone: 'No response deadline',
+    slaBusinessHint: 'Weekends and holidays do not count. Holidays live in Settings.',
     editTitle: 'Edit channel', editFail: 'Failed to save the channel.',
     archive: 'Archive', reactivate: 'Reactivate',
     archiveTitle: 'Archive this channel?',
@@ -1276,7 +1320,7 @@ const en: AppStrings = {
     mode: { manual: 'Manual', ai: 'Build with AI' },
     langBuild: 'Form language', translate: 'Translate to all languages', translating: 'Translating…', translated: 'Form translated (PT · EN · ES).', langsReady: 'Ready in:',
     previewOffTitle: 'Language not translated yet', previewOffBody: 'This form has no version in this language yet. Translate to preview.', previewOffCta: 'Translate now',
-    ai: { title: 'Form assistant', intro: 'Describe the channel you want to create and I will build the form — following NR-1 and Law 14.457/2022, with careful, respectful questions. You can ask for changes at any time.', placeholder: 'E.g.: harassment channel for a factory, anonymous, with a department field…', send: 'Send', thinking: 'Building…', apply: 'Use this form', applied: 'Form applied — review and publish.', you: 'You', assistant: 'Assistant', agentEtica: 'Whistleblowing specialist', agentSac: 'Consumer-service specialist', newChat: 'New chat', deleteChat: 'Delete chat', empty: 'Start by describing the channel you need.', starters: ['Moral & sexual harassment', 'Fraud & corruption', 'General ethics & conduct'], introSac: 'Tell me how your company handles customers and I will build the consumer-service form — following the Brazilian Consumer Code and Decree 11,034/2022. Mandatory identification and a 7-calendar-day reply deadline are already included.', startersSac: ['Product complaint', 'Service cancellation', 'Questions & information'], waiting: ['Reading what you need…', 'Choosing the best questions…', 'Applying NR-1 and Law 14.457…', 'Adjusting the tone…', 'Organizing the fields…', 'Finishing up…'] },
+    ai: { title: 'Form assistant', intro: 'Describe the channel you want to create and I will build the form — following NR-1 and Law 14.457/2022, with careful, respectful questions. You can ask for changes at any time.', placeholder: 'E.g.: harassment channel for a factory, anonymous, with a department field…', send: 'Send', thinking: 'Building…', apply: 'Use this form', applied: 'Form applied — review and publish.', you: 'You', assistant: 'Assistant', agentEtica: 'Whistleblowing specialist', agentSac: 'Consumer-service specialist', newChat: 'New chat', deleteChat: 'Delete chat', empty: 'Start by describing the channel you need.', starters: ['Moral & sexual harassment', 'Fraud & corruption', 'General ethics & conduct'], introSac: 'Tell me how your company handles customers and I will build the consumer-service form — following the Brazilian Consumer Code and Decree 11,034/2022. Mandatory identification is already included, and the reply deadline comes from the channel setting.', startersSac: ['Product complaint', 'Service cancellation', 'Questions & information'], waiting: ['Reading what you need…', 'Choosing the best questions…', 'Applying NR-1 and Law 14.457…', 'Adjusting the tone…', 'Organizing the fields…', 'Finishing up…'] },
   },
   sig: {
     title: 'Digital Signature',
@@ -1492,9 +1536,9 @@ const en: AppStrings = {
   },
   sac: {
     title: 'Consumer Service',
-    subtitle: 'Consumer requests, answered within 7 calendar days (Brazilian Decree 11,034/2022).',
+    subtitle: 'Consumer requests, within the deadline configured on each channel.',
     createChannel: 'Create a consumer service channel',
-    due: { late: 'Overdue', today: 'Due today', inDays: '{n} d left' },
+    due: { late: 'Overdue', today: 'Due today', inDays: '{n} d left', inBusinessDays: '{n} business d left', noDue: 'No deadline' },
     empty: 'No requests in your scope yet.',
     noActive: 'No open requests.', noFinished: 'No closed requests yet.',
     active: 'Open', finished: 'Closed',
@@ -1597,6 +1641,18 @@ const en: AppStrings = {
   settings: {
     title: 'Settings',
     subtitle: 'Preferences, account and your data (LGPD).',
+    hol: {
+      title: 'Business days and holidays',
+      hint: 'Used by every deadline counted in business days — the channel and the flow stages. National holidays come pre-checked.',
+      year: 'Year',
+      national: 'National', company: 'Company',
+      add: 'Add a holiday', addDay: 'Day', addName: 'Name (e.g. city anniversary)',
+      remove: 'Remove',
+      offHint: 'Unchecked = the company works on this day, and it counts towards deadlines again.',
+      empty: 'No days registered for this year.',
+      saveFail: 'Failed to save the day.',
+      weekend: 'Saturdays and Sundays never count as business days.',
+    },
     appearance: 'Appearance',
     theme: 'Theme',
     light: 'Light',
@@ -1852,7 +1908,7 @@ const es: AppStrings = {
       agentEtica: 'Especialista en investigación',
       agentSac: 'Especialista en atención al cliente',
       intro: 'Describe cómo debe desarrollarse la investigación en tu empresa. Yo armo los bloques, defino qué va en paralelo y pregunto lo que falte.',
-      introSac: 'Describe cómo debe desarrollarse la atención. Yo armo los bloques dentro del plazo de 7 días y pregunto lo que falte.',
+      introSac: 'Describe cómo debe desarrollarse la atención. Yo armo los bloques dentro del plazo configurado en el canal y pregunto lo que falte.',
       starters: ['Jurídico y RR. HH. investigan juntos, la dirección decide', 'Necesito clasificar la urgencia antes de investigar', 'Quiero un flujo con recolección de pruebas'],
       startersSac: ['Atención simple, un responsable', 'Quiero triaje por urgencia antes de responder'],
       you: 'Tú', assistant: 'Asistente',
@@ -1872,9 +1928,15 @@ const es: AppStrings = {
     panelDone: 'Listo',
     whoAnswers: 'Quién responde',
     ownerMissing: 'Sin responsable, el flujo se traba en este bloque.',
-    unitHours: 'Horas', unitDays: 'Días',
-    slaHint: (h: number) => h >= 24 && h % 24 === 0 ? `La persona tendrá ${h / 24} día(s) (${h}h) para responder.` : `La persona tendrá ${h} hora(s) para responder.`,
-    slaSacWarn: 'Por encima de las 168h del plazo legal de atención.',
+    unitHours: 'Horas', unitDays: 'Días', unitBusinessDays: 'Días hábiles',
+    slaHint: (valor: number, modo: 'horas' | 'corridos' | 'uteis' = 'horas') =>
+      modo === 'uteis' ? `La persona tendrá ${valor} día(s) hábil(es) para responder — fines de semana y feriados no cuentan.`
+        : modo === 'corridos' ? `La persona tendrá ${valor} día(s) corrido(s) para responder.`
+          : valor >= 24 && valor % 24 === 0 ? `La persona tendrá ${valor / 24} día(s) (${valor}h) para responder.`
+            : `La persona tendrá ${valor} hora(s) para responder.`,
+    slaOverChannel: (soma: string, canal: string) =>
+      `La suma de las etapas (${soma}) pasa del plazo del canal (${canal}). Ajusta las etapas o el plazo del canal.`,
+    slaChannelBudget: (canal: string) => `Plazo del canal: ${canal}.`,
     obsNone: 'Nadie', obsAll: 'Toda la empresa', obsPick: 'Elegir',
     obsAllHint: 'Todos los miembros activos siguen este caso en "Mis seguimientos".',
     obsRoles: 'Roles', obsPeople: 'Personas específicas',
@@ -1944,7 +2006,7 @@ const es: AppStrings = {
     modulesTitle: 'Tus módulos',
     mod: {
       etica: { name: 'Canal de Denuncias', desc: 'Recibe y gestiona reportes con confidencialidad y trazabilidad.' },
-      sac: { name: 'SAC · Atención al Consumidor', desc: 'Demandas de consumidores con plazo de 7 días corridos.' },
+      sac: { name: 'SAC · Atención al Consumidor', desc: 'Demandas de consumidores con plazo de respuesta por canal.' },
       assinatura: { name: 'Firma Digital', desc: 'Firma documentos y etapas con validez y evidencia.' },
       nr1: { name: 'NR-1 · Riesgo psicosocial', desc: 'Encuestas e indicadores de salud mental en el trabajo.' },
       privacidade: { name: 'Privacidad (LGPD)', desc: 'Solicitudes de titulares y cumplimiento.' },
@@ -2044,6 +2106,11 @@ const es: AppStrings = {
     link: 'Enlace público',
     active: 'activo',
     inactive: 'inactivo',
+    slaTitle: 'Plazo de respuesta',
+    slaHint: 'Lo usan el formulario público, el correo al consumidor y el sello de la lista. 0 = sin plazo.',
+    slaUnitBusiness: 'Días hábiles', slaUnitCalendar: 'Días corridos',
+    slaNone: 'Sin plazo de respuesta',
+    slaBusinessHint: 'Fines de semana y feriados no cuentan. Los feriados están en Configuración.',
     editTitle: 'Editar canal', editFail: 'Error al guardar el canal.',
     archive: 'Archivar', reactivate: 'Reactivar',
     archiveTitle: '¿Archivar este canal?',
@@ -2113,7 +2180,7 @@ const es: AppStrings = {
     mode: { manual: 'Manual', ai: 'Crear con IA' },
     langBuild: 'Idioma del formulario', translate: 'Traducir a todos los idiomas', translating: 'Traduciendo…', translated: 'Formulario traducido (PT · EN · ES).', langsReady: 'Listo en:',
     previewOffTitle: 'Idioma aún no traducido', previewOffBody: 'Este formulario aún no tiene versión en este idioma. Traduce para previsualizar.', previewOffCta: 'Traducir ahora',
-    ai: { title: 'Asistente de formulario', intro: 'Cuéntame qué canal quieres crear y armo el formulario — siguiendo la NR-1 y la Ley 14.457/2022, con preguntas cuidadosas y respetuosas. Pide cambios cuando quieras.', placeholder: 'Ej.: canal de acoso para una fábrica, anónimo, con campo de sector…', send: 'Enviar', thinking: 'Creando…', apply: 'Usar este formulario', applied: 'Formulario aplicado — revisa y publica.', you: 'Tú', assistant: 'Asistente', agentEtica: 'Especialista en canal de denuncias', agentSac: 'Especialista en SAC', newChat: 'Nueva conversación', deleteChat: 'Eliminar conversación', empty: 'Empieza describiendo el canal que necesitas.', starters: ['Acoso moral y sexual', 'Fraude y corrupción', 'Ética y conducta general'], introSac: 'Cuéntame cómo es la atención de tu empresa y armo el formulario del SAC — siguiendo el Código de Defensa del Consumidor y el Decreto 11.034/2022. La identificación obligatoria y la respuesta en hasta 7 días corridos ya vienen incluidas.', startersSac: ['Reclamo de producto', 'Cancelación de servicio', 'Dudas e información'], waiting: ['Entendiendo lo que necesitas…', 'Pensando las mejores preguntas…', 'Aplicando la NR-1 y la Ley 14.457…', 'Cuidando un tono cálido…', 'Organizando los campos…', 'Casi listo, finalizando…'] },
+    ai: { title: 'Asistente de formulario', intro: 'Cuéntame qué canal quieres crear y armo el formulario — siguiendo la NR-1 y la Ley 14.457/2022, con preguntas cuidadosas y respetuosas. Pide cambios cuando quieras.', placeholder: 'Ej.: canal de acoso para una fábrica, anónimo, con campo de sector…', send: 'Enviar', thinking: 'Creando…', apply: 'Usar este formulario', applied: 'Formulario aplicado — revisa y publica.', you: 'Tú', assistant: 'Asistente', agentEtica: 'Especialista en canal de denuncias', agentSac: 'Especialista en SAC', newChat: 'Nueva conversación', deleteChat: 'Eliminar conversación', empty: 'Empieza describiendo el canal que necesitas.', starters: ['Acoso moral y sexual', 'Fraude y corrupción', 'Ética y conducta general'], introSac: 'Cuéntame cómo es la atención de tu empresa y armo el formulario del SAC — siguiendo el Código de Defensa del Consumidor y el Decreto 11.034/2022. La identificación obligatoria ya viene incluida, y el plazo de respuesta sale de la configuración del canal.', startersSac: ['Reclamo de producto', 'Cancelación de servicio', 'Dudas e información'], waiting: ['Entendiendo lo que necesitas…', 'Pensando las mejores preguntas…', 'Aplicando la NR-1 y la Ley 14.457…', 'Cuidando un tono cálido…', 'Organizando los campos…', 'Casi listo, finalizando…'] },
   },
   sig: {
     title: 'Firma Digital',
@@ -2329,9 +2396,9 @@ const es: AppStrings = {
   },
   sac: {
     title: 'SAC — Atención al Consumidor',
-    subtitle: 'Demandas de consumidores, con plazo de respuesta de 7 días corridos (Decreto 11.034/2022).',
+    subtitle: 'Demandas de consumidores, con el plazo de respuesta configurado en cada canal.',
     createChannel: 'Crear un canal de SAC',
-    due: { late: 'Atrasado', today: 'Vence hoy', inDays: 'Faltan {n} d' },
+    due: { late: 'Atrasado', today: 'Vence hoy', inDays: 'Faltan {n} d', inBusinessDays: 'Faltan {n} d. hábiles', noDue: 'Sin plazo' },
     empty: 'Ninguna demanda en tu alcance todavía.',
     noActive: 'Ninguna demanda abierta.', noFinished: 'Ninguna demanda finalizada todavía.',
     active: 'Abiertas', finished: 'Finalizadas',
@@ -2434,6 +2501,18 @@ const es: AppStrings = {
   settings: {
     title: 'Configuración',
     subtitle: 'Preferencias, cuenta y tus datos (LGPD).',
+    hol: {
+      title: 'Días hábiles y feriados',
+      hint: 'Lo usan todos los plazos contados en días hábiles — del canal y de las etapas del flujo. Los feriados nacionales ya vienen marcados.',
+      year: 'Año',
+      national: 'Nacional', company: 'De la empresa',
+      add: 'Agregar feriado', addDay: 'Día', addName: 'Nombre (ej.: aniversario de la ciudad)',
+      remove: 'Quitar',
+      offHint: 'Sin marcar = la empresa trabaja ese día, y vuelve a contar en el plazo.',
+      empty: 'Ningún día registrado para este año.',
+      saveFail: 'Error al guardar el día.',
+      weekend: 'Sábados y domingos nunca cuentan como día hábil.',
+    },
     appearance: 'Apariencia',
     theme: 'Tema',
     light: 'Claro',

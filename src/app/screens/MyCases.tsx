@@ -27,6 +27,14 @@ type Ficha = {
   activated_at: string | null
   sla_days: number
   sla_hours: number | null
+  // A RÉGUA congelada na liberação + o vencimento JÁ CALCULADO pelo servidor
+  // (com os feriados da empresa). A tela não tem o calendário: era dividir
+  // horas por 24 aqui que acendia "Atrasado" no domingo para uma etapa de
+  // "2 dias" liberada na sexta.
+  sla_mode?: 'horas' | 'corridos' | 'uteis'
+  sla_value?: number
+  due_at?: string | null
+  prazo_label?: string
   module: string
 }
 
@@ -82,14 +90,20 @@ export default function MyCases() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {fichas.map((f) => {
             const dias = diasEsperando(f.activated_at)
-            // Atrasado é fato, não estimativa: só marca quando há SLA definido
-            // e ele já passou. Em HORAS quando a ficha as tem — no SAC uma
-            // etapa de 4h "atrasada em dias" nunca apareceria atrasada.
+            // Atrasado é fato, não estimativa — e o fato é o `due_at` que o
+            // SERVIDOR calculou, pela régua congelada na ficha e com os
+            // feriados da empresa aplicados. Contar aqui em horas fazia uma
+            // etapa de "2 dias úteis" liberada na sexta acender no domingo.
+            //
+            // A queda para horas serve a ficha liberada ANTES destes campos:
+            // ela continua cobrada pela régua com que nasceu.
             const horasEsperando = f.activated_at === null
               ? null : Math.floor((Date.now() - new Date(f.activated_at).getTime()) / 3600000)
-            const atrasado = f.sla_hours != null
-              ? horasEsperando !== null && horasEsperando > f.sla_hours
-              : dias !== null && !!f.sla_days && dias > f.sla_days
+            const atrasado = f.due_at
+              ? Date.now() > new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(f.due_at) ? f.due_at : `${f.due_at}Z`).getTime()
+              : f.sla_hours != null
+                ? horasEsperando !== null && horasEsperando > f.sla_hours
+                : dias !== null && !!f.sla_days && dias > f.sla_days
             return (
               <Card key={f.case_id}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
