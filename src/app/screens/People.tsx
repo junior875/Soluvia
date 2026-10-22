@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { api } from '../../lib/api'
 import { localizeRole } from '../../lib/systemNames'
-import type { MemberRow, ModulePermissions, PermissionCatalog, RoleOut } from '../../lib/types'
+import type { ChannelOut, MemberRow, ModulePermissions, PermissionCatalog, RoleOut } from '../../lib/types'
 import { useCaps } from '../capabilities'
 import { useT } from '../strings'
 import { useTranslation } from '../../i18n/LanguageProvider'
@@ -13,7 +13,255 @@ const STATUS_TONE = { active: 'green', invited: 'accent', suspended: 'muted' } a
 
 // ── Overrides de permissão por membro ──────────────────────────────────────
 interface PermOverride { code: string; grant: boolean }
-interface PermSnapshot { effective: string[]; overrides: PermOverride[] }
+interface PermSnapshot {
+  effective: string[]
+  overrides: PermOverride[]
+  scope?: { unrestricted: boolean; channels: string[] }
+  derrubadas?: Record<string, string[]>
+}
+
+// ── Escopo de canal da ATRIBUIÇÃO (item 17) ────────────────────────────────
+// O escopo não mora no papel, mora na atribuição do papel à pessoa. E
+// "irrestrito" passou a ser DECLARAÇÃO: antes esta tela mandava
+// `{channels: [], areas: [], committees: []}` fixo e o backend lia três listas
+// vazias como "vê tudo" — toda pessoa convidada nascia com acesso irrestrito,
+// qualquer que fosse o papel.
+interface EscopoEscolhido { unrestricted: boolean; channels: string[] }
+
+const ESCOPO_INICIAL: EscopoEscolhido = { unrestricted: false, channels: [] }
+
+const paraPayload = (e: EscopoEscolhido) => ({
+  v: 2 as const,
+  unrestricted: e.unrestricted,
+  channels: e.unrestricted ? [] : e.channels,
+  areas: [],
+  committees: [],
+})
+
+/** Escopo escolhido é válido? Sem canal e sem irrestrito não alcança nada. */
+const escopoValido = (e: EscopoEscolhido) => e.unrestricted || e.channels.length > 0
+
+// i18n LOCAL (PT · EN · ES) — mesmo motivo do PERM_I18N: não disputar o
+// strings.ts compartilhado.
+const SCOPE_I18N: Record<Lang, {
+  legend: string; all: string; allHint: string; some: string
+  empty: string; noneYet: string; noChannels: string
+  manageRoles: string; rolesTitle: string; rolesIntro: string
+  role: string; noRole: string; save: string; saving: string; remove: string
+  reach: string; reachAll: string; reachNone: string; tweak: string; tweakHint: string
+  saveErr: string
+}> = {
+  pt: {
+    legend: 'Canais que esta função alcança',
+    all: 'Todos os canais, inclusive os futuros',
+    allHint: 'Use para quem administra a empresa inteira.',
+    some: 'Somente os canais escolhidos',
+    empty: 'Escolha ao menos um canal — sem canal, esta função não alcança nenhum caso.',
+    noneYet: 'Esta empresa ainda não tem canais. Crie um canal antes de restringir por canal.',
+    noChannels: 'nenhum canal',
+    manageRoles: 'Função e canais',
+    rolesTitle: 'Função e canais desta pessoa',
+    rolesIntro: 'A função diz o que a pessoa pode fazer; os canais dizem onde. Sem canal, a função não alcança caso nenhum.',
+    role: 'Função',
+    noRole: 'Sem função',
+    save: 'Salvar', saving: 'Salvando…', remove: 'Remover esta função',
+    reach: 'canais', reachAll: 'todos os canais', reachNone: 'nenhum canal',
+    tweak: 'ajuste individual',
+    tweakHint: 'Esta pessoa tem permissões ligadas ou desligadas fora do que a função dá.',
+    saveErr: 'Falha ao salvar. Tente novamente.',
+  },
+  en: {
+    legend: 'Channels this role reaches',
+    all: 'All channels, including future ones',
+    allHint: 'For people who administer the whole company.',
+    some: 'Only the selected channels',
+    empty: 'Pick at least one channel — with none, this role reaches no case at all.',
+    noneYet: 'This company has no channels yet. Create one before restricting by channel.',
+    noChannels: 'no channel',
+    manageRoles: 'Role and channels',
+    rolesTitle: "This person's role and channels",
+    rolesIntro: 'The role says what the person can do; the channels say where. With no channel, the role reaches nothing.',
+    role: 'Role',
+    noRole: 'No role',
+    save: 'Save', saving: 'Saving…', remove: 'Remove this role',
+    reach: 'channels', reachAll: 'all channels', reachNone: 'no channel',
+    tweak: 'individual tweak',
+    tweakHint: 'This person has permissions switched on or off beyond what the role gives.',
+    saveErr: 'Failed to save. Please try again.',
+  },
+  es: {
+    legend: 'Canales que alcanza este rol',
+    all: 'Todos los canales, incluidos los futuros',
+    allHint: 'Para quien administra toda la empresa.',
+    some: 'Solo los canales elegidos',
+    empty: 'Elige al menos un canal — sin canal, este rol no alcanza ningún caso.',
+    noneYet: 'Esta empresa aún no tiene canales. Crea uno antes de restringir por canal.',
+    noChannels: 'ningún canal',
+    manageRoles: 'Rol y canales',
+    rolesTitle: 'Rol y canales de esta persona',
+    rolesIntro: 'El rol dice qué puede hacer la persona; los canales dicen dónde. Sin canal, el rol no alcanza nada.',
+    role: 'Rol',
+    noRole: 'Sin rol',
+    save: 'Guardar', saving: 'Guardando…', remove: 'Quitar este rol',
+    reach: 'canales', reachAll: 'todos los canales', reachNone: 'ningún canal',
+    tweak: 'ajuste individual',
+    tweakHint: 'Esta persona tiene permisos activados o desactivados más allá del rol.',
+    saveErr: 'Error al guardar. Inténtalo de nuevo.',
+  },
+}
+
+/** Seletor de canais da atribuição: irrestrito explícito × lista de canais. */
+function ScopePicker({ canais, valor, onChange, L }: {
+  canais: ChannelOut[]
+  valor: EscopoEscolhido
+  onChange: (e: EscopoEscolhido) => void
+  L: (typeof SCOPE_I18N)['pt']
+}) {
+  const alterna = (id: string) => {
+    const tem = valor.channels.includes(id)
+    onChange({
+      unrestricted: false,
+      channels: tem ? valor.channels.filter((c) => c !== id) : [...valor.channels, id],
+    })
+  }
+  const radio = (marcado: boolean) => ({
+    display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px',
+    borderRadius: 12, cursor: 'pointer',
+    border: `1px solid ${marcado ? 'var(--accent-border)' : 'var(--border)'}`,
+    background: marcado ? 'var(--accent-soft)' : 'var(--surface-2)',
+  })
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <label style={{ color: 'var(--heading)', fontSize: 13, fontWeight: 700 }}>{L.legend}</label>
+      <label style={radio(valor.unrestricted)}>
+        <input
+          type="radio" checked={valor.unrestricted}
+          onChange={() => onChange({ unrestricted: true, channels: [] })}
+        />
+        <span>
+          <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>{L.all}</span>
+          <span style={{ display: 'block', fontSize: 12.5, color: 'var(--text-muted)' }}>{L.allHint}</span>
+        </span>
+      </label>
+      <label style={radio(!valor.unrestricted)}>
+        <input
+          type="radio" checked={!valor.unrestricted}
+          onChange={() => onChange({ unrestricted: false, channels: valor.channels })}
+        />
+        <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>{L.some}</span>
+      </label>
+      {!valor.unrestricted && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 6 }}>
+          {canais.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', fontSize: 12.5, margin: 0 }}>{L.noneYet}</p>
+          ) : canais.map((c) => (
+            <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--text)', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={valor.channels.includes(c.id)}
+                onChange={() => alterna(c.id)}
+              />
+              {c.name}
+              <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>· {c.module}</span>
+            </label>
+          ))}
+          {/* A regra ANTES do erro: o botão fica desabilitado e o motivo está
+              escrito aqui, em vez de o 422 do servidor ser a primeira notícia. */}
+          {!escopoValido(valor) && (
+            <p style={{ color: 'var(--text-muted)', fontSize: 12.5, margin: '2px 0 0' }}>{L.empty}</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Atribui/ajusta a função e o ESCOPO de uma pessoa já convidada.
+ *
+ *  Até aqui não existia nenhuma tela para isto: o escopo só podia ser
+ *  escolhido no convite (e era mandado vazio), então restringir alguém depois
+ *  era impossível sem mexer no banco.
+ */
+function RoleScopeModal({ member, roles, canais, onClose, onSaved }: {
+  member: MemberRow | null
+  roles: RoleOut[]
+  canais: ChannelOut[]
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const { lang } = useTranslation()
+  const L = SCOPE_I18N[lang] ?? SCOPE_I18N.pt
+  const atual = member?.roles?.[0]
+  const [roleId, setRoleId] = useState('')
+  const [escopo, setEscopo] = useState<EscopoEscolhido>(ESCOPO_INICIAL)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!member) return
+    const papel = member.roles?.[0]
+    const s = (papel?.scope ?? {}) as { unrestricted?: boolean; channels?: string[] }
+    setRoleId(papel?.role_id ?? '')
+    setEscopo({
+      unrestricted: !!s.unrestricted,
+      channels: (s.channels ?? []).map(String),
+    })
+    setError(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [member])
+
+  async function salvar() {
+    if (!member || !roleId || !escopoValido(escopo)) return
+    setBusy(true); setError(null)
+    try {
+      await api.post(`/memberships/${member.id}/roles`, {
+        role_id: roleId,
+        scope: paraPayload(escopo),
+      })
+      onSaved(); onClose()
+    } catch (e) {
+      setError((e as ApiError).detail ?? L.saveErr)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function remover() {
+    if (!member || !atual) return
+    setBusy(true); setError(null)
+    try {
+      await api.delete(`/memberships/${member.id}/roles/${atual.role_id}`)
+      onSaved(); onClose()
+    } catch (e) {
+      setError((e as ApiError).detail ?? L.saveErr)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const nome = member ? (member.full_name ?? member.email ?? member.invited_email) : ''
+  return (
+    <Modal open={!!member} onClose={onClose} title={L.rolesTitle} kicker={nome} maxWidth={520}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {error && <div style={{ background: 'rgba(220,38,38,.12)', border: '1px solid rgba(220,38,38,.4)', color: '#fca5a5', borderRadius: 12, padding: '10px 12px', fontSize: 13.5 }}>{error}</div>}
+        <p style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.5, margin: 0 }}>{L.rolesIntro}</p>
+        <Field label={L.role}>
+          <Select value={roleId} onChange={(e) => setRoleId(e.target.value)}>
+            <option value="">{L.noRole}</option>
+            {roles.map((r) => <option key={r.id} value={r.id}>{localizeRole(r.name)}</option>)}
+          </Select>
+        </Field>
+        {roleId && <ScopePicker canais={canais} valor={escopo} onChange={setEscopo} L={L} />}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
+          {atual && <Button variant="ghost" onClick={() => void remover()}>{L.remove}</Button>}
+          <Button onClick={() => void salvar()} loading={busy} disabled={!roleId || !escopoValido(escopo)}>
+            {busy ? L.saving : L.save}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
 
 // i18n LOCAL (PT · EN · ES) — evita tocar em strings.ts compartilhado.
 const PERM_I18N: Record<Lang, {
@@ -181,14 +429,21 @@ export default function People() {
   const t = useT()
   const { lang } = useTranslation()
   const permL = PERM_I18N[lang] ?? PERM_I18N.pt
+  const scopeL = SCOPE_I18N[lang] ?? SCOPE_I18N.pt
   const [members, setMembers] = useState<MemberRow[] | null>(null)
   const [roles, setRoles] = useState<RoleOut[]>([])
+  const [canais, setCanais] = useState<ChannelOut[]>([])
+  // Quem tem override individual: a lista de Pessoas precisa SINALIZAR isso,
+  // senão duas pessoas com o mesmo papel parecem ter o mesmo acesso e não têm.
+  const [comAjuste, setComAjuste] = useState<Set<string>>(new Set())
   const [permCatalog, setPermCatalog] = useState<ModulePermissions[]>([])
   const [permMember, setPermMember] = useState<MemberRow | null>(null)
+  const [roleMember, setRoleMember] = useState<MemberRow | null>(null)
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [roleId, setRoleId] = useState('')
+  const [escopo, setEscopo] = useState<EscopoEscolhido>(ESCOPO_INICIAL)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [inviteLink, setInviteLink] = useState<string | null>(null)
@@ -225,9 +480,17 @@ export default function People() {
   const closeInvite = () => { setOpen(false); setInviteLink(null); setError(null) }
 
   const load = () => api.get<MemberRow[]>('/memberships').then(setMembers).catch(() => setMembers([]))
+  // O relatório de acesso efetivo serve aqui para UMA coisa: marcar quem tem
+  // ajuste individual. O relatório completo (duas abas) é a tela #painel/access.
+  const loadAjustes = () =>
+    api.get<{ linhas: { membership_id: string; overrides: unknown[] }[] }>('/memberships/effective-access')
+      .then((r) => setComAjuste(new Set(r.linhas.filter((l) => l.overrides.length > 0).map((l) => l.membership_id))))
+      .catch(() => {})
   useEffect(() => {
     void load()
+    void loadAjustes()
     api.get<RoleOut[]>('/roles').then(setRoles).catch(() => {})
+    api.get<ChannelOut[]>('/channels').then(setCanais).catch(() => setCanais([]))
     api.get<PermissionCatalog>('/permissions').then((c) => setPermCatalog(c.modules)).catch(() => {})
   }, [])
 
@@ -240,9 +503,12 @@ export default function People() {
         email: email.trim(),
         full_name: name.trim() || null,
         role_id: roleId || null,
-        scope: { channels: [], areas: [], committees: [] },
+        // O escopo ESCOLHIDO (item 17). Era `{channels: [], areas: [],
+        // committees: []}` fixo, e o backend lia isso como "vê tudo": todo
+        // convite nascia irrestrito. Sem papel não há atribuição para escopar.
+        scope: roleId ? paraPayload(escopo) : null,
       })
-      setEmail(''); setName(''); setRoleId('')
+      setEmail(''); setName(''); setRoleId(''); setEscopo(ESCOPO_INICIAL)
       await load()
       await reload() // atualiza contador de vagas
       // Sem e-mail configurado: mostra o link p/ o admin copiar e enviar.
@@ -289,6 +555,25 @@ export default function People() {
               </div>
               <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 {m.roles.map((r) => <Chip key={r.id} tone="blue">{localizeRole(r.role_name)}</Chip>)}
+                {/* O ALCANCE ao lado da função: a pergunta "este papel vê qual
+                    canal?" não tinha resposta em tela nenhuma. */}
+                {m.roles.map((r) => {
+                  const s = (r.scope ?? {}) as { unrestricted?: boolean; channels?: string[] }
+                  const n = (s.channels ?? []).length
+                  const texto = s.unrestricted
+                    ? scopeL.reachAll
+                    : n === 0 ? scopeL.reachNone : `${n} ${scopeL.reach}`
+                  return (
+                    <Chip key={`${r.id}-escopo`} tone={s.unrestricted ? 'navy' : n === 0 ? 'muted' : 'green'}>
+                      {texto}
+                    </Chip>
+                  )
+                })}
+                {comAjuste.has(m.id) && (
+                  <span title={scopeL.tweakHint}>
+                    <Chip tone="accent">{scopeL.tweak}</Chip>
+                  </span>
+                )}
                 <Chip tone={STATUS_TONE[m.status as keyof typeof STATUS_TONE] ?? 'muted'}>{statusLabel(m.status)}</Chip>
                 {canManage && m.status === 'invited' && (
                   <button onClick={() => void copyMemberInvite(m.id)} className="app-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '5px 12px', borderRadius: 100, fontSize: 12.5, fontWeight: 700, background: 'var(--accent-soft)', color: 'var(--accent)', border: '1px solid var(--accent-border)' }}>
@@ -304,6 +589,11 @@ export default function People() {
                     que se rebaixa por engano fica sem o botão que desfaria o
                     engano. O servidor recusa também (403) — esconder botão
                     não é segurança, é cortesia. */}
+                {canManage && m.email !== ctx.user.email && (
+                  <button onClick={() => setRoleMember(m)} className="app-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '5px 12px', borderRadius: 100, fontSize: 12.5, fontWeight: 700, background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)' }}>
+                    {scopeL.manageRoles}
+                  </button>
+                )}
                 {canManage && m.email !== ctx.user.email && (
                   <button onClick={() => setPermMember(m)} className="app-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '5px 12px', borderRadius: 100, fontSize: 12.5, fontWeight: 700, background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)' }}>
                     {permL.manage}
@@ -343,7 +633,14 @@ export default function People() {
                 {roles.map((r) => <option key={r.id} value={r.id}>{localizeRole(r.name)}</option>)}
               </Select>
             </Field>
-            <Button type="submit" loading={busy} style={{ marginTop: 4 }}>{busy ? t.people.sending : t.people.send}</Button>
+            {/* Escolher o papel passa a exigir escolher ONDE ele vale. */}
+            {roleId && <ScopePicker canais={canais} valor={escopo} onChange={setEscopo} L={scopeL} />}
+            <Button
+              type="submit" loading={busy} style={{ marginTop: 4 }}
+              disabled={!!roleId && !escopoValido(escopo)}
+            >
+              {busy ? t.people.sending : t.people.send}
+            </Button>
           </form>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -361,7 +658,18 @@ export default function People() {
         )}
       </Modal>
 
-      <PermissionsModal member={permMember} catalog={permCatalog} onClose={() => setPermMember(null)} />
+      <RoleScopeModal
+        member={roleMember}
+        roles={roles}
+        canais={canais}
+        onClose={() => setRoleMember(null)}
+        onSaved={() => { void load(); void loadAjustes() }}
+      />
+      <PermissionsModal
+        member={permMember}
+        catalog={permCatalog}
+        onClose={() => { setPermMember(null); void loadAjustes() }}
+      />
     </div>
   )
 }
