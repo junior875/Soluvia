@@ -38,7 +38,15 @@ export function maskCnpj(bruto: string): string {
  * backend, que é a fonte da verdade.
  */
 export function maskProtocolo(bruto: string): string {
-  let d = (bruto || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10)
+  const limpo = (bruto || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  let d = limpo.slice(0, 10)
+  // Colagem com rótulo ("Protocolo: DG-7K3F-9QX2", como o e-mail mostra):
+  // pegar os dez primeiros caracteres daria "PR-OTOC-OLOD". Só entra quando já
+  // há mais de dez caracteres, para não atropelar quem está digitando.
+  if (limpo.length > 10) {
+    const achado = limpo.match(/DG[A-Z0-9]{8}/)
+    if (achado) d = achado[0]
+  }
   if (d.length === 8 && !d.startsWith('DG')) d = `DG${d}`
   if (d.length <= 2) return d
   // Os dois primeiros caracteres são repetidos como vieram, e não fixados em
