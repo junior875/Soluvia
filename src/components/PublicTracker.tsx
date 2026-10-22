@@ -121,7 +121,7 @@ export default function PublicTracker() {
                   grafia que o servidor gravou. `autoCapitalize`/`autoCorrect`
                   são para o celular, que entrava em minúsculas e "corrigia"
                   os blocos. */}
-              <div><label style={labelS}>{tr.protocol}</label><input style={{ ...input, textTransform: 'uppercase', letterSpacing: 0.5 }} value={protocol} onChange={(e) => setProtocol(maskProtocolo(e.target.value))} placeholder="DG-XXXX-XXXX" maxLength={12} autoCapitalize="characters" autoCorrect="off" spellCheck={false} autoComplete="off" autoFocus /></div>
+              <div><label style={labelS}>{tr.protocol}</label><input style={{ ...input, textTransform: 'uppercase', letterSpacing: 0.5 }} value={protocol} onChange={(e) => setProtocol(maskProtocolo(e.target.value))} placeholder="DG-XXXX-XXXX" autoCapitalize="characters" autoCorrect="off" spellCheck={false} autoComplete="off" autoFocus /></div>
               <div><label style={labelS}>{tr.code}</label><input style={input} value={code} onChange={(e) => setCode(e.target.value)} placeholder="••••••••" /></div>
               {err && <div style={{ background: 'rgba(217,83,79,.12)', border: '1px solid rgba(217,83,79,.4)', color: '#e08585', borderRadius: 12, padding: '11px 14px', fontSize: 13.5 }}>{err}</div>}
               <button onClick={() => void lookup()} disabled={busy} className="app-btn cta-sheen" style={{ background: 'linear-gradient(135deg,var(--accent),var(--accent-2))', color: '#fff', border: 'none', borderRadius: 100, padding: '14px 28px', fontSize: 16, fontWeight: 800, cursor: 'pointer', boxShadow: '0 12px 30px var(--accent-shadow)', opacity: busy ? 0.6 : 1 }}>{busy ? tr.tracking : tr.track}</button>
