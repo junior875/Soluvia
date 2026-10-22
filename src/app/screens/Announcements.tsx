@@ -32,7 +32,46 @@ type Aviso = {
 
 type Contato = { email: string; name: string; status: string; contact_id?: string }
 
+type Template = { subject: string; message: string; updated_at?: string | null }
+
 const EMAIL_OK = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+
+/**
+ * Rascunho do aviso, POR CANAL, no navegador.
+ *
+ * Assunto e mensagem eram só `useState`: quem escrevia um texto próprio e
+ * clicava em outra tela do menu perdia tudo, porque o componente desmonta e o
+ * estado morre. São duas camadas de persistência, de propósito:
+ *
+ * - aqui, o rascunho do que está sendo escrito — sobrevive à navegação e ao F5
+ *   de QUEM está escrevendo, sem gravar nada no servidor a cada tecla;
+ * - no servidor (`/announcements/template/{canal}`), o que foi "salvo como
+ *   padrão" — vale para o time inteiro e é o texto que o e-mail usa.
+ */
+const chaveRascunho = (canalId: string) => `soluvia.announce.draft.${canalId}`
+
+function lerRascunho(canalId: string): Template | null {
+  // Navegador sem storage (janela privada, cookies bloqueados) não pode
+  // derrubar a central de avisos — só fica sem rascunho.
+  try {
+    const cru = localStorage.getItem(chaveRascunho(canalId))
+    if (!cru) return null
+    const d = JSON.parse(cru) as Partial<Template>
+    return { subject: d.subject ?? '', message: d.message ?? '' }
+  } catch {
+    return null
+  }
+}
+
+function gravarRascunho(canalId: string, t: Template): void {
+  try {
+    // Rascunho vazio não vira lixo no storage: apagar é o mesmo que não ter.
+    if (!t.subject && !t.message) localStorage.removeItem(chaveRascunho(canalId))
+    else localStorage.setItem(chaveRascunho(canalId), JSON.stringify(t))
+  } catch {
+    /* idem: sem storage, segue sem rascunho */
+  }
+}
 
 export default function Announcements() {
   const t = useT()
@@ -57,6 +96,13 @@ export default function Announcements() {
   const [lista, setLista] = useState('')
   const [assunto, setAssunto] = useState('')
   const [mensagem, setMensagem] = useState('')
+  // De QUAL canal é o texto que está nas caixas agora. É estado, não ref,
+  // porque o autosave precisa enxergar a troca no mesmo ciclo: sem isso, o
+  // primeiro efeito depois de trocar de canal gravaria o texto do canal
+  // anterior na chave do novo.
+  const [textoDoCanal, setTextoDoCanal] = useState('')
+  const [tplSalvo, setTplSalvo] = useState<Template | null>(null)
+  const [salvandoTpl, setSalvandoTpl] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [aviso, setAviso] = useState<string | null>(null)
   // Prévia: o HTML REAL do e-mail, vindo do mesmo template do envio.
@@ -89,6 +135,36 @@ export default function Announcements() {
   }, [tx.errLoad])
 
   useEffect(() => { void carregar() }, [carregar])
+
+  // Trocou de canal: o texto que entra nas caixas é o rascunho deste
+  // navegador e, se não houver, o padrão salvo do canal. Nunca o texto do
+  // canal anterior — cada canal tem o SEU aviso.
+  useEffect(() => {
+    if (!canalId) return
+    let vivo = true
+    const rascunho = lerRascunho(canalId)
+    setAssunto(rascunho?.subject ?? '')
+    setMensagem(rascunho?.message ?? '')
+    setTextoDoCanal(canalId)
+    setTplSalvo(null)
+    void api.get<Template>(`/announcements/template/${canalId}`)
+      .then((tpl) => {
+        if (!vivo) return
+        setTplSalvo(tpl)
+        // O rascunho local tem prioridade: é o que a pessoa acabou de
+        // escrever e ainda não salvou.
+        if (!rascunho) { setAssunto(tpl.subject); setMensagem(tpl.message) }
+      })
+      .catch(() => { /* sem padrão salvo a tela funciona igual */ })
+    return () => { vivo = false }
+  }, [canalId])
+
+  // Autosave do rascunho. A guarda `textoDoCanal !== canalId` evita o quadro
+  // intermediário da troca de canal, em que o estado ainda é do canal velho.
+  useEffect(() => {
+    if (!textoDoCanal || textoDoCanal !== canalId) return
+    gravarRascunho(canalId, { subject: assunto, message: mensagem })
+  }, [assunto, mensagem, canalId, textoDoCanal])
 
   // Prévia ao vivo, com folga de digitação: pedir a cada tecla seria uma
   // chamada por letra; 600ms depois da última é imperceptível e barato.
@@ -148,6 +224,28 @@ export default function Announcements() {
     }
   }
 
+  const canalSelecionado = (canais ?? []).find((c) => c.id === canalId) ?? null
+  // O módulo decide o VOCABULÁRIO da tela. Canal de SAC convidando a
+  // "denunciar" é o que o cliente viu em produção.
+  const ehSac = (canalSelecionado?.module ?? '') === 'sac'
+  const jaEhPadrao = !!tplSalvo
+    && tplSalvo.subject === assunto.trim()
+    && tplSalvo.message === mensagem.trim()
+
+  async function salvarPadrao() {
+    if (!canalId || salvandoTpl) return
+    setSalvandoTpl(true)
+    try {
+      const tpl = await api.put<Template>(`/announcements/template/${canalId}`, {
+        subject: assunto, message: mensagem,
+      })
+      setTplSalvo(tpl)
+      flash(tx.templateSaved)
+    } catch (e) {
+      flash((e as ApiError).detail ?? tx.errTemplate)
+    } finally { setSalvandoTpl(false) }
+  }
+
   const podeEnviar = !enviando && !!canalId
     && (publico === 'list' ? quantosNaLista > 0 : marcados.size + extrasValidos.length > 0)
 
@@ -167,7 +265,10 @@ export default function Announcements() {
         message: mensagem,
       })
       flash(tx.sentOk(r.sent_count))
-      setLista(''); setExtras([]); setAssunto(''); setMensagem('')
+      // Só o PÚBLICO é limpo. Apagar assunto e mensagem no envio era metade
+      // do item 12: o texto que a empresa escreveu com cuidado sumia no
+      // primeiro disparo, e no envio seguinte voltava o texto genérico.
+      setLista(''); setExtras([])
       await carregar()
     } catch (e) {
       flash((e as ApiError).detail ?? tx.errSend)
@@ -375,7 +476,8 @@ export default function Announcements() {
             )}
 
             <Field label={tx.subject}>
-              <Input value={assunto} onChange={(e) => setAssunto(e.target.value)} placeholder={tx.subjectPh} />
+              <Input value={assunto} onChange={(e) => setAssunto(e.target.value)}
+                placeholder={ehSac ? tx.subjectPhSac : tx.subjectPhEtica} />
             </Field>
 
             <Field label={tx.message}>
@@ -393,6 +495,21 @@ export default function Announcements() {
               />
               <p style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: 6 }}>{tx.messageHint}</p>
             </Field>
+
+            {/* "Salvar como padrão deste canal": sem isto, personalizar o
+                aviso era trabalho perdido — o texto era estado de tela e
+                morria na primeira navegação. */}
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Button variant="outline" leftIcon="check" loading={salvandoTpl}
+                disabled={!canalId || jaEhPadrao}
+                onClick={() => void salvarPadrao()}
+                style={{ padding: '9px 16px', fontSize: 13 }}>
+                {tx.saveTemplate}
+              </Button>
+              <span style={{ color: 'var(--text-muted)', fontSize: 12.5, flex: '1 1 240px' }}>
+                {jaEhPadrao ? tx.templateCurrent : tx.templateHint}
+              </span>
+            </div>
 
             {/* PRÉVIA — o HTML exato que o destinatário recebe, do MESMO
                 template do envio. Aprovar um layout que ninguém recebe é o
