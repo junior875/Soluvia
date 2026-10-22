@@ -65,7 +65,24 @@ export default function PublicTracker() {
   const card: CSSProperties = { width: '100%', maxWidth: 620, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 22, padding: 'clamp(22px,4vw,36px)', boxShadow: 'var(--card-shadow)' }
   const input: CSSProperties = { width: '100%', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', color: 'var(--heading)', fontSize: 15, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }
   const labelS: CSSProperties = { display: 'block', color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 600, marginBottom: 6 }
-  const close = () => { history.replaceState(null, '', window.location.pathname); window.location.hash = '' }
+  // O "×" tinha de fazer DUAS coisas e não fazia nenhuma: `replaceState` apaga
+  // o fragmento sem disparar `hashchange` (é a definição dele), e o
+  // `location.hash = ''` que vinha depois era no-op, porque o hash já estava
+  // vazio. Nenhum evento, `open` continuava `true`, e o overlay
+  // (`position:fixed; inset:0`) seguia cobrindo a landing com a URL já na
+  // raiz — só o F5 tirava.
+  //
+  // Agora: a URL preserva a `search` (antes a query era descartada), o estado
+  // cai na hora e o `hashchange` é disparado à mão para quem mais escuta o
+  // hash (o mesmo padrão do `LegalDocs.tsx`).
+  const close = () => {
+    history.replaceState(null, '', window.location.pathname + window.location.search)
+    setOpen(false)
+    // Reabrir o acompanhamento tem de começar do zero: fechar com um caso na
+    // tela deixava protocolo, código e mensagens vivos no estado.
+    setView(null); setProtocol(''); setCode(''); setReply(''); setErr(null)
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+  }
 
   const header = (
     <div style={{ width: '100%', maxWidth: 620, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
