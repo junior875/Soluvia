@@ -11,6 +11,7 @@ import { carregarTiposAceitos, megabytes, paraAccept, type TiposAceitos } from '
 import PrefSwitcher from './PrefSwitcher'
 import ParecerSignModal from '../app/screens/signature/ParecerSignModal'
 import { mascaraPara } from '../lib/mascaras'
+import { campoIdentifica } from '../lib/anonimato'
 
 interface FF { key: string; type: string; label: string; help: string; required: boolean; options: string[]; sensitive: boolean }
 interface PublicForm { tenant_slug: string; tenant_name: string; channel_name: string; module?: string; title: string; intro: string; identification: string; fields: FF[]; published: boolean; lang?: string; available_langs?: string[] }
@@ -238,6 +239,10 @@ export default function PublicReport() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 24 }}>
           {form.fields.map((f) => {
+            // Anônimo não vê o que o servidor vai descartar: pedir o nome a
+            // quem escolheu anonimato é quebrar a promessa do canal na cara
+            // da pessoa — e convidá-la a digitar o que não devia.
+            if (!willIdentify && campoIdentifica(f.label, f.key)) return null
             if (f.type === 'section') return <h3 key={f.key} style={{ color: 'var(--heading)', fontWeight: 800, fontSize: 17, borderBottom: '1px solid var(--border)', paddingBottom: 6 }}>{f.label}</h3>
             if (f.type === 'info') return <p key={f.key} style={{ color: 'var(--text-muted)', fontSize: 14 }}>{f.label}</p>
             const v = answers[f.key]
