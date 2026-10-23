@@ -584,7 +584,13 @@ export default function Announcements() {
             <Card key={a.id}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 220px', minWidth: 0 }}>
-                  <div style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 15 }}>
+                  {/* `anywhere`: o assunto vai até 255 caracteres e pode vir
+                      sem um espaço no meio (nome de protocolo, link colado).
+                      Palavra única não quebra sozinha e estourava a largura
+                      do cartão de "Enviados" — a prova de divulgação ficava
+                      saindo pela borda. Vale para a amostra de destinatários
+                      pelo mesmo motivo: e-mail é uma palavra só. */}
+                  <div style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 15, overflowWrap: 'anywhere' }}>
                     {a.subject || a.channel_name || tx.noSubject}
                   </div>
                   <div style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: 2 }}>
@@ -592,7 +598,7 @@ export default function Announcements() {
                     {new Date(a.created_at).toLocaleString()}
                   </div>
                   {a.recipients_sample.length > 0 && (
-                    <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4, overflowWrap: 'anywhere' }}>
                       {a.recipients_sample.join(', ')}
                       {a.sent_count > a.recipients_sample.length &&
                         ` ${tx.andMore(a.sent_count - a.recipients_sample.length)}`}
