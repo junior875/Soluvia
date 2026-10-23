@@ -108,6 +108,29 @@ export default function Announcements() {
   // Prévia: o HTML REAL do e-mail, vindo do mesmo template do envio.
   const [previewHtml, setPreviewHtml] = useState('')
   const previewTimer = useRef<number | null>(null)
+  // Canal cujo texto a PESSOA já mexeu desde que este canal foi escolhido.
+  //
+  // É `ref`, e não estado, porque quem precisa enxergar a digitação é o
+  // `.then` da busca do molde: um estado chegaria lá congelado no valor do
+  // render que disparou a requisição — exatamente o defeito que esta guarda
+  // fecha. Guarda o ID do canal (não um booleano) para a marca não vazar de
+  // um canal para o outro quando o seletor muda com uma resposta no ar.
+  const canalDigitadoAMao = useRef<string | null>(null)
+
+  /**
+   * Toda escrita HUMANA no aviso passa por aqui.
+   *
+   * Além de guardar o valor, marca o canal como mexido à mão — é essa marca
+   * que impede a resposta atrasada do molde de apagar o que acabou de ser
+   * digitado. Assunto e mensagem compartilham UMA marca de propósito: o
+   * molde é um par, e aplicar metade dele (a mensagem padrão por cima de um
+   * assunto recém-escrito) seria um estado que ninguém pediu.
+   */
+  const digitar = (campo: 'subject' | 'message', valor: string) => {
+    canalDigitadoAMao.current = canalId
+    if (campo === 'subject') setAssunto(valor)
+    else setMensagem(valor)
+  }
 
   const flash = (m: string) => { setAviso(m); setTimeout(() => setAviso(null), 4000) }
 
@@ -163,13 +186,34 @@ export default function Announcements() {
     setMensagem(rascunho?.message ?? '')
     setTextoDoCanal(canalId)
     setTplSalvo(null)
+    // Texto novo nas caixas: ninguém mexeu nele ainda.
+    canalDigitadoAMao.current = null
     void api.get<Template>(`/announcements/template/${canalId}`)
       .then((tpl) => {
         if (!vivo) return
         setTplSalvo(tpl)
-        // O rascunho local tem prioridade: é o que a pessoa acabou de
-        // escrever e ainda não salvou.
-        if (!rascunho) { setAssunto(tpl.subject); setMensagem(tpl.message) }
+        // O molde do servidor só entra em caixa que ninguém tocou.
+        //
+        // Esta resposta pode chegar MUITO depois do pedido — banco de dados
+        // ocupado, rede ruim do cliente — e nesse meio tempo a pessoa já
+        // escreveu o aviso dela e até clicou em "Enviar". Decidir aqui por
+        // valor congelado na closure era o item 12 voltando de forma
+        // intermitente: num canal sem molde salvo o servidor devolve
+        // `subject` e `message` VAZIOS, e o texto recém-digitado virava
+        // vazio sozinho, segundos depois, sem ninguém pedir.
+        //
+        // Duas guardas, nenhuma delas por valor antigo:
+        //
+        // 1. a marca de digitação é lida AGORA, do ref — se a pessoa mexeu,
+        //    o molde não encosta no texto dela;
+        // 2. o rascunho é RELIDO agora, porque o da linha de cima é de antes
+        //    da requisição (outra aba deste navegador pode tê-lo gravado, e
+        //    é dele que vem a prioridade do rascunho sobre o padrão salvo).
+        if (canalDigitadoAMao.current === canalId) return
+        const rascunhoAgora = lerRascunho(canalId)
+        if (rascunhoAgora && (rascunhoAgora.subject || rascunhoAgora.message)) return
+        setAssunto(tpl.subject)
+        setMensagem(tpl.message)
       })
       .catch(() => { /* sem padrão salvo a tela funciona igual */ })
     return () => { vivo = false }
@@ -500,7 +544,7 @@ export default function Announcements() {
               {/* 255 = o tamanho da coluna do histórico no servidor. O limite
                   fica visível aqui para a pessoa parar de digitar no lugar de
                   receber o assunto cortado sem aviso depois do envio. */}
-              <Input value={assunto} onChange={(e) => setAssunto(e.target.value)}
+              <Input value={assunto} onChange={(e) => digitar('subject', e.target.value)}
                 maxLength={255}
                 placeholder={ehSac ? tx.subjectPhSac : tx.subjectPhEtica} />
             </Field>
@@ -509,7 +553,7 @@ export default function Announcements() {
               <textarea
                 className="app-input"
                 value={mensagem}
-                onChange={(e) => setMensagem(e.target.value)}
+                onChange={(e) => digitar('message', e.target.value)}
                 placeholder={tx.messagePh}
                 rows={4}
                 style={{
