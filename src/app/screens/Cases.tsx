@@ -12,6 +12,7 @@ import { goScreen } from '../nav'
 import EvidencePanel from './EvidencePanel'
 import ParecerForm, { type ParecerPayload } from './ParecerForm'
 import { EvidenceUploader } from '../../components/EvidenceUploader'
+import ImpedimentoBotao from '../../components/ImpedimentoBotao'
 import { carregarTiposAceitos, megabytes, paraAccept, type TiposAceitos } from '../../lib/uploads'
 import { useT } from '../strings'
 import { useTranslation } from '../../i18n/LanguageProvider'
@@ -339,6 +340,24 @@ export default function Cases({ module = 'etica' }: CasesProps) {
               <Chip tone={STATUS_TONE[detail.status as keyof typeof STATUS_TONE] ?? 'muted'}>{statL(detail.status)}</Chip>
               <Chip tone="muted">{detail.is_anonymous ? t.cases.anon : t.cases.identified}</Chip>
               <Button variant="ghost" loading={pdfBusy} onClick={downloadPdf} leftIcon="download" style={{ marginLeft: 'auto' }}>{t.cases.downloadPdf}</Button>
+              {/* "Declarar impedimento" (item 17b) fica AQUI, na linha dos
+                  chips, junto do "Baixar PDF": é a linha que a pessoa lê antes
+                  de descer para o relato, e o roteiro do item 17 manda abrir o
+                  caso e encontrar o botão. Enterrá-lo no fim da gaveta
+                  obrigaria quem é citado no relato a rolar o relato inteiro —
+                  exatamente o que ele está dizendo que não pode ler.
+                  Sem guarda de permissão: quem ALCANÇA o caso pode se retirar
+                  dele. Não é privilégio, é o contrário — a rota só exige que o
+                  caso esteja no escopo de quem chama. */}
+              <ImpedimentoBotao
+                caseId={detail.id}
+                protocol={detail.protocol}
+                // Declarou = já não alcança o caso: recarregar a gaveta daria
+                // 403. Fecha, esquece o detalhe e recarrega a lista (de onde o
+                // caso também sai).
+                onDone={() => { setOpen(false); setProvaAberta(false); setDetail(null); void load() }}
+                onError={flash}
+              />
             </div>
 
             {/* Relato */}

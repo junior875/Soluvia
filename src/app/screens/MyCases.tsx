@@ -10,6 +10,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../lib/api'
+import ImpedimentoBotao from '../../components/ImpedimentoBotao'
 import { KIND_VISUAL } from '../../lib/flowKinds'
 import type { ApiError, StageKind } from '../../lib/types'
 import { Icon } from '../icons'
@@ -140,6 +141,22 @@ export default function MyCases() {
                       </div>
                     )}
                   </div>
+                  {/* "Declarar impedimento" (item 17b) na própria ficha, e não
+                      só na gaveta do caso: quem é citado no relato recebe a
+                      cobrança DAQUI, e a saída tem de ficar ao lado do que
+                      cobra. Mandá-lo abrir o caso para se retirar dele é pedir
+                      que ele leia o que está dizendo que não pode ler.
+                      `compact` porque divide a linha com o "Abrir". */}
+                  <ImpedimentoBotao
+                    caseId={f.case_id}
+                    protocol={f.protocol}
+                    compact
+                    // A ficha SAI da lista no mesmo instante (ela virou
+                    // `skipped` e o caso deixou de ser alcançável): recarregar
+                    // é o que faz a tela contar a verdade.
+                    onDone={() => { void carregar() }}
+                    onError={setErro}
+                  />
                   <Button leftIcon="cases" onClick={() => abrir(f)}>{tx.open}</Button>
                 </div>
               </Card>
