@@ -228,7 +228,12 @@ export default function Announcements() {
   // O módulo decide o VOCABULÁRIO da tela. Canal de SAC convidando a
   // "denunciar" é o que o cliente viu em produção.
   const ehSac = (canalSelecionado?.module ?? '') === 'sac'
-  const jaEhPadrao = !!tplSalvo
+  // "Já é o padrão" só faz sentido se ALGUÉM salvou um padrão. O que diz isso
+  // é o `updated_at` — o backend manda nulo de propósito quando o canal nunca
+  // teve molde. Comparar só o texto fazia um canal virgem com os dois campos
+  // vazios dizer "Este texto já é o padrão do canal" e desabilitar o botão:
+  // não havia padrão nenhum, e não dava para criar o primeiro.
+  const jaEhPadrao = !!tplSalvo?.updated_at
     && tplSalvo.subject === assunto.trim()
     && tplSalvo.message === mensagem.trim()
 
@@ -476,7 +481,11 @@ export default function Announcements() {
             )}
 
             <Field label={tx.subject}>
+              {/* 255 = o tamanho da coluna do histórico no servidor. O limite
+                  fica visível aqui para a pessoa parar de digitar no lugar de
+                  receber o assunto cortado sem aviso depois do envio. */}
               <Input value={assunto} onChange={(e) => setAssunto(e.target.value)}
+                maxLength={255}
                 placeholder={ehSac ? tx.subjectPhSac : tx.subjectPhEtica} />
             </Field>
 
