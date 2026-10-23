@@ -138,7 +138,7 @@ const pt = {
   },
   flow: {
     closer: 'Encerramento', closerTag: 'Fim do fluxo',
-    closerPanelHint: 'Quem dá a palavra final, depois que todas as etapas responderem: “De acordo” e “Arquivar” encerram o caso; “Mais apuração” devolve o caso ao último bloco, que responde de novo antes de voltar para cá.',
+    closerPanelHint: 'Quem dá a palavra final, depois que todas as etapas responderem: “De acordo” e “Arquivar” encerram o caso; “Mais apuração” devolve o caso ao bloco que o encerrador escolher na hora — inclusive um que a condição tenha pulado —, e esse bloco responde de novo antes de voltar para cá.',
     newColumn: 'nova etapa aqui',
     canvasHint: 'Arraste um bloco para mudar quando ele acontece — blocos lado a lado são executados ao mesmo tempo. Puxe o ponto laranja para ligar ao próximo passo, ou solte em uma área vazia para criar um novo. Clique para configurar.',
     groupLabel: (n: number) => `Bloco ${n}`,
@@ -776,6 +776,10 @@ const pt = {
       needRubric: 'Desenhe sua rubrica para assinar.', signAndSend: 'Assinar e enviar parecer',
       status: { pending: 'Aguardando', active: 'Sua vez', submitted: 'Concluído', skipped: 'Pulado' },
       dec: { agree: 'De acordo', more_info: 'Mais apuração', dismiss: 'Arquivar' },
+      reopenGroup: 'Devolver o caso a qual bloco',
+      reopenOption: (n: number, nomes: string) => `Bloco ${n} — ${nomes}`,
+      reopenSkipped: 'foi pulado pela condição',
+      reopenHint: 'O bloco escolhido recebe uma ficha nova e responde de novo; o parecer já dado continua no histórico.',
       // Urgência com o vocabulário do cliente: normal / média / alta. O valor
       // gravado continua low/medium/high.
       urg: { low: 'Normal', medium: 'Média', high: 'Alta' },
@@ -1048,7 +1052,7 @@ const en: AppStrings = {
   },
   flow: {
     closer: 'Closing', closerTag: 'End of flow',
-    closerPanelHint: 'Who has the final say once every stage has answered: “Agree” and “Dismiss” close the case; “More investigation” sends it back to the last block, which answers again before it returns here.',
+    closerPanelHint: 'Who has the final say once every stage has answered: “Agree” and “Dismiss” close the case; “More investigation” sends it back to the block the closer picks at that moment — including one the condition skipped — and that block answers again before it returns here.',
     newColumn: 'new step here',
     canvasHint: 'Drag a block to change when it happens — side by side means at the same time. Pull from the orange dot to connect to the next step, or drop on empty space to create one. Click to configure.',
     groupLabel: (n: number) => `Block ${n}`,
@@ -1672,6 +1676,10 @@ const en: AppStrings = {
       needRubric: 'Draw your signature to sign.', signAndSend: 'Sign & send review',
       status: { pending: 'Waiting', active: 'Your turn', submitted: 'Done', skipped: 'Skipped' },
       dec: { agree: 'Agree', more_info: 'More investigation', dismiss: 'Dismiss' },
+      reopenGroup: 'Send the case back to which block',
+      reopenOption: (n: number, nomes: string) => `Block ${n} — ${nomes}`,
+      reopenSkipped: 'was skipped by the condition',
+      reopenHint: 'The chosen block gets a new assignment and answers again; the opinion already given stays in the history.',
       urg: { low: 'Normal', medium: 'Medium', high: 'High' },
       waitingOther: 'Awaiting review',
       kindAsk: {
@@ -1937,7 +1945,7 @@ const es: AppStrings = {
   },
   flow: {
     closer: 'Cierre', closerTag: 'Fin del flujo',
-    closerPanelHint: 'Quién da la palabra final, después de que todas las etapas respondan: “De acuerdo” y “Archivar” cierran el caso; “Más investigación” devuelve el caso al último bloque, que responde de nuevo antes de volver aquí.',
+    closerPanelHint: 'Quién da la palabra final, después de que todas las etapas respondan: “De acuerdo” y “Archivar” cierran el caso; “Más investigación” devuelve el caso al bloque que el cierre elija en el momento — incluso uno que la condición haya saltado — y ese bloque responde de nuevo antes de volver aquí.',
     newColumn: 'nueva etapa aquí',
     canvasHint: 'Arrastra un bloque para cambiar cuándo ocurre — lado a lado es al mismo tiempo. Tira del punto naranja para conectar al siguiente paso, o suelta en el vacío para crear uno. Haz clic para configurar.',
     groupLabel: (n: number) => `Bloque ${n}`,
@@ -2561,6 +2569,10 @@ const es: AppStrings = {
       needRubric: 'Dibuja tu rúbrica para firmar.', signAndSend: 'Firmar y enviar dictamen',
       status: { pending: 'En espera', active: 'Tu turno', submitted: 'Hecho', skipped: 'Omitido' },
       dec: { agree: 'De acuerdo', more_info: 'Más investigación', dismiss: 'Archivar' },
+      reopenGroup: 'Devolver el caso a qué bloque',
+      reopenOption: (n: number, nomes: string) => `Bloque ${n} — ${nomes}`,
+      reopenSkipped: 'fue saltado por la condición',
+      reopenHint: 'El bloque elegido recibe una ficha nueva y responde de nuevo; el dictamen ya dado permanece en el historial.',
       urg: { low: 'Normal', medium: 'Media', high: 'Alta' },
       waitingOther: 'Esperando dictamen',
       kindAsk: {

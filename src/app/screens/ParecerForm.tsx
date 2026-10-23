@@ -38,6 +38,17 @@ export type ParecerPayload = {
   urgency: string | null
   parecer: string
   attachment_ids: string[]
+  /** A qual bloco devolver o caso — só com `decision: 'more_info'`. */
+  reabrir_grupo: number | null
+}
+
+/** Um bloco a que o encerrador pode devolver o caso. */
+export type BlocoDeVolta = {
+  group_index: number
+  /** Os nomes das etapas daquele bloco ("Jurídico + RH", quando há paralelo). */
+  nomes: string
+  /** O bloco foi PULADO pela condição — devolver para ele é mandar fazer. */
+  pulado: boolean
 }
 
 /** Urgência com os nomes que o cliente usa. O valor no banco continua
@@ -51,6 +62,7 @@ export default function ParecerForm({
   tiposAceitos,
   busy,
   provasExistentes,
+  blocosDeVolta = [],
   onEnviar,
   onAnexoConcluido,
 }: {
@@ -60,6 +72,8 @@ export default function ParecerForm({
   busy: boolean
   /** Quantas provas o caso já tem — a investigação começa olhando para elas. */
   provasExistentes: number
+  /** Blocos a que o ENCERRADOR pode devolver o caso, na ordem do fluxo. */
+  blocosDeVolta?: BlocoDeVolta[]
   onEnviar: (p: ParecerPayload) => void
   onAnexoConcluido: () => void
 }) {
@@ -72,6 +86,16 @@ export default function ParecerForm({
   const [urgencia, setUrgencia] = useState('')
   const [decisao, setDecisao] = useState('')
   const [anexos, setAnexos] = useState<string[]>([])
+  // A qual bloco devolver, quando a decisão é "mais apuração". Começa no
+  // ÚLTIMO bloco que respondeu — o padrão do servidor —, e é mostrado em vez de
+  // ficar implícito: quem encerra precisa ver para onde o caso vai antes de
+  // mandar, não descobrir depois pela ficha que apareceu na tela de outra
+  // pessoa. Os blocos pulados pela condição entram na lista: num caso em que a
+  // Apuração foi pulada, "mais apuração" sem escolha voltava para a Triagem.
+  const ultimoRespondido = [...blocosDeVolta].reverse().find((b) => !b.pulado)
+  const [grupoDeVolta, setGrupoDeVolta] = useState<number | null>(
+    ultimoRespondido?.group_index ?? blocosDeVolta[0]?.group_index ?? null,
+  )
 
   // O botão só libera quando o bloco tem o que pede. Mesma regra do servidor —
   // repetida aqui para a pessoa não descobrir o que falta só depois do 400.
@@ -85,6 +109,9 @@ export default function ParecerForm({
     urgency: kind === 'urgencia' ? urgencia : null,
     parecer: texto,
     attachment_ids: anexos,
+    // Só viaja na decisão que o usa: mandar o grupo junto de "arquivar" seria
+    // guardar no histórico uma escolha que não teve efeito nenhum.
+    reabrir_grupo: decisao === 'more_info' ? grupoDeVolta : null,
   })
 
   return (
@@ -145,6 +172,29 @@ export default function ParecerForm({
               )
             })}
           </div>
+          {/* A QUAL BLOCO devolver — aparece só quando a decisão é "mais
+              apuração", porque é a única em que ela tem efeito. */}
+          {decisao === 'more_info' && blocosDeVolta.length > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>{tx.reopenGroup}</div>
+              <select
+                value={grupoDeVolta ?? ''}
+                onChange={(e) => setGrupoDeVolta(e.target.value === '' ? null : Number(e.target.value))}
+                style={{
+                  width: '100%', background: 'var(--surface)', border: '1px solid var(--border)',
+                  borderRadius: 12, padding: '10px 12px', color: 'var(--heading)',
+                  fontFamily: 'inherit', fontSize: 14, boxSizing: 'border-box',
+                }}
+              >
+                {blocosDeVolta.map((b) => (
+                  <option key={b.group_index} value={b.group_index}>
+                    {tx.reopenOption(b.group_index + 1, b.nomes)}{b.pulado ? ` — ${tx.reopenSkipped}` : ''}
+                  </option>
+                ))}
+              </select>
+              <p style={{ color: 'var(--text-muted)', fontSize: 12, margin: '6px 0 0', lineHeight: 1.5 }}>{tx.reopenHint}</p>
+            </div>
+          )}
         </div>
       )}
 

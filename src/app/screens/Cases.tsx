@@ -1,7 +1,7 @@
 // Casos: lista + detalhe/operação. Quem tem permissão tria (gravidade),
 // responde ao denunciante, faz anotações internas, avança a etapa e encerra.
 // Textos 100% traduzidos (PT/EN/ES) via t.cases.
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { api, downloadAuthedFile } from '../../lib/api'
 import type { ApiError, CaseDetail, CaseOut, PrazoModo, SigGeo } from '../../lib/types'
@@ -168,6 +168,8 @@ export default function Cases({ module = 'etica' }: CasesProps) {
     const d = await api.post<CaseDetail>(`/cases/${detail!.id}/parecer`, {
       decision: p.decision, urgency: p.urgency, parecer: p.parecer,
       attachment_ids: p.attachment_ids,
+      // A qual bloco o encerramento devolve o caso ("mais apuração").
+      reabrir_grupo: p.reabrir_grupo,
       signature_image: sig?.signature_image ?? null, geo: sig?.geo ?? null, cpf: sig?.cpf ?? null,
     })
     setDetail(d)
@@ -177,6 +179,28 @@ export default function Cases({ module = 'etica' }: CasesProps) {
     flash(t.cases.inv.sent)
   })
   const myPending = detail?.assignments.find((a) => a.id === detail.my_pending_assignment_id) ?? null
+
+  /** Os blocos a que o ENCERRADOR pode devolver o caso ("mais apuração").
+   *
+   *  Um por `group_index`, na ordem do fluxo, com os nomes das etapas daquele
+   *  bloco. Entram os blocos que RESPONDERAM e também os que a condição PULOU:
+   *  num caso em que a Apuração foi pulada, o único bloco respondido era a
+   *  Triagem — e devolver para a triagem é o contrário do que se pediu. */
+  const blocosDeVolta = useMemo(() => {
+    const porGrupo = new Map<number, { nomes: string[]; pulado: boolean }>()
+    for (const a of detail?.assignments ?? []) {
+      if (a.is_closer) continue
+      if (a.status !== 'submitted' && a.status !== 'skipped') continue
+      const atual = porGrupo.get(a.group_index) ?? { nomes: [], pulado: true }
+      if (!atual.nomes.includes(a.stage_name)) atual.nomes.push(a.stage_name)
+      // O bloco só conta como pulado quando NENHUMA etapa dele respondeu.
+      if (a.status === 'submitted') atual.pulado = false
+      porGrupo.set(a.group_index, atual)
+    }
+    return [...porGrupo.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([group_index, v]) => ({ group_index, nomes: v.nomes.join(' + '), pulado: v.pulado }))
+  }, [detail?.assignments])
   /** O formulário terminou. Se a etapa exigir assinatura, guarda o que foi
    *  preenchido e abre a rubrica; senão vai direto. */
   const onEnviarParecer = (p: ParecerPayload) => {
@@ -545,6 +569,7 @@ export default function Cases({ module = 'etica' }: CasesProps) {
                     tiposAceitos={tiposAceitos}
                     busy={busy}
                     provasExistentes={provasCount}
+                    blocosDeVolta={blocosDeVolta}
                     onEnviar={onEnviarParecer}
                     onAnexoConcluido={() => setEvidenceNonce((n) => n + 1)}
                   />
