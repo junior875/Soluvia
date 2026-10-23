@@ -1,7 +1,7 @@
 // Acompanhamento PÚBLICO do relato (sem login), aberto por #acompanhar.
 // O denunciante informa protocolo + código e vê o status + as mensagens
 // visíveis a ele, e pode responder — mesmo anônimo.
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { BASE_URL } from '../lib/api'
 import { useTranslation } from '../i18n/LanguageProvider'
 import { maskProtocolo } from '../lib/mascaras'
@@ -34,15 +34,51 @@ export default function PublicTracker() {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [reply, setReply] = useState('')
+  // Geração da sessão de consulta. Toda limpeza de tela (o "×" e o "Consultar
+  // outro") incrementa este número, e quem está esperando resposta confere o
+  // seu antes de escrever no estado.
+  //
+  // É o que fecha o vazamento: numa conexão lenta, clicar no "×" enquanto a
+  // busca está no ar limpava o estado, mas a resposta chegava DEPOIS e o
+  // `setView` repovoava tudo. Reabrir `#acompanhar` na mesma aba — colando a
+  // URL, sem recarregar — mostrava o caso anterior inteiro (protocolo, título
+  // e o texto do relato) a quem não informou protocolo nem código. Tela
+  // pública, anônima e usada em computador compartilhado: o próximo da fila
+  // lia o relato de quem passou antes.
+  const geracao = useRef(0)
+  // A requisição em voo, para ser abortada junto: sem isso ela continua
+  // pendurada depois do fechamento, consumindo rede e trazendo o relato para a
+  // memória da aba sem necessidade.
+  const emVoo = useRef<AbortController | null>(null)
+
+  // Zera a tela de consulta. Única porta de saída do estado — o "×", o botão
+  // "Consultar outro" e qualquer saída do hash passam por aqui, para que o
+  // conserto não dependa de alguém lembrar de repetir a lista de `set*`.
+  function limpar() {
+    geracao.current += 1
+    emVoo.current?.abort()
+    emVoo.current = null
+    setView(null); setProtocol(''); setCode(''); setReply(''); setErr(null); setBusy(false)
+  }
 
   useEffect(() => {
     const sync = () => setOpen(window.location.hash.toLowerCase().startsWith('#acompanhar'))
     window.addEventListener('hashchange', sync)
     return () => window.removeEventListener('hashchange', sync)
   }, [])
+  // Sair da tela por QUALQUER caminho limpa o estado: o "×" já chama `limpar`,
+  // mas o botão voltar do navegador e um link que troque o fragmento também
+  // tiram o overlay — e deixariam o relato vivo no estado da aba.
+  useEffect(() => { if (!open) limpar() }, [open])
   if (!open) return null
 
   async function lookup() {
+    // A geração desta busca. Se mudar até a resposta chegar, a tela já é de
+    // outra pessoa (ou de outra consulta) e nada daqui pode aparecer nela.
+    const minha = geracao.current
+    const ctrl = new AbortController()
+    emVoo.current?.abort()
+    emVoo.current = ctrl
     setErr(null); setBusy(true)
     try {
       const r = await fetch(`${BASE_URL}/public/cases/lookup`, {
@@ -50,28 +86,44 @@ export default function PublicTracker() {
         // Normalizado também aqui, e não só no que o campo mostra: o valor
         // pode ter vindo de um autofill, que não passa pelo `onChange`.
         body: JSON.stringify({ protocol: maskProtocolo(protocol), access_hash: code.trim() }),
+        signal: ctrl.signal,
       })
+      if (geracao.current !== minha) return
       // 404 = protocolo/código não conferem (é o que o servidor devolve para
       // os dois, de propósito). Qualquer outro status é problema NOSSO, e
       // dizer "protocolo inválido" nesse caso manda a pessoa caçar erro onde
       // não tem.
       if (r.status === 404) { setErr(tr.notfound); return }
       if (!r.ok) { setErr(tr.oops); return }
-      setView(await r.json())
+      const dados = await r.json()
+      // Ler o corpo também é espera: a tela pode ter sido fechada aqui.
+      if (geracao.current !== minha) return
+      setView(dados)
     } catch {
       // `fetch` só rejeita quando a requisição não chegou a ter resposta:
-      // rede caída, DNS, servidor fora do ar.
+      // rede caída, DNS, servidor fora do ar — ou o `abort` do fechamento,
+      // que não é erro de ninguém e não pode virar aviso na tela.
+      if (geracao.current !== minha) return
       setErr(tr.offline)
-    } finally { setBusy(false) }
+    } finally {
+      if (emVoo.current === ctrl) emVoo.current = null
+      if (geracao.current === minha) setBusy(false)
+    }
   }
   async function sendReply() {
     if (!reply.trim() || !view) return
+    const minha = geracao.current
+    const ctrl = new AbortController()
+    emVoo.current?.abort()
+    emVoo.current = ctrl
     setErr(null); setBusy(true)
     try {
       const r = await fetch(`${BASE_URL}/public/cases/${view.protocol}/reply`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ protocol: view.protocol, access_hash: code.trim(), message: reply.trim() }),
+        signal: ctrl.signal,
       })
+      if (geracao.current !== minha) return
       // Falha no envio precisa das MESMAS três mensagens do lookup. Antes,
       // qualquer erro aqui só destravava o botão: o texto ficava na caixa, a
       // linha do tempo não mudava e a pessoa não tinha como saber se a
@@ -79,10 +131,16 @@ export default function PublicTracker() {
       // que no lookup, porque o conteúdo é dela.
       if (r.status === 404) { setErr(tr.notfound); return }
       if (!r.ok) { setErr(tr.oops); return }
-      setView(await r.json()); setReply('')
+      const dados = await r.json()
+      if (geracao.current !== minha) return
+      setView(dados); setReply('')
     } catch {
+      if (geracao.current !== minha) return
       setErr(tr.offline)
-    } finally { setBusy(false) }
+    } finally {
+      if (emVoo.current === ctrl) emVoo.current = null
+      if (geracao.current === minha) setBusy(false)
+    }
   }
 
   const wrap: CSSProperties = { position: 'fixed', inset: 0, zIndex: 9998, overflowY: 'auto', background: 'var(--surface-2)', color: 'var(--text)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '28px 16px 64px' }
@@ -103,8 +161,10 @@ export default function PublicTracker() {
     history.replaceState(null, '', window.location.pathname + window.location.search)
     setOpen(false)
     // Reabrir o acompanhamento tem de começar do zero: fechar com um caso na
-    // tela deixava protocolo, código e mensagens vivos no estado.
-    setView(null); setProtocol(''); setCode(''); setReply(''); setErr(null)
+    // tela deixava protocolo, código e mensagens vivos no estado. `limpar`
+    // também invalida a busca que estiver no ar, para que a resposta atrasada
+    // não traga o caso de volta depois.
+    limpar()
     window.dispatchEvent(new HashChangeEvent('hashchange'))
   }
 
@@ -172,7 +232,10 @@ export default function PublicTracker() {
                 <button onClick={() => void sendReply()} disabled={busy || !reply.trim()} className="app-btn" style={{ marginTop: 8, background: 'linear-gradient(135deg,var(--accent),var(--accent-2))', color: '#fff', border: 'none', borderRadius: 100, padding: '11px 22px', fontWeight: 700, cursor: 'pointer', opacity: busy || !reply.trim() ? 0.6 : 1 }}>{busy ? tr.sending : tr.send}</button>
               </div>
             )}
-            <button onClick={() => { setView(null); setProtocol(''); setCode(''); setReply(''); setErr(null) }} className="app-btn" style={{ marginTop: 16, background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>{tr.back}</button>
+            {/* "Consultar outro" usa a MESMA porta de saída do "×": sem isso,
+                um envio ainda no ar devolvia o caso anterior à tela depois de
+                a pessoa já estar digitando outro protocolo. */}
+            <button onClick={limpar} className="app-btn" style={{ marginTop: 16, background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>{tr.back}</button>
           </>
         )}
       </div>
