@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../lib/api'
 import { localizeRole } from '../../lib/systemNames'
-import type { ModulePermissions, PermissionCatalog } from '../../lib/types'
+import type { ApiError, ChannelOut, ModulePermissions, PermissionCatalog, RoleOut } from '../../lib/types'
 import { useTranslation } from '../../i18n/LanguageProvider'
 import type { Lang } from '../../i18n/translations'
 import { Button, Card, Chip, Field, PageHeader, Select, Skeleton } from '../ui'
+import { useCaps } from '../capabilities'
 
 /** Relatório de acesso efetivo (item 20).
  *
@@ -49,6 +50,8 @@ const I18N: Record<Lang, {
   export: string; empty: string; emptyChannel: string; loadErr: string
   grant: string; revoke: string; status: string; whoReaches: string
   nobody: string; unrestrictedNote: string
+  backup: string; backupHint: string; backupNone: string
+  backupSaved: string; backupErr: string
 }> = {
   pt: {
     title: 'Relatório de acesso',
@@ -69,6 +72,11 @@ const I18N: Record<Lang, {
     status: 'Situação', whoReaches: 'Quem alcança este canal',
     nobody: 'Ninguém alcança este canal.',
     unrestrictedNote: 'acesso irrestrito (alcança também os canais futuros)',
+    backup: 'Suplência do canal',
+    backupHint: 'Quem assume a etapa quando quem ia avaliar declara impedimento. Sem suplência, o caso segue para o grupo seguinte do fluxo — e, se o impedido era o encerrador, cai no Admin da empresa.',
+    backupNone: 'Sem suplência',
+    backupSaved: 'Suplência salva.',
+    backupErr: 'Não foi possível salvar a suplência.',
   },
   en: {
     title: 'Access report',
@@ -89,6 +97,11 @@ const I18N: Record<Lang, {
     status: 'Status', whoReaches: 'Who reaches this channel',
     nobody: 'Nobody reaches this channel.',
     unrestrictedNote: 'unrestricted access (reaches future channels too)',
+    backup: 'Channel backup role',
+    backupHint: 'Who takes over a stage when the assigned reviewer declares a conflict of interest. With no backup role the case moves on to the next group in the flow — and if the impeded person was the closer, it falls to the company Admin.',
+    backupNone: 'No backup role',
+    backupSaved: 'Backup role saved.',
+    backupErr: 'Could not save the backup role.',
   },
   es: {
     title: 'Informe de acceso',
@@ -109,6 +122,11 @@ const I18N: Record<Lang, {
     status: 'Situación', whoReaches: 'Quién alcanza este canal',
     nobody: 'Nadie alcanza este canal.',
     unrestrictedNote: 'acceso irrestricto (alcanza también los canales futuros)',
+    backup: 'Suplencia del canal',
+    backupHint: 'Quién asume la etapa cuando quien iba a evaluar declara impedimento. Sin suplencia el caso sigue al grupo siguiente del flujo — y si el impedido era quien cerraba, recae en el Admin de la empresa.',
+    backupNone: 'Sin suplencia',
+    backupSaved: 'Suplencia guardada.',
+    backupErr: 'No se pudo guardar la suplencia.',
   },
 }
 
@@ -135,6 +153,11 @@ function baixarCSV(nome: string, linhas: string[][]) {
 export default function AccessReport() {
   const { lang } = useTranslation()
   const L = I18N[lang] ?? I18N.pt
+  // A tela abre também para quem só audita (`admin.view_audit`), e salvar canal
+  // pede `admin.manage_roles` — a MESMA permissão da tela de Canais. Sem esta
+  // conta, o auditor veria um seletor que responde 403 ao ser mexido.
+  const { can } = useCaps()
+  const podeConfigurar = can('admin.manage_roles')
   const [dados, setDados] = useState<Relatorio | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [aba, setAba] = useState<'pessoa' | 'canal'>('pessoa')
@@ -142,14 +165,44 @@ export default function AccessReport() {
   const [moduloFiltro, setModuloFiltro] = useState('')
   const [permFiltro, setPermFiltro] = useState('')
   const [catalogo, setCatalogo] = useState<ModulePermissions[]>([])
+  // Suplência do canal (item 17c): o papel que assume a etapa de quem declara
+  // impedimento. Mora em `channel.config.suplencia_role_id`, e é lida/gravada
+  // aqui porque esta é a tela de GOVERNANÇA de acesso do canal — a aba "por
+  // canal" já responde "quem alcança este canal"; "quem assume se o avaliador
+  // se declarar impedido" é a mesma pergunta no tempo futuro.
+  const [canaisCfg, setCanaisCfg] = useState<ChannelOut[]>([])
+  const [papeis, setPapeis] = useState<RoleOut[]>([])
+  const [salvando, setSalvando] = useState('')
+  const [aviso, setAviso] = useState('')
 
   useEffect(() => {
     api.get<Relatorio>('/memberships/effective-access')
       .then(setDados)
       .catch(() => setErro(L.loadErr))
     api.get<PermissionCatalog>('/permissions').then((c) => setCatalogo(c.modules)).catch(() => {})
+    // Falhar aqui não pode derrubar o relatório: sem estas duas, o seletor de
+    // suplência simplesmente não aparece e o resto da tela continua de pé.
+    if (podeConfigurar) {
+      api.get<ChannelOut[]>('/channels').then(setCanaisCfg).catch(() => {})
+      api.get<RoleOut[]>('/roles').then(setPapeis).catch(() => {})
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  /** Grava a suplência do canal. O PATCH SUBSTITUI o `config` inteiro
+   *  (`channel_service.update_channel`), então o objeto vai completo — mandar
+   *  só a chave nova apagaria o aviso de privacidade e o resto da configuração. */
+  async function salvarSuplencia(canal: ChannelOut, roleId: string) {
+    setSalvando(canal.id); setAviso(''); setErro(null)
+    try {
+      const cfg = { ...(canal.config ?? {}), suplencia_role_id: roleId || null }
+      const novo = await api.patch<ChannelOut>(`/channels/${canal.id}`, { config: cfg })
+      setCanaisCfg((atual) => atual.map((c) => (c.id === novo.id ? novo : c)))
+      setAviso(L.backupSaved)
+    } catch (e) {
+      setErro((e as ApiError).detail ?? L.backupErr)
+    } finally { setSalvando('') }
+  }
 
   const canais = dados?.canais ?? []
   const modulos = useMemo(() => [...new Set(canais.map((c) => c.module))], [canais])
@@ -262,6 +315,10 @@ export default function AccessReport() {
         <div style={{ marginTop: 14, background: 'rgba(220,38,38,.12)', border: '1px solid rgba(220,38,38,.4)', color: '#fca5a5', borderRadius: 12, padding: '10px 14px', fontSize: 13.5 }}>{erro}</div>
       )}
 
+      {aviso && (
+        <div style={{ marginTop: 14, background: 'rgba(16,185,129,.12)', border: '1px solid rgba(16,185,129,.4)', color: '#6ee7b7', borderRadius: 12, padding: '10px 14px', fontSize: 13.5 }}>{aviso}</div>
+      )}
+
       {dados === null && !erro && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
           {[0, 1, 2].map((i) => <Skeleton key={i} h={64} r={14} />)}
@@ -335,6 +392,8 @@ export default function AccessReport() {
           {canaisVisiveis.length === 0 && <Card padding={18}><span style={{ color: 'var(--text-muted)', fontSize: 13.5 }}>{L.emptyChannel}</span></Card>}
           {canaisVisiveis.map((c) => {
             const quem = linhas.filter((l) => alcanca(l, c.id))
+            const cfg = canaisCfg.find((x) => x.id === c.id)
+            const suplencia = String(cfg?.config?.suplencia_role_id ?? '')
             return (
               <Card key={c.id} padding={16}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -342,6 +401,26 @@ export default function AccessReport() {
                   <Chip tone="muted">{c.module}</Chip>
                   <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{L.whoReaches}: {quem.length}</span>
                 </div>
+
+                {cfg && (
+                  <div style={{ marginTop: 12, maxWidth: 380 }} data-testid={`suplencia-${c.id}`}>
+                    <Field label={L.backup}>
+                      <Select
+                        value={suplencia}
+                        disabled={salvando === c.id}
+                        onChange={(e) => salvarSuplencia(cfg, e.target.value)}
+                      >
+                        <option value="">{L.backupNone}</option>
+                        {papeis.map((p) => (
+                          <option key={p.id} value={p.id}>{localizeRole(p.name)}</option>
+                        ))}
+                      </Select>
+                    </Field>
+                    <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                      {L.backupHint}
+                    </p>
+                  </div>
+                )}
                 {quem.length === 0 ? (
                   <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '10px 0 0' }}>{L.nobody}</p>
                 ) : (
