@@ -768,6 +768,10 @@ const pt = {
     inv: {
       nowAt: 'Etapa atual',
       progress: (feitas: number, total: number) => `${feitas} de ${total} concluídas`,
+      // A etapa voltou para ser feita de novo ("mais apuração"): o mapa diz a
+      // volta em vez de repetir a caixa, que se lia como etapa em paralelo.
+      round: (n: number) => `${n}ª volta`,
+      roundHint: 'Esta etapa foi reaberta pelo encerramento ("mais apuração"). O parecer da volta anterior continua no histórico.',
       title: 'Investigação', release: 'Liberar fluxo',
       releaseHint: 'Gera as fichas de parecer e inicia a investigação seguindo o fluxo do canal.',
       anyOf: 'Qualquer um de', closer: 'Encerramento', give: 'Dar meu parecer', decision: 'Decisão',
@@ -1670,6 +1674,8 @@ const en: AppStrings = {
     inv: {
       nowAt: 'Current stage',
       progress: (feitas: number, total: number) => `${feitas} of ${total} done`,
+      round: (n: number) => `round ${n}`,
+      roundHint: 'This stage was reopened by the closing decision ("more investigation"). The previous round\'s opinion stays in the history.',
       title: 'Investigation', release: 'Release flow',
       releaseHint: 'Creates the review cards and starts the investigation following the channel flow.',
       anyOf: 'Anyone from', closer: 'Closing', give: 'Give my review', decision: 'Decision',
@@ -2565,6 +2571,8 @@ const es: AppStrings = {
     inv: {
       nowAt: 'Etapa actual',
       progress: (feitas: number, total: number) => `${feitas} de ${total} concluidas`,
+      round: (n: number) => `${n}ª vuelta`,
+      roundHint: 'Esta etapa fue reabierta por el cierre ("más investigación"). El dictamen de la vuelta anterior sigue en el historial.',
       title: 'Investigación', release: 'Liberar flujo',
       releaseHint: 'Genera los dictámenes e inicia la investigación siguiendo el flujo del canal.',
       anyOf: 'Cualquiera de', closer: 'Cierre', give: 'Dar mi dictamen', decision: 'Decisión',

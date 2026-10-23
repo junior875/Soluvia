@@ -489,8 +489,14 @@ export default function Cases({ module = 'etica' }: CasesProps) {
                     ainda vem; ela sozinha não diz onde a apuração parou. */}
                 {(() => {
                   const ativas = detail.assignments.filter((a) => a.status === 'active')
-                  const feitas = detail.assignments.filter((a) => a.status === 'submitted').length
-                  const total = detail.assignments.length
+                  // O PLACAR conta ETAPAS, não fichas. Depois de uma "mais
+                  // apuração" a mesma etapa tem duas fichas (a volta antiga,
+                  // respondida, e a nova) — contar fichas fazia o fluxo de 2
+                  // etapas virar "3 de 5 concluídas", um total que não existe
+                  // em nenhum desenho de fluxo e que cresce a cada devolução.
+                  const vivas = detail.assignments.filter((a) => !a.superseded)
+                  const feitas = vivas.filter((a) => a.status === 'submitted').length
+                  const total = vivas.length
                   if (ativas.length === 0) return null
                   return (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: 12, padding: '10px 13px', marginBottom: 12 }}>
@@ -651,12 +657,25 @@ export default function Cases({ module = 'etica' }: CasesProps) {
  * com "+" (rodam AO MESMO TEMPO). O passo atual fica aceso na cor da marca,
  * o que já passou ganha o verde de concluído, o que ainda vem fica apagado.
  * Somente leitura: quem quer mexer no desenho vai ao construtor.
+ *
+ * O MAPA É O DESENHO DO FLUXO, NÃO O HISTÓRICO. `assignments` é histórico: a
+ * "mais apuração" devolve o caso criando uma ficha NOVA da etapa, com o mesmo
+ * `group_index` da anterior. Desenhar a lista crua fazia o mapa mentir duas
+ * vezes depois da devolução — a etapa reaberta aparecia DUPLICADA e empilhada
+ * com "+", como se duas etapas rodassem ao mesmo tempo (não rodam: uma já
+ * respondeu na volta passada), e o Encerramento ficava pintado de concluído,
+ * porque `find` pegava a ficha da 1ª volta, respondida, em vez da que está
+ * esperando a volta nova. Por isso o mapa desenha só a ÚLTIMA volta de cada
+ * etapa (`superseded`, vindo do servidor) e diz em que volta ela está.
  */
 function FluxoTrilha({ assignments, t }: { assignments: CaseDetail['assignments']; t: ReturnType<typeof useT> }) {
   if (assignments.length === 0) return null
+  // Uma caixa por ETAPA: a volta corrente. As anteriores continuam na lista de
+  // fichas abaixo do mapa, que é onde o histórico das voltas deve ser lido.
+  const vivas = assignments.filter((a) => !a.superseded)
   // Agrupa pelo group_index (o encerrador, sem grupo próprio, vai ao fim).
-  const etapas = assignments.filter((a) => !a.is_closer)
-  const closer = assignments.find((a) => a.is_closer)
+  const etapas = vivas.filter((a) => !a.is_closer)
+  const closer = vivas.find((a) => a.is_closer)
   const grupos = new Map<number, typeof etapas>()
   for (const a of etapas) {
     const g = a.group_index ?? 0
@@ -695,6 +714,20 @@ function FluxoTrilha({ assignments, t }: { assignments: CaseDetail['assignments'
                     {estado === 'feita' && <Icon name="check" size={11} style={{ color: '#16a34a' }} />}
                     {estado === 'ativa' && <span className="dot-live" style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)' }} />}
                     {a.is_closer ? t.cases.inv.closer : a.stage_name}
+                    {/* A etapa está sendo FEITA DE NOVO (devolução). Dizer a
+                        volta é o que explica, sem duplicar a caixa, por que
+                        existe mais de um parecer desta etapa na lista abaixo. */}
+                    {(a.cycle ?? 1) > 1 && (
+                      <span
+                        title={t.cases.inv.roundHint}
+                        style={{
+                          background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 100,
+                          padding: '0 6px', fontSize: 10, fontWeight: 800, letterSpacing: '.02em',
+                        }}
+                      >
+                        {t.cases.inv.round(a.cycle ?? 1)}
+                      </span>
+                    )}
                   </span>
                 </span>
               ))}

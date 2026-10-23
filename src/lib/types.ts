@@ -288,6 +288,14 @@ export interface CaseAssignment {
   /** Grupo de execução — a trilha do caso desenha o paralelo com ele. */
   group_index: number
   is_closer: boolean
+  /** A VOLTA desta ficha na etapa (1 = primeira passada). A "mais apuração"
+   *  devolve o caso criando uma ficha NOVA da mesma etapa, com o mesmo
+   *  `group_index`: sem a volta, o mapa do caso leria as duas como duas etapas
+   *  rodando ao mesmo tempo. Quem calcula é o servidor. */
+  cycle?: number
+  /** Esta ficha já foi substituída por uma volta mais nova da mesma etapa — é
+   *  histórico, não uma caixa do mapa. */
+  superseded?: boolean
   assignee_membership_id: string | null
   assignee_role_id: string | null
   assignee_name: string | null
