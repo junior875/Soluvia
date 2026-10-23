@@ -95,6 +95,21 @@ export default function Audit() {
     let d = r.resource_id ? `${resLabel} · ${String(r.resource_id).slice(0, 8)}` : resLabel
     if (typeof m.level === 'string') d += ` · ${m.level}`
     if (typeof m.new_status === 'string') d += ` · ${m.new_status}`
+    // A gravidade muda por dois caminhos — a triagem decide, ou alguém ajusta
+    // à mão — e o servidor grava os dois (`de`, `para`, `origem`). A tela
+    // descartava tudo, então as duas mudanças do mesmo caso saíam como linhas
+    // IDÊNTICAS: quem audita não distinguia a decisão do processo do ajuste de
+    // uma pessoa. Rótulo traduzido, e não o valor cru: "high" e "triagem" não
+    // são leitura para quem lê uma trilha de compliance.
+    if (typeof m.para === 'string') {
+      const sev = (v: unknown) =>
+        (typeof v === 'string' && (t.audit.sev as Record<string, string>)[v]) ||
+        (typeof v === 'string' ? v : t.audit.sev.unset)
+      d += ` · ${sev(m.de)} → ${sev(m.para)}`
+    }
+    if (typeof m.origem === 'string') {
+      d += ` · ${(t.audit.orig as Record<string, string>)[m.origem] || m.origem}`
+    }
     return d
   }
   // Do registro para o arquivo num salto: a linha de prova abre o cofre já

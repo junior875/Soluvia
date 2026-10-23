@@ -664,6 +664,8 @@ const pt = {
     exportTitle: 'Trilha de auditoria', colWhen: 'Quando', colWho: 'Quem', colWhat: 'O que aconteceu', colDetail: 'Detalhe',
     cat: { case: 'Casos', signature: 'Assinatura', flow: 'Fluxo', channel: 'Canais e formulários', role: 'Papéis e pessoas', billing: 'Plano', account: 'Conta e LGPD', tenant: 'Empresa', other: 'Outros' },
     res: { sig_document: 'documento', channel: 'canal', case: 'caso', flow: 'fluxo', role: 'papel', user: 'usuário', tenant: 'empresa', data_request: 'solicitação LGPD', membership: 'membro' },
+    sev: { low: 'Baixa', medium: 'Média', high: 'Alta', critical: 'Crítica', unset: 'Não classificada' },
+    orig: { triagem: 'pela triagem', manual: 'ajuste manual' },
     act: {
       'signature.signed': 'assinou um documento', 'flow.saved': 'salvou o fluxo de um canal',
       'case.created': 'abriu um caso', 'case.advanced': 'avançou a etapa de um caso', 'case.closed': 'encerrou um caso',
@@ -1568,6 +1570,8 @@ const en: AppStrings = {
     exportTitle: 'Audit trail', colWhen: 'When', colWho: 'Who', colWhat: 'What happened', colDetail: 'Detail',
     cat: { case: 'Cases', signature: 'Signature', flow: 'Flow', channel: 'Channels & forms', role: 'Roles & people', billing: 'Plan', account: 'Account & privacy', tenant: 'Company', other: 'Other' },
     res: { sig_document: 'document', channel: 'channel', case: 'case', flow: 'flow', role: 'role', user: 'user', tenant: 'company', data_request: 'privacy request', membership: 'member' },
+    sev: { low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical', unset: 'Unclassified' },
+    orig: { triagem: 'by triage', manual: 'manual change' },
     act: {
       'signature.signed': 'signed a document', 'flow.saved': "saved a channel's flow",
       'case.created': 'opened a case', 'case.advanced': 'advanced a case stage', 'case.closed': 'closed a case',
@@ -2461,6 +2465,8 @@ const es: AppStrings = {
     exportTitle: 'Rastro de auditoría', colWhen: 'Cuándo', colWho: 'Quién', colWhat: 'Qué ocurrió', colDetail: 'Detalle',
     cat: { case: 'Casos', signature: 'Firma', flow: 'Flujo', channel: 'Canales y formularios', role: 'Roles y personas', billing: 'Plan', account: 'Cuenta y privacidad', tenant: 'Empresa', other: 'Otros' },
     res: { sig_document: 'documento', channel: 'canal', case: 'caso', flow: 'flujo', role: 'rol', user: 'usuario', tenant: 'empresa', data_request: 'solicitud de privacidad', membership: 'miembro' },
+    sev: { low: 'Baja', medium: 'Media', high: 'Alta', critical: 'Crítica', unset: 'Sin clasificar' },
+    orig: { triagem: 'por el triaje', manual: 'cambio manual' },
     act: {
       'signature.signed': 'firmó un documento', 'flow.saved': 'guardó el flujo de un canal',
       'case.created': 'abrió un caso', 'case.advanced': 'avanzó la etapa de un caso', 'case.closed': 'cerró un caso',
