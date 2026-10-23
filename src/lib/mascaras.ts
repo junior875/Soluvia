@@ -34,8 +34,14 @@ export function maskCnpj(bruto: string): string {
  * campo mostrar desde a digitação a MESMA grafia que o servidor gravou.
  *
  * O prefixo é sempre `DG`, então oito caracteres sem ele significam que a
- * pessoa colou só os dois blocos — espelha a `normalizar_protocolo` do
- * backend, que é a fonte da verdade.
+ * pessoa colou só os dois blocos — essa parte é a mesma regra da
+ * `normalizar_protocolo` do backend, que continua sendo a fonte da verdade.
+ *
+ * Onde as duas NÃO são iguais, e de propósito: só aqui se extrai o protocolo
+ * de dentro de um texto maior ("Protocolo: DG-7K3F-9QX2", como o e-mail
+ * mostra). O backend não faz isso — ele recusa o que não tem formato de
+ * protocolo. Quem digita no campo já manda normalizado; quem chama a API na
+ * mão com o rótulo colado leva 404, que é o comportamento pretendido.
  */
 export function maskProtocolo(bruto: string): string {
   const limpo = (bruto || '').toUpperCase().replace(/[^A-Z0-9]/g, '')

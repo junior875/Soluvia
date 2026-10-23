@@ -66,13 +66,22 @@ export default function PublicTracker() {
   }
   async function sendReply() {
     if (!reply.trim() || !view) return
-    setBusy(true)
+    setErr(null); setBusy(true)
     try {
       const r = await fetch(`${BASE_URL}/public/cases/${view.protocol}/reply`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ protocol: view.protocol, access_hash: code.trim(), message: reply.trim() }),
       })
-      if (r.ok) { setView(await r.json()); setReply('') }
+      // Falha no envio precisa das MESMAS três mensagens do lookup. Antes,
+      // qualquer erro aqui só destravava o botão: o texto ficava na caixa, a
+      // linha do tempo não mudava e a pessoa não tinha como saber se a
+      // complementação chegou. Perder isso em silêncio é pior no /reply do
+      // que no lookup, porque o conteúdo é dela.
+      if (r.status === 404) { setErr(tr.notfound); return }
+      if (!r.ok) { setErr(tr.oops); return }
+      setView(await r.json()); setReply('')
+    } catch {
+      setErr(tr.offline)
     } finally { setBusy(false) }
   }
 
@@ -156,10 +165,14 @@ export default function PublicTracker() {
               <div style={{ marginTop: 18, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
                 <label style={labelS}>{tr.reply}</label>
                 <textarea value={reply} onChange={(e) => setReply(e.target.value)} style={{ ...input, minHeight: 72, resize: 'vertical' }} />
+                {/* O mesmo aviso do lookup, aqui também: sem este bloco, o
+                    `setErr` do `sendReply` não teria onde aparecer, porque a
+                    caixa de erro só existia na tela de busca. */}
+                {err && <div style={{ background: 'rgba(217,83,79,.12)', border: '1px solid rgba(217,83,79,.4)', color: '#e08585', borderRadius: 12, padding: '11px 14px', fontSize: 13.5, marginTop: 8 }}>{err}</div>}
                 <button onClick={() => void sendReply()} disabled={busy || !reply.trim()} className="app-btn" style={{ marginTop: 8, background: 'linear-gradient(135deg,var(--accent),var(--accent-2))', color: '#fff', border: 'none', borderRadius: 100, padding: '11px 22px', fontWeight: 700, cursor: 'pointer', opacity: busy || !reply.trim() ? 0.6 : 1 }}>{busy ? tr.sending : tr.send}</button>
               </div>
             )}
-            <button onClick={() => { setView(null); setProtocol(''); setCode('') }} className="app-btn" style={{ marginTop: 16, background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>{tr.back}</button>
+            <button onClick={() => { setView(null); setProtocol(''); setCode(''); setReply(''); setErr(null) }} className="app-btn" style={{ marginTop: 16, background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>{tr.back}</button>
           </>
         )}
       </div>
