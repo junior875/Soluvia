@@ -8,7 +8,11 @@ import { maskProtocolo } from '../lib/mascaras'
 import PrefSwitcher from './PrefSwitcher'
 
 interface Ev { type: string; content: string; created_at: string; from_reporter: boolean }
-interface View { protocol: string; status: string; title: string; created_at: string; events: Ev[] }
+// `module` é o módulo do canal de origem (`etica` | `sac` | ...), agora
+// entregue por `POST /public/cases/lookup` e pelo `/reply`. É o dado que
+// faltava: sem ele a tela não tinha como saber que o caso era um SAC e lia
+// toda demanda de consumidor com vocabulário de denúncia.
+interface View { protocol: string; status: string; title: string; created_at: string; module?: string | null; events: Ev[] }
 
 const STATUS_LABEL: Record<string, Record<string, string>> = {
   pt: { received: 'Recebido', triage: 'Em triagem', investigation: 'Em investigação', responded: 'Respondido', closed: 'Encerrado' },
@@ -19,18 +23,47 @@ const L = {
   // `offline` e `oops` existem porque "Protocolo ou código inválido" era a
   // resposta para TUDO que dava errado, inclusive internet caída: a pessoa
   // relia o protocolo certo procurando um erro que não estava ali.
-  pt: { title: 'Acompanhar relato', sub: 'Informe o protocolo e o código de acesso que você guardou.', protocol: 'Protocolo', code: 'Código de acesso', track: 'Acompanhar', tracking: 'Buscando…', notfound: 'Protocolo ou código inválido.', offline: 'Não conseguimos falar com o servidor. Confira sua conexão e tente de novo — o protocolo continua válido.', oops: 'Algo falhou do nosso lado. Tente de novo em instantes; o protocolo continua válido.', status: 'Status', timeline: 'Andamento', you: 'Você', team: 'Equipe responsável', yourReport: 'Seu relato', reply: 'Responder / complementar', send: 'Enviar', sending: 'Enviando…', back: 'Consultar outro', empty: 'Ainda não há mensagens.' },
-  en: { title: 'Track report', sub: 'Enter the protocol and access code you saved.', protocol: 'Protocol', code: 'Access code', track: 'Track', tracking: 'Searching…', notfound: 'Invalid protocol or code.', offline: 'We could not reach the server. Check your connection and try again — your protocol is still valid.', oops: 'Something failed on our side. Please try again shortly; your protocol is still valid.', status: 'Status', timeline: 'Progress', you: 'You', team: 'Handling team', yourReport: 'Your report', reply: 'Reply / add info', send: 'Send', sending: 'Sending…', back: 'Look up another', empty: 'No messages yet.' },
-  es: { title: 'Seguir denuncia', sub: 'Ingresa el protocolo y el código de acceso que guardaste.', protocol: 'Protocolo', code: 'Código de acceso', track: 'Seguir', tracking: 'Buscando…', notfound: 'Protocolo o código inválido.', offline: 'No pudimos contactar al servidor. Revisa tu conexión e inténtalo de nuevo — tu protocolo sigue siendo válido.', oops: 'Algo falló de nuestro lado. Inténtalo de nuevo en unos instantes; tu protocolo sigue siendo válido.', status: 'Estado', timeline: 'Progreso', you: 'Tú', team: 'Equipo responsable', yourReport: 'Tu denuncia', reply: 'Responder / añadir', send: 'Enviar', sending: 'Enviando…', back: 'Consultar otro', empty: 'Aún no hay mensajes.' },
+  pt: { title: 'Acompanhar protocolo', sub: 'Informe o protocolo e o código de acesso que você guardou.', protocol: 'Protocolo', code: 'Código de acesso', track: 'Acompanhar', tracking: 'Buscando…', notfound: 'Protocolo ou código inválido.', offline: 'Não conseguimos falar com o servidor. Confira sua conexão e tente de novo — o protocolo continua válido.', oops: 'Algo falhou do nosso lado. Tente de novo em instantes; o protocolo continua válido.', status: 'Status', timeline: 'Andamento', you: 'Você', team: 'Equipe responsável', yourReport: 'Seu relato', reply: 'Responder / complementar', send: 'Enviar', sending: 'Enviando…', back: 'Consultar outro', empty: 'Ainda não há mensagens.' },
+  en: { title: 'Track protocol', sub: 'Enter the protocol and access code you saved.', protocol: 'Protocol', code: 'Access code', track: 'Track', tracking: 'Searching…', notfound: 'Invalid protocol or code.', offline: 'We could not reach the server. Check your connection and try again — your protocol is still valid.', oops: 'Something failed on our side. Please try again shortly; your protocol is still valid.', status: 'Status', timeline: 'Progress', you: 'You', team: 'Handling team', yourReport: 'Your report', reply: 'Reply / add info', send: 'Send', sending: 'Sending…', back: 'Look up another', empty: 'No messages yet.' },
+  es: { title: 'Seguir protocolo', sub: 'Ingresa el protocolo y el código de acceso que guardaste.', protocol: 'Protocolo', code: 'Código de acceso', track: 'Seguir', tracking: 'Buscando…', notfound: 'Protocolo o código inválido.', offline: 'No pudimos contactar al servidor. Revisa tu conexión e inténtalo de nuevo — tu protocolo sigue siendo válido.', oops: 'Algo falló de nuestro lado. Inténtalo de nuevo en unos instantes; tu protocolo sigue siendo válido.', status: 'Estado', timeline: 'Progreso', you: 'Tú', team: 'Equipo responsable', yourReport: 'Tu denuncia', reply: 'Responder / añadir', send: 'Enviar', sending: 'Enviando…', back: 'Consultar otro', empty: 'Aún no hay mensajes.' },
 }
+
+// No SAC quem acompanha é CONSUMIDOR, e o que ele abriu é uma DEMANDA. Mesmo
+// padrão do `SAC_WORDS` de `PublicReport.tsx`: só as palavras que mudam; o
+// resto do dicionário acima é reaproveitado pelo spread.
+//
+// Só entram aqui chaves que a tela mostra DEPOIS da busca — é o único momento
+// em que o módulo é conhecido. O que aparece antes (o `title` e o `sub`) ficou
+// NEUTRO no dicionário base, senão o rótulo mudaria na frente da pessoa: ela
+// leria "Acompanhar relato", buscaria, e o texto se reescreveria para
+// "demanda". O título de denúncia saiu de lá por isso, e não por descuido.
+//
+// `title` NÃO tem variante de SAC de propósito: depois da busca o cabeçalho é
+// `view.title`, que vem do servidor já flexionado ("Demanda" no SAC, "Relato"
+// na ouvidoria). Uma chave aqui seria string morta.
+const SAC_WORDS = {
+  pt: { yourReport: 'Sua demanda', team: 'Equipe de atendimento' },
+  en: { yourReport: 'Your request', team: 'Support team' },
+  es: { yourReport: 'Tu demanda', team: 'Equipo de atención' },
+} as const
 
 export default function PublicTracker() {
   const { lang } = useTranslation()
-  const tr = L[lang] ?? L.pt
+  const base = L[lang] ?? L.pt
   const [open, setOpen] = useState(() => window.location.hash.toLowerCase().startsWith('#acompanhar'))
   const [protocol, setProtocol] = useState('')
   const [code, setCode] = useState('')
   const [view, setView] = useState<View | null>(null)
+  // Vocabulário do módulo: no SAC troca "relato/denúncia" por "demanda".
+  //
+  // Derivado do CASO que está na tela, e não de um estado próprio. É de
+  // propósito: toda saída passa por `limpar()`, que zera o `view` — então o
+  // vocabulário volta ao neutro pelo mesmo caminho, sem depender de alguém
+  // lembrar de resetar mais uma variável. Buscar um SAC e depois um relato de
+  // ética na mesma aba não deixa "demanda" grudado na tela.
+  const tr = view?.module === 'sac'
+    ? { ...base, ...(SAC_WORDS[lang] ?? SAC_WORDS.pt) }
+    : base
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [reply, setReply] = useState('')
