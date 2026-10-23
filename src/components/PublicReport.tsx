@@ -13,10 +13,14 @@ import ParecerSignModal from '../app/screens/signature/ParecerSignModal'
 import { mascaraPara } from '../lib/mascaras'
 import { campoIdentifica } from '../lib/anonimato'
 import { resolverPrazo } from '../lib/prazo'
+import { copyDoAviso } from '../lib/avisoPadrao'
 
 // `url` só existe no campo `privacy_notice`: é o endereço do aviso que a
 // página transforma em link DE VERDADE. Opcional nos campos antigos.
-interface FF { key: string; type: string; label: string; help: string; required: boolean; options: string[]; sensitive: boolean; url?: string }
+// `native` marca que o TEXTO do aviso é copy nossa (o modelo padrão), e não do
+// cliente: é o que permite servi-lo no idioma de quem lê sem depender da
+// tradução por IA do formulário. Ver `lib/avisoPadrao.ts`.
+interface FF { key: string; type: string; label: string; help: string; required: boolean; options: string[]; sensitive: boolean; url?: string; native?: string }
 interface PublicForm {
   tenant_slug: string; tenant_name: string; channel_name: string; module?: string
   title: string; intro: string; identification: string; fields: FF[]; published: boolean
@@ -337,13 +341,20 @@ export default function PublicReport() {
               const link = (f.url ?? '').trim()
               const linkOk = /^https?:\/\//i.test(link)
               // Frase nativa (traduzida pela própria página, sem depender da
-              // tradução por IA do formulário) com o rótulo do cliente no meio.
+              // tradução por IA do formulário) com o nome do aviso no meio.
               const [antes, depois] = tr.privacyRead.split('{aviso}')
-              const aceite = `${tr.privacyRead.replace('{aviso}', f.label)}${linkOk ? ` — ${link}` : ''}`
+              // O RÓTULO e o PARÁGRAFO do aviso também precisam falar o idioma
+              // de quem lê. O aviso de fábrica é copy do produto (marca
+              // `native`): quando o formulário não tem tradução para este
+              // idioma, o servidor devolve o texto em português, e era isso que
+              // punha "I have read and understood the Aviso de Privacidade" por
+              // cima de um parágrafo em português.
+              const { rotulo, texto } = copyDoAviso(f, form.lang ?? 'pt', lang)
+              const aceite = `${tr.privacyRead.replace('{aviso}', rotulo)}${linkOk ? ` — ${link}` : ''}`
               const marcado = Boolean(answers[f.key])
               return (
                 <div key={f.key} data-privacy-notice style={{ border: '1px solid var(--border)', borderRadius: 14, padding: 14, background: 'var(--surface-2)' }}>
-                  {f.help && <p style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.6, margin: '0 0 10px', whiteSpace: 'pre-wrap' }}>{f.help}</p>}
+                  {texto && <p data-privacy-text style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.6, margin: '0 0 10px', whiteSpace: 'pre-wrap' }}>{texto}</p>}
                   <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', color: 'var(--text)', fontSize: 14, lineHeight: 1.5 }}>
                     <input
                       type="checkbox" checked={marcado} style={{ marginTop: 3 }}
@@ -352,8 +363,8 @@ export default function PublicReport() {
                     <span>
                       {antes}
                       {linkOk
-                        ? <a href={link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontWeight: 700, textDecoration: 'underline' }}>{f.label}</a>
-                        : <strong style={{ color: 'var(--heading)' }}>{f.label}</strong>}
+                        ? <a href={link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontWeight: 700, textDecoration: 'underline' }}>{rotulo}</a>
+                        : <strong style={{ color: 'var(--heading)' }}>{rotulo}</strong>}
                       {depois ?? ''}
                       <span style={{ color: 'var(--accent)' }}> *</span>
                       {linkOk && <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 11.5 }}>↗ {tr.privacyOpen}</span>}

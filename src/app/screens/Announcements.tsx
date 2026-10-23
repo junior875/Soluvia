@@ -124,7 +124,23 @@ export default function Announcements() {
       // Todos marcados por padrão: o caso comum é avisar a empresa inteira, e
       // desmarcar exceções é mais barato do que marcar um a um.
       setMarcados(new Set(cts.map((c) => c.email)))
-      if (!canalId && cs.length) setCanalId(cs[0].id)
+      // Escolher o primeiro canal SÓ quando não há canal escolhido — e a
+      // forma funcional é obrigatória aqui, não é estilo.
+      //
+      // `carregar` não depende de `canalId` (motivo logo abaixo), então a
+      // closure congela `canalId` no valor do primeiro render: sempre ''.
+      // Lendo a variável (`if (!canalId)`) a condição dava verdadeiro em
+      // TODA chamada, inclusive a do fim do envio: o seletor pulava para o
+      // primeiro canal, o efeito de troca de canal carregava o rascunho
+      // DAQUELE canal por cima das caixas, e quem acabou de enviar via o
+      // texto de outro canal. O impulso seguinte — "mando para o resto da
+      // lista" — divulgava o canal ERRADO. `atual` é o valor de agora.
+      //
+      // Se o canal escolhido não está mais na lista (alguém apagou enquanto
+      // a tela estava aberta), cai no primeiro em vez de apontar para nada.
+      if (cs.length) {
+        setCanalId((atual) => (atual && cs.some((c) => c.id === atual) ? atual : cs[0].id))
+      }
     } catch (e) {
       flash((e as ApiError).detail ?? tx.errLoad)
       setCanais([]); setHistorico([]); setContatos([])

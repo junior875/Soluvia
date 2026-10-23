@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../../lib/api'
 import { resolverPrazo } from '../../lib/prazo'
+import { copyDoAviso } from '../../lib/avisoPadrao'
 import type { ApiError, ChannelOut, MemberRow } from '../../lib/types'
 import { useT } from '../strings'
 import ChipUsoIA from '../../components/ChipUsoIA'
@@ -25,6 +26,10 @@ interface FF {
   // Link do aviso (só o `privacy_notice` usa). Opcional porque os formulários
   // já publicados não têm a chave.
   url?: string
+  // Marca de copy do PRODUTO (o aviso que vem no modelo padrão): com ela, a
+  // página pública serve rótulo e texto no idioma de quem lê sem depender da
+  // tradução por IA. Editar o texto aqui apaga a marca — ver o campo de ajuda.
+  native?: string
 }
 interface FormData {
   channel_id: string; title: string; intro: string; identification: string
@@ -39,6 +44,29 @@ interface AIReply { chat_id: string; message: string; form: { title: string; int
 const TYPES: FieldType[] = ['short_text', 'long_text', 'single_choice', 'multi_choice', 'dropdown', 'date', 'yes_no', 'section', 'info', 'privacy_notice']
 /** O link do aviso: http/https ou nada — mesma regra do servidor. */
 const urlValida = (u: string) => !u.trim() || /^https?:\/\/[^\s/]+/i.test(u.trim())
+
+/** Mensagem LEGÍVEL de um erro da API, para o `alert`.
+ *
+ *  O `detail` de um 422 do FastAPI é uma LISTA de objetos
+ *  (`[{loc, msg, type}]`), não uma frase: jogada num `alert` ela saía como
+ *  "[object Object]", e como lista é truthy o texto de reserva nunca entrava.
+ *  A validação de URL do aviso de privacidade é o primeiro 422 que alguém
+ *  alcança nesta tela só digitando, então o erro mudo passou a ser visível. */
+function msgErro(e: unknown, reserva: string): string {
+  const detalhe = (e as ApiError | undefined)?.detail as unknown
+  if (typeof detalhe === 'string' && detalhe.trim()) return detalhe
+  if (Array.isArray(detalhe)) {
+    const frases = detalhe
+      .map((item) => typeof item === 'string'
+        ? item
+        // "Value error, O link do aviso precisa…" → só a frase útil.
+        : String((item as { msg?: string })?.msg ?? '').replace(/^value error,\s*/i, ''))
+      .map((s) => s.trim())
+      .filter(Boolean)
+    if (frases.length) return Array.from(new Set(frases)).join('\n')
+  }
+  return reserva
+}
 const LANGS: { v: Lang; label: string }[] = [{ v: 'pt', label: 'PT' }, { v: 'en', label: 'EN' }, { v: 'es', label: 'ES' }]
 const hasOptions = (t: FieldType) => t === 'single_choice' || t === 'multi_choice' || t === 'dropdown'
 const slug = (s: string) => s.normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase() || 'campo'
@@ -283,7 +311,7 @@ export default function FormBuilder() {
       }
       flash(publish ? t.fb.published : t.fb.saved)
     } catch (e) {
-      alert((e as ApiError).detail ?? t.fb.errSave)
+      alert(msgErro(e, t.fb.errSave))
     } finally { setBusy(false) }
   }
 
@@ -299,7 +327,7 @@ export default function FormBuilder() {
       patch({ available_langs: r.available_langs ?? ['pt', 'en', 'es'] })
       flash(t.fb.translated)
     } catch (e) {
-      alert((e as ApiError).detail ?? t.fb.errTranslate)
+      alert(msgErro(e, t.fb.errTranslate))
     } finally { setTranslating(false) }
   }
 
@@ -473,7 +501,16 @@ export default function FormBuilder() {
                 <Card key={i}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
                     <span style={{ color: 'var(--text-muted)', fontWeight: 800, fontSize: 13 }}>{i + 1}</span>
-                    <Input value={f.label} onChange={(e) => updateField(i, { label: e.target.value })} placeholder={t.fb.question} style={{ flex: 1 }} />
+                    {/* Idem para o NOME do aviso: quem renomeia "Aviso de
+                        Privacidade" para o nome do documento da empresa dele
+                        não quer ver o nosso de volta em inglês. */}
+                    <Input
+                      value={f.label}
+                      onChange={(e) => updateField(i, f.type === 'privacy_notice'
+                        ? { label: e.target.value, native: '' }
+                        : { label: e.target.value })}
+                      placeholder={t.fb.question} style={{ flex: 1 }}
+                    />
                     <button className="app-btn" onClick={() => move(i, -1)} title="↑" style={iconBtn}>↑</button>
                     <button className="app-btn" onClick={() => move(i, 1)} title="↓" style={iconBtn}>↓</button>
                     <button className="app-btn" onClick={() => removeField(i)} title={t.fb.remove} style={{ ...iconBtn, color: '#d9534f' }}><Icon name="close" size={16} /></button>
@@ -482,7 +519,17 @@ export default function FormBuilder() {
                     <Select value={f.type} onChange={(e) => updateField(i, { type: e.target.value as FieldType })}>
                       {TYPES.map((v) => <option key={v} value={v}>{t.fb.types[v]}</option>)}
                     </Select>
-                    <Input value={f.help} onChange={(e) => updateField(i, { help: e.target.value })} placeholder={t.fb.help} />
+                    {/* Texto do aviso editado à mão deixa de ser copy nossa:
+                        a marca `native` sai junto, senão a página pública
+                        continuaria mostrando o texto de fábrica (nos idiomas
+                        sem tradução) por cima do que o cliente escreveu. */}
+                    <Input
+                      value={f.help}
+                      onChange={(e) => updateField(i, f.type === 'privacy_notice'
+                        ? { help: e.target.value, native: '' }
+                        : { help: e.target.value })}
+                      placeholder={t.fb.help}
+                    />
                   </div>
                   {/* O aviso de privacidade precisa de um ENDEREÇO para virar
                       link clicável na página pública — colar <a href> no
@@ -546,7 +593,16 @@ export default function FormBuilder() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 18 }}>
               {/* A prévia fala a língua do MÓDULO do canal, como a página
                   pública: num SAC quem responde é consumidor, não denunciante. */}
-              {(previewForm ?? form).fields.map((f, i) => <Preview key={i} f={f} t={t} isSac={canalAtual?.module === 'sac'} />)}
+              {(previewForm ?? form).fields.map((f, i) => (
+                <Preview
+                  key={i} f={f} t={t} isSac={canalAtual?.module === 'sac'}
+                  // Sem tradução para o idioma escolhido, o que chegou está no
+                  // idioma BASE — é esse o caso em que o aviso de fábrica
+                  // aparecia em português dentro de uma prévia em inglês.
+                  langTexto={langsReady.includes(lang) ? lang : ((form.base_lang as Lang) || 'pt')}
+                  langPrev={lang}
+                />
+              ))}
             </div>
             {publicUrl && (
               <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
@@ -786,7 +842,13 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
   )
 }
 
-function Preview({ f, t, isSac }: { f: FF; t: ReturnType<typeof useT>; isSac?: boolean }) {
+function Preview({ f, t, isSac, langTexto, langPrev }: {
+  f: FF; t: ReturnType<typeof useT>; isSac?: boolean
+  // Em que idioma está o texto que chegou, e em que idioma a prévia está sendo
+  // mostrada. Diferentes = o aviso de fábrica entra com a copy nativa, igual à
+  // página pública (é lá que a divergência aparecia para quem denuncia).
+  langTexto: Lang; langPrev: Lang
+}) {
   // "Resposta do denunciante" num canal de SAC era a prévia contradizendo a
   // página pública, que já diz "demanda" — o módulo decide a palavra.
   const answerPh = isSac ? t.fb.answerPhSac : t.fb.answerPhEtica
@@ -798,16 +860,17 @@ function Preview({ f, t, isSac }: { f: FF; t: ReturnType<typeof useT>; isSac?: b
   if (f.type === 'privacy_notice') {
     const link = (f.url ?? '').trim()
     const linkOk = /^https?:\/\/[^\s/]+/i.test(link)
+    const { rotulo, texto } = copyDoAviso(f, langTexto, langPrev)
     return (
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 12, background: 'var(--surface-2)' }}>
-        {f.help && <p style={{ color: 'var(--text-muted)', fontSize: 12.5, lineHeight: 1.6, margin: '0 0 8px', whiteSpace: 'pre-wrap' }}>{f.help}</p>}
+        {texto && <p style={{ color: 'var(--text-muted)', fontSize: 12.5, lineHeight: 1.6, margin: '0 0 8px', whiteSpace: 'pre-wrap' }}>{texto}</p>}
         <span style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13.5, color: 'var(--text)', lineHeight: 1.5 }}>
           <span style={{ width: 16, height: 16, minWidth: 16, borderRadius: 4, border: '2px solid var(--border)', marginTop: 2 }} />
           <span>
             {t.fb.privacyRead}{' '}
             {linkOk
-              ? <a href={link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontWeight: 700, textDecoration: 'underline' }}>{f.label}</a>
-              : <strong style={{ color: 'var(--heading)' }}>{f.label}</strong>}
+              ? <a href={link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontWeight: 700, textDecoration: 'underline' }}>{rotulo}</a>
+              : <strong style={{ color: 'var(--heading)' }}>{rotulo}</strong>}
             <span style={{ color: 'var(--accent)' }}> *</span>
             {!linkOk && <span style={{ display: 'block', color: '#e0a23c', fontSize: 11.5 }}>{t.fb.privacyUrlMissing}</span>}
           </span>
