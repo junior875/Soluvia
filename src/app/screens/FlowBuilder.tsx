@@ -224,6 +224,12 @@ export default function FlowBuilder() {
   const [toast, setToast] = useState<string | null>(null)
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2600) }
 
+  // Os avisos que o ÚLTIMO salvamento devolveu, no quadro âmbar — não só no
+  // toast. O toast vive 2,6s: quem pisca para o teclado enquanto salva perde o
+  // aviso, e o erro volta a ser invisível. Fica na tela até o próximo
+  // salvamento (ou a troca de canal) dizer outra coisa.
+  const [avisosDoSalvamento, setAvisosDoSalvamento] = useState<string[]>([])
+
   // Canal de denúncia E canal de SAC têm apuração: os dois entram aqui. Isto
   // filtrava `module === 'etica'` e escondia todo canal de SAC — não havia como
   // montar o fluxo de um atendimento.
@@ -314,6 +320,9 @@ export default function FlowBuilder() {
   useEffect(() => {
     if (!channelId) return
     setStages(null)
+    // Aviso é do fluxo DAQUELE canal: deixá-lo na tela depois de trocar de canal
+    // acusaria de campo órfão uma etapa que nem está mais desenhada aqui.
+    setAvisosDoSalvamento([])
     api.get<FlowOut>(`/channels/${channelId}/flow`)
       .then(aplicarFluxo)
       .catch(() => { setFlowName(tf.egName); setMode('sequential'); setCloserMembershipId(null); setCloserRoleId(null); setCloserRequireSignature(false); setStages([]) })
@@ -700,6 +709,16 @@ export default function FlowBuilder() {
     return { ...x, watcher_role_ids: has ? x.watcher_role_ids.filter((r) => r !== rid) : [...x.watcher_role_ids, rid] }
   }))
 
+  /** A resposta do PUT do fluxo: o fluxo salvo MAIS o que o salvamento tem a
+   *  dizer (Contrato C.3 item 3). O GET não traz `warnings` — o aviso é
+   *  propriedade do ATO de salvar, e recarregar a tela não deve ressuscitar o
+   *  alerta de uma condição que a pessoa já decidiu deixar como está.
+   *
+   *  As frases vêm prontas do servidor, como o `detail` de um erro: é ele que
+   *  compara a condição com o formulário PUBLICADO, e é a única ponta que sabe
+   *  o que está no ar (a tela só tem o rascunho do formulário). */
+  type FlowSaveResp = FlowOut & { warnings?: string[] }
+
   async function save() {
     if (!channelId || !stages) return
     setBusy(true)
@@ -739,15 +758,37 @@ export default function FlowBuilder() {
           condition: s.condition ?? null,
         })),
       }
-      await api.put(`/channels/${channelId}/flow`, payload)
+      const r = await api.put<FlowSaveResp>(`/channels/${channelId}/flow`, payload)
+      // O QUE O SERVIDOR TEM A DIZER sobre o que acabou de ser salvo: hoje, a
+      // condição que aponta para campo que já saiu do formulário publicado
+      // (Contrato C.3 item 3). Isto era descartado — o `await` jogava o corpo
+      // da resposta fora e o toast dizia "Fluxo salvo." em cima de um aviso.
+      // Quem monta saía da tela acreditando ter um desvio que já não existe,
+      // que é exatamente o erro invisível que o aviso existe para evitar.
+      //
+      // Mostra o que vier, sem interpretar: a lista é o contrato, e amanhã ela
+      // pode trazer outra checagem sem esta tela precisar saber qual.
+      const avisos = (Array.isArray(r?.warnings) ? r.warnings : [])
+        .filter((a): a is string => typeof a === 'string' && a.trim() !== '')
+      setAvisosDoSalvamento(avisos)
       // Se alguma condição foi pela metade, o fluxo salvou — mas NÃO salvou o
       // que a tela mostrava. Dizer só "salvo" aqui é o erro invisível que o
       // aviso existe para evitar: a etapa que a pessoa deixou marcada como
       // condicional vai rodar sempre.
       const meias = stages.filter((s) => s.is_conditional && !condicaoValida(s.condition))
-      flash(meias.length > 0
+      const meiaFrase = meias.length > 0
         ? t.flow.savedCondOff(meias.map((s) => s.name.trim() || t.flow.untitled).join(', '))
-        : t.flow.saved)
+        : null
+      // Os dois avisos cabem juntos: "pela metade" é do rascunho desta tela,
+      // "campo fora do formulário" vem do servidor, e um fluxo pode ter uma
+      // etapa de cada no MESMO salvamento (na mesma etapa não: condição pela
+      // metade vai desligada, e para etapa desligada o servidor se cala por
+      // contrato). Esconder um atrás do outro deixaria metade do problema por
+      // contar. `meiaFrase` já começa por "Fluxo salvo, mas…", então quando ela
+      // existe o prefixo do servidor seria repetição.
+      flash(avisos.length > 0
+        ? [meiaFrase ?? t.flow.savedWarn, ...avisos].join(' ')
+        : (meiaFrase ?? t.flow.saved))
     } catch (e) {
       flash((e as ApiError).detail ?? t.flow.saveFail)
     } finally { setBusy(false) }
@@ -784,8 +825,13 @@ export default function FlowBuilder() {
     } finally { setRestaurando(null) }
   }
 
+  // O toast agora pode levar o aviso inteiro do servidor (nome da etapa, campo e
+  // consequência). Sem `maxWidth` a pílula crescia numa linha só e saía pelas
+  // duas bordas da tela — o aviso aparecia e ficava ilegível, que é o mesmo que
+  // não aparecer. Quebra em linhas; e aviso longo não combina com pílula
+  // perfeitamente redonda, daí o raio menor só quando o texto é longo.
   const Toast = toast && createPortal(
-    <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: 'var(--heading)', color: 'var(--surface)', padding: '12px 22px', borderRadius: 100, fontWeight: 700, fontSize: 14, boxShadow: '0 12px 30px rgba(0,0,0,.3)', zIndex: 10002 }}>{toast}</div>,
+    <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: 'var(--heading)', color: 'var(--surface)', padding: '12px 22px', borderRadius: toast.length > 70 ? 16 : 100, fontWeight: 700, fontSize: 14, lineHeight: 1.45, textAlign: 'center', maxWidth: 'min(680px, calc(100vw - 32px))', boxShadow: '0 12px 30px rgba(0,0,0,.3)', zIndex: 10002 }}>{toast}</div>,
     document.body,
   )
 
@@ -923,6 +969,25 @@ export default function FlowBuilder() {
                 >
                   {p.texto}
                 </button>
+              ))}
+            </div>
+          )}
+
+          {/* AVISOS DO ÚLTIMO SALVAMENTO (Contrato C.3 item 3) — hoje, a
+              condição que aponta para campo que já saiu do formulário
+              publicado. Separado das "pendências" de propósito: aquelas saem do
+              rascunho desta tela, estas vêm do SERVIDOR, que é a única ponta que
+              sabe o que está no ar. O quadro fica até o próximo salvamento: o
+              toast pisca e vai, e o alerta que existe dentro do painel do bloco
+              exige abrir a etapa e rolar até a seção da condição — quem salvou e
+              não abriu nada sairia da tela sem notícia. */}
+          {avisosDoSalvamento.length > 0 && (
+            <div style={{ marginBottom: 14, border: '1px solid #d97706', background: 'rgba(217,119,6,.07)', borderRadius: 14, padding: '10px 14px' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#d97706', fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.03em' }}>
+                <Icon name="bell" size={13} /> {t.flow.savedWarnTitle}
+              </span>
+              {avisosDoSalvamento.map((a, i) => (
+                <p key={i} style={{ margin: '6px 0 0', color: 'var(--text)', fontSize: 13, fontWeight: 600, lineHeight: 1.5 }}>{a}</p>
               ))}
             </div>
           )}

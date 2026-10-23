@@ -150,6 +150,11 @@ const pt = {
     subtitle: 'Monte a cadeia que um relato segue após ser enviado — as etapas da investigação, quem responde e o prazo.',
     save: 'Salvar fluxo', saved: 'Fluxo salvo.', saveFail: 'Falha ao salvar o fluxo.',
     savedCondOff: (nomes: string) => `Fluxo salvo, mas a condição de “${nomes}” estava incompleta e ficou DESLIGADA: a etapa vai rodar sempre.`,
+    // Abre o toast quando o SERVIDOR devolveu aviso no salvamento (hoje:
+    // condição apontando para campo que saiu do formulário publicado). As
+    // frases do aviso vêm prontas dele e são anexadas aqui.
+    savedWarn: 'Fluxo salvo, mas atenção:',
+    savedWarnTitle: 'Avisos do último salvamento',
     channel: 'Canal', flowName: 'Nome do fluxo', egName: 'Investigação',
     stages: 'Etapas da investigação (configuráveis)',
     emptyStages: 'Nenhuma etapa ainda', emptyStagesBody: 'Adicione as sub-etapas da investigação — cada uma com responsável, observadores e prazo.',
@@ -1070,6 +1075,8 @@ const en: AppStrings = {
     subtitle: 'Design the chain a report follows after submission — the investigation stages, who handles them and the deadline.',
     save: 'Save flow', saved: 'Flow saved.', saveFail: 'Failed to save the flow.',
     savedCondOff: (nomes: string) => `Flow saved, but the condition on “${nomes}” was incomplete and was TURNED OFF: the stage will always run.`,
+    savedWarn: 'Flow saved, but take note:',
+    savedWarnTitle: 'Warnings from the last save',
     channel: 'Channel', flowName: 'Flow name', egName: 'Investigation',
     stages: 'Investigation stages (configurable)',
     emptyStages: 'No stages yet', emptyStagesBody: 'Add the investigation sub-stages — each with an owner, watchers and a deadline.',
@@ -1967,6 +1974,8 @@ const es: AppStrings = {
     subtitle: 'Diseña la cadena que sigue un reporte tras enviarse — las etapas de la investigación, quién responde y el plazo.',
     save: 'Guardar flujo', saved: 'Flujo guardado.', saveFail: 'Error al guardar el flujo.',
     savedCondOff: (nomes: string) => `Flujo guardado, pero la condición de “${nomes}” estaba incompleta y quedó APAGADA: la etapa se ejecutará siempre.`,
+    savedWarn: 'Flujo guardado, pero atención:',
+    savedWarnTitle: 'Avisos del último guardado',
     channel: 'Canal', flowName: 'Nombre del flujo', egName: 'Investigación',
     stages: 'Etapas de la investigación (configurables)',
     emptyStages: 'Aún no hay etapas', emptyStagesBody: 'Agrega las subetapas de la investigación — cada una con responsable, observadores y plazo.',
