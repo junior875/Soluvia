@@ -19,8 +19,11 @@ import { copyDoAviso } from '../lib/avisoPadrao'
 // página transforma em link DE VERDADE. Opcional nos campos antigos.
 // `native` marca que o TEXTO do aviso é copy nossa (o modelo padrão), e não do
 // cliente: é o que permite servi-lo no idioma de quem lê sem depender da
-// tradução por IA do formulário. Ver `lib/avisoPadrao.ts`.
-interface FF { key: string; type: string; label: string; help: string; required: boolean; options: string[]; sensitive: boolean; url?: string; native?: string }
+// tradução por IA do formulário. `native_off` diz quais PARTES o cliente
+// reescreveu — trocar o parágrafo e manter o nome do aviso não pode trazer o
+// nome de fábrica em português de volta para dentro da frase em inglês.
+// Ver `lib/avisoPadrao.ts`.
+interface FF { key: string; type: string; label: string; help: string; required: boolean; options: string[]; sensitive: boolean; url?: string; native?: string; native_off?: string[] }
 interface PublicForm {
   tenant_slug: string; tenant_name: string; channel_name: string; module?: string
   title: string; intro: string; identification: string; fields: FF[]; published: boolean
@@ -345,11 +348,11 @@ export default function PublicReport() {
               const [antes, depois] = tr.privacyRead.split('{aviso}')
               // O RÓTULO e o PARÁGRAFO do aviso também precisam falar o idioma
               // de quem lê. O aviso de fábrica é copy do produto (marca
-              // `native`): quando o formulário não tem tradução para este
-              // idioma, o servidor devolve o texto em português, e era isso que
+              // `native`, parte por parte): sem isso o servidor devolvia o
+              // texto em português para quem lia em inglês, e era isso que
               // punha "I have read and understood the Aviso de Privacidade" por
               // cima de um parágrafo em português.
-              const { rotulo, texto } = copyDoAviso(f, form.lang ?? 'pt', lang)
+              const { rotulo, texto } = copyDoAviso(f, lang)
               const aceite = `${tr.privacyRead.replace('{aviso}', rotulo)}${linkOk ? ` — ${link}` : ''}`
               const marcado = Boolean(answers[f.key])
               return (

@@ -62,27 +62,45 @@ export function avisoPadrao(native: string | undefined | null, lang: string): Co
   return copy[lang as LangAviso] ?? copy.pt
 }
 
+/** Partes do aviso que podem ser copy nossa — ver `FormField.native_off`. */
+export type ParteDoAviso = 'label' | 'help'
+
 /**
  * Rótulo e texto a exibir no campo de aviso de privacidade.
  *
- * `idiomaDoTexto` é o idioma em que o formulário foi SERVIDO (`form.lang` na
- * página pública): sem tradução para o idioma escolhido, o servidor devolve o
- * idioma base. Então a regra é: se o que chegou não está no idioma de quem lê,
- * a copy de fábrica assume; caso contrário o que está guardado manda — pode ser
- * o texto do cliente ou a tradução por IA, e nos dois casos já está no idioma
- * certo.
+ * A decisão é POR PARTE (`native_off`), não pelo campo inteiro. Antes era pelo
+ * campo, e a edição mais comum do cliente — trocar o parágrafo da LGPD pelo
+ * texto dele e manter o nome do aviso — apagava a marca do rótulo junto: a
+ * frase em inglês saía com o nome de fábrica em português no meio ("I have
+ * read and understood the Aviso de Privacidade"). Agora cada parte reescrita é
+ * do cliente e a outra continua sendo nossa, traduzida.
+ *
+ * Parte que ninguém reescreveu é servida SEMPRE no idioma de quem lê, sem
+ * olhar o idioma do que chegou. Antes a copy de fábrica só assumia quando
+ * `idiomaDoTexto !== idiomaDeQuemLe`, e essa comparação acreditava no
+ * `base_lang` do formulário: salvo com `lang: "en"` e o texto de fábrica ainda
+ * em português, o servidor dizia "este é o inglês" e a página servia o
+ * parágrafo em português a quem lia em inglês. Como a parte marcada é a NOSSA
+ * copy (se o cliente mexesse, viria em `native_off`), a de fábrica no idioma
+ * certo nunca é pior — inclusive quando a tradução por IA já rodou, porque
+ * essa tradução é a nossa própria copy passada pela máquina.
+ *
+ * Por isso o idioma do que foi SERVIDO saiu do contrato: ele só servia para
+ * aquela comparação, e era o dado em que não se podia confiar. O texto do
+ * CLIENTE continua indo como está — traduzi-lo não é trabalho desta função.
  */
 export function copyDoAviso(
-  campo: { label?: string; help?: string; native?: string | null },
-  idiomaDoTexto: string,
+  campo: { label?: string; help?: string; native?: string | null; native_off?: string[] | null },
   idiomaDeQuemLe: string,
 ): CopyDoAviso {
   const padrao = avisoPadrao(campo.native, idiomaDeQuemLe)
+  const reescrito = campo.native_off ?? []
   const rotulo = (campo.label ?? '').trim()
   const texto = (campo.help ?? '').trim()
-  if (padrao && idiomaDoTexto !== idiomaDeQuemLe) return padrao
+  // Esta parte ainda é copy nossa? Então quem manda é o idioma de quem lê.
+  const deFabrica = (parte: ParteDoAviso) => Boolean(padrao) && !reescrito.includes(parte)
   return {
-    rotulo: rotulo || padrao?.rotulo || '',
-    texto: texto || padrao?.texto || '',
+    rotulo: deFabrica('label') ? padrao!.rotulo : (rotulo || padrao?.rotulo || ''),
+    texto: deFabrica('help') ? padrao!.texto : (texto || padrao?.texto || ''),
   }
 }

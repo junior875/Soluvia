@@ -30,6 +30,10 @@ interface FF {
   // página pública serve rótulo e texto no idioma de quem lê sem depender da
   // tradução por IA. Editar o texto aqui apaga a marca — ver o campo de ajuda.
   native?: string
+  // Quais PARTES o cliente reescreveu ('label' e/ou 'help'). Antes a edição de
+  // uma delas apagava a marca das duas, e o nome de fábrica em português
+  // voltava para dentro da frase em inglês.
+  native_off?: string[]
 }
 interface FormData {
   channel_id: string; title: string; intro: string; identification: string
@@ -44,6 +48,17 @@ interface AIReply { chat_id: string; message: string; form: { title: string; int
 const TYPES: FieldType[] = ['short_text', 'long_text', 'single_choice', 'multi_choice', 'dropdown', 'date', 'yes_no', 'section', 'info', 'privacy_notice']
 /** O link do aviso: http/https ou nada — mesma regra do servidor. */
 const urlValida = (u: string) => !u.trim() || /^https?:\/\/[^\s/]+/i.test(u.trim())
+
+/**
+ * Parte do aviso reescrita à mão deixa de ser copy nossa.
+ *
+ * Só a parte: a marca do campo inteiro fazia com que trocar o PARÁGRAFO da
+ * LGPD pelo texto da empresa apagasse também a marca do NOME do aviso — e aí a
+ * página pública em inglês voltava a imprimir "Aviso de Privacidade" (nome de
+ * fábrica, em português) no meio de "I have read and understood the…".
+ */
+const reescrever = (f: FF, parte: 'label' | 'help'): string[] =>
+  f.native_off?.includes(parte) ? f.native_off : [...(f.native_off ?? []), parte]
 
 /** Mensagem LEGÍVEL de um erro da API, para o `alert`.
  *
@@ -503,11 +518,12 @@ export default function FormBuilder() {
                     <span style={{ color: 'var(--text-muted)', fontWeight: 800, fontSize: 13 }}>{i + 1}</span>
                     {/* Idem para o NOME do aviso: quem renomeia "Aviso de
                         Privacidade" para o nome do documento da empresa dele
-                        não quer ver o nosso de volta em inglês. */}
+                        não quer ver o nosso de volta em inglês. Só o NOME sai
+                        da copy nossa — o parágrafo continua traduzido. */}
                     <Input
                       value={f.label}
                       onChange={(e) => updateField(i, f.type === 'privacy_notice'
-                        ? { label: e.target.value, native: '' }
+                        ? { label: e.target.value, native_off: reescrever(f, 'label') }
                         : { label: e.target.value })}
                       placeholder={t.fb.question} style={{ flex: 1 }}
                     />
@@ -519,14 +535,15 @@ export default function FormBuilder() {
                     <Select value={f.type} onChange={(e) => updateField(i, { type: e.target.value as FieldType })}>
                       {TYPES.map((v) => <option key={v} value={v}>{t.fb.types[v]}</option>)}
                     </Select>
-                    {/* Texto do aviso editado à mão deixa de ser copy nossa:
-                        a marca `native` sai junto, senão a página pública
-                        continuaria mostrando o texto de fábrica (nos idiomas
-                        sem tradução) por cima do que o cliente escreveu. */}
+                    {/* Texto do aviso editado à mão deixa de ser copy nossa,
+                        senão a página pública continuaria mostrando o texto de
+                        fábrica (nos idiomas sem tradução) por cima do que o
+                        cliente escreveu. Só o TEXTO: o nome do aviso, se não
+                        foi mexido, continua sendo servido traduzido. */}
                     <Input
                       value={f.help}
                       onChange={(e) => updateField(i, f.type === 'privacy_notice'
-                        ? { help: e.target.value, native: '' }
+                        ? { help: e.target.value, native_off: reescrever(f, 'help') }
                         : { help: e.target.value })}
                       placeholder={t.fb.help}
                     />
@@ -596,10 +613,10 @@ export default function FormBuilder() {
               {(previewForm ?? form).fields.map((f, i) => (
                 <Preview
                   key={i} f={f} t={t} isSac={canalAtual?.module === 'sac'}
-                  // Sem tradução para o idioma escolhido, o que chegou está no
-                  // idioma BASE — é esse o caso em que o aviso de fábrica
-                  // aparecia em português dentro de uma prévia em inglês.
-                  langTexto={langsReady.includes(lang) ? lang : ((form.base_lang as Lang) || 'pt')}
+                  // O idioma da prévia é o que o seletor diz. A parte de
+                  // fábrica do aviso é servida nele — era por acreditar no
+                  // idioma do texto GUARDADO que o aviso de fábrica aparecia em
+                  // português dentro de uma prévia em inglês.
                   langPrev={lang}
                 />
               ))}
@@ -842,12 +859,12 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
   )
 }
 
-function Preview({ f, t, isSac, langTexto, langPrev }: {
+function Preview({ f, t, isSac, langPrev }: {
   f: FF; t: ReturnType<typeof useT>; isSac?: boolean
-  // Em que idioma está o texto que chegou, e em que idioma a prévia está sendo
-  // mostrada. Diferentes = o aviso de fábrica entra com a copy nativa, igual à
-  // página pública (é lá que a divergência aparecia para quem denuncia).
-  langTexto: Lang; langPrev: Lang
+  // Idioma em que a prévia está sendo mostrada: é nele que a parte de fábrica
+  // do aviso é servida, igual à página pública (é lá que a divergência
+  // aparecia para quem denuncia).
+  langPrev: Lang
 }) {
   // "Resposta do denunciante" num canal de SAC era a prévia contradizendo a
   // página pública, que já diz "demanda" — o módulo decide a palavra.
@@ -860,7 +877,7 @@ function Preview({ f, t, isSac, langTexto, langPrev }: {
   if (f.type === 'privacy_notice') {
     const link = (f.url ?? '').trim()
     const linkOk = /^https?:\/\/[^\s/]+/i.test(link)
-    const { rotulo, texto } = copyDoAviso(f, langTexto, langPrev)
+    const { rotulo, texto } = copyDoAviso(f, langPrev)
     return (
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 12, background: 'var(--surface-2)' }}>
         {texto && <p style={{ color: 'var(--text-muted)', fontSize: 12.5, lineHeight: 1.6, margin: '0 0 8px', whiteSpace: 'pre-wrap' }}>{texto}</p>}
