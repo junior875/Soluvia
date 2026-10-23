@@ -577,8 +577,12 @@ export default function FlowBuilder() {
           // A condição volta COMO FOI, do bloco a que pertence — o agente não
           // a edita. Isto era `false`/`null` fixo, e um turno de conversa
           // apagava em silêncio todas as condições que a pessoa havia montado.
-          is_conditional: !!s.is_conditional,
-          condition: normalizarCondicao(s.condition),
+          // Mesma regra da hidratação do GET: o interruptor só continua ligado
+          // se o que voltou for avaliável, para não existir bloco "condicional"
+          // sem editor de condição na tela.
+          ...(() => { const c = normalizarCondicao(s.condition); return {
+            is_conditional: !!s.is_conditional && c !== null, condition: c,
+          } })(),
         }))))
         setSelecionado(null)
       }
