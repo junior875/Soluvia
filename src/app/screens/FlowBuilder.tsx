@@ -34,6 +34,12 @@ type FlowAIStageState = {
   watcher_membership_ids: string[]
   sla_hours: number
   require_signature: boolean
+  // A CONDIÇÃO atravessa o turno do agente. Ele não a edita (não há operação
+  // para isso); ela vai e volta para não ser APAGADA — enquanto não estava
+  // neste contrato, uma conversa com o assistente zerava todas as condições do
+  // fluxo, e o "Salvar fluxo" seguinte gravava a perda sem aviso.
+  is_conditional: boolean
+  condition: FlowCondition | null
 }
 
 type FlowAIState = {
@@ -519,6 +525,8 @@ export default function FlowBuilder() {
       watcher_membership_ids: s.watcher_membership_ids,
       sla_hours: s.sla_hours,
       require_signature: !!s.require_signature,
+      is_conditional: !!s.is_conditional,
+      condition: s.condition ?? null,
     })),
   }), [stages, flowName, closerRoleId, closerMembershipId, tf.egName])
 
@@ -566,8 +574,11 @@ export default function FlowBuilder() {
           sla_days: Math.max(0, Math.round(s.sla_hours / 24)),
           // O agente conversa em HORAS; a régua acompanha o que ele devolveu.
           sla_hours: s.sla_hours, sla_mode: 'horas', sla_value: s.sla_hours,
-          is_conditional: false,
-          condition: null,
+          // A condição volta COMO FOI, do bloco a que pertence — o agente não
+          // a edita. Isto era `false`/`null` fixo, e um turno de conversa
+          // apagava em silêncio todas as condições que a pessoa havia montado.
+          is_conditional: !!s.is_conditional,
+          condition: normalizarCondicao(s.condition),
         }))))
         setSelecionado(null)
       }
@@ -620,6 +631,14 @@ export default function FlowBuilder() {
     for (const s of stages ?? []) {
       if (!s.operator_role_id && !s.operator_membership_id) {
         lista.push({ key: s.key, texto: t.flow.pendingOwner(s.name.trim() || t.flow.untitled) })
+      }
+      // CONDIÇÃO PELA METADE é pendência, igual a responsável em branco. O
+      // interruptor fica ligado na tela, mas o salvamento manda a etapa
+      // DESLIGADA (o servidor recusaria o fluxo inteiro por um campo em
+      // branco) — e sem este aviso a pessoa saía da tela achando que a etapa
+      // era condicional quando ela passou a rodar sempre.
+      if (s.is_conditional && !condicaoValida(s.condition)) {
+        lista.push({ key: s.key, texto: t.flow.pendingCondition(s.name.trim() || t.flow.untitled) })
       }
     }
     if (!closerRoleId && !closerMembershipId) {
@@ -717,7 +736,14 @@ export default function FlowBuilder() {
         })),
       }
       await api.put(`/channels/${channelId}/flow`, payload)
-      flash(t.flow.saved)
+      // Se alguma condição foi pela metade, o fluxo salvou — mas NÃO salvou o
+      // que a tela mostrava. Dizer só "salvo" aqui é o erro invisível que o
+      // aviso existe para evitar: a etapa que a pessoa deixou marcada como
+      // condicional vai rodar sempre.
+      const meias = stages.filter((s) => s.is_conditional && !condicaoValida(s.condition))
+      flash(meias.length > 0
+        ? t.flow.savedCondOff(meias.map((s) => s.name.trim() || t.flow.untitled).join(', '))
+        : t.flow.saved)
     } catch (e) {
       flash((e as ApiError).detail ?? t.flow.saveFail)
     } finally { setBusy(false) }
@@ -1393,6 +1419,14 @@ function CondicaoEditor({ cond, campos, disabled, t, onChange }: {
       {orfao && (
         <p style={{ color: '#d97706', fontSize: 12, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'flex-start', gap: 6, lineHeight: 1.5 }}>
           <Icon name="bell" size={12} /> <span>{tf.condOrphan(cond.campo)}</span>
+        </p>
+      )}
+      {/* CONDIÇÃO PELA METADE, dita aqui e não só no salvamento: o valor em
+          branco faz a etapa ir DESLIGADA para o servidor, e quem não for
+          avisado sai da tela achando que configurou uma etapa condicional. */}
+      {!condicaoValida(cond) && (
+        <p style={{ color: '#d97706', fontSize: 12, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'flex-start', gap: 6, lineHeight: 1.5 }}>
+          <Icon name="bell" size={12} /> <span>{tf.condIncomplete}</span>
         </p>
       )}
       <p style={{ color: 'var(--text-muted)', fontSize: 12, margin: 0, lineHeight: 1.5 }}>{tf.condUneval}</p>
