@@ -117,6 +117,14 @@ export default function Announcements() {
   // um canal para o outro quando o seletor muda com uma resposta no ar.
   const canalDigitadoAMao = useRef<string | null>(null)
 
+  // Já houve uma carga que trouxe contatos e aplicou o "todos marcados"?
+  //
+  // É `ref` pelo mesmo motivo da marca acima: quem precisa ler isto é o
+  // `.then` de `carregar`, e um estado chegaria lá congelado no valor do
+  // render que disparou a busca — o padrão seria reaplicado e a escolha da
+  // pessoa, perdida.
+  const marcacaoInicial = useRef(false)
+
   /**
    * Toda escrita HUMANA no aviso passa por aqui.
    *
@@ -146,7 +154,27 @@ export default function Announcements() {
       setContatos(cts)
       // Todos marcados por padrão: o caso comum é avisar a empresa inteira, e
       // desmarcar exceções é mais barato do que marcar um a um.
-      setMarcados(new Set(cts.map((c) => c.email)))
+      //
+      // Mas esse padrão vale SÓ na primeira carga. O fim do envio chama
+      // `carregar()` de novo, e remarcar tudo ali apagava a escolha de quem
+      // acabou de desmarcar gente: o segundo clique em "Enviar" ia para a
+      // empresa INTEIRA, inclusive para quem a pessoa tinha tirado da lista
+      // de propósito. Divulgação não tem desfazer — então nas cargas
+      // seguintes a seleção de agora manda, e a lista nova só serve para
+      // esquecer contato que não existe mais.
+      //
+      // Contato que apareceu depois entra DESMARCADO: errar para menos é
+      // mandar um e-mail de menos; errar para mais é mandar para quem a
+      // pessoa não escolheu.
+      if (marcacaoInicial.current) {
+        setMarcados((atual) => new Set(cts.map((c) => c.email).filter((e) => atual.has(e))))
+      } else if (cts.length) {
+        // A marca só vira depois de uma carga que REALMENTE trouxe contatos:
+        // a busca de contatos cai em `[]` quando falha, e gastar a primeira
+        // carga num erro deixaria a tela sem o padrão para sempre.
+        marcacaoInicial.current = true
+        setMarcados(new Set(cts.map((c) => c.email)))
+      }
       // Escolher o primeiro canal SÓ quando não há canal escolhido — e a
       // forma funcional é obrigatória aqui, não é estilo.
       //
@@ -637,7 +665,12 @@ export default function Announcements() {
                   <div style={{ color: 'var(--heading)', fontWeight: 700, fontSize: 15, overflowWrap: 'anywhere' }}>
                     {a.subject || a.channel_name || tx.noSubject}
                   </div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: 2 }}>
+                  {/* `anywhere` aqui pelo mesmo motivo das outras duas linhas
+                      do cartão: nome de canal é texto do cliente e pode vir
+                      numa palavra só, sem espaço onde quebrar. Esta linha
+                      ficou de fora do conserto cosmético e era a única das
+                      três que ainda estourava a largura do cartão. */}
+                  <div style={{ color: 'var(--text-muted)', fontSize: 12.5, marginTop: 2, overflowWrap: 'anywhere' }}>
                     {a.channel_name && `${a.channel_name} · `}
                     {new Date(a.created_at).toLocaleString()}
                   </div>
