@@ -137,7 +137,18 @@ export default function MyCases() {
                     {dias !== null && (
                       <div style={{ color: atrasado ? '#e11d48' : 'var(--text-muted)', fontSize: 12, marginTop: 3 }}>
                         {tx.since} {dias === 0 ? t.notif.now : t.notif.days(dias)}
-                        {f.sla_days ? ` · ${tx.due} ${f.sla_days}d` : ''}
+                        {/* O prazo vem ESCRITO do servidor (`prazo_label`: "4
+                            horas", "2 dias úteis"), na régua congelada na
+                            liberação. Escrever `${f.sla_days}d` aqui era
+                            traduzir TUDO para dias: uma etapa de 4 HORAS
+                            aparecia como "prazo 5d" para quem tinha de agir
+                            naquela tarde — o cartão dizia cinco dias de folga
+                            onde não havia nenhum.
+                            A queda para `sla_days` serve só a ficha liberada
+                            antes de o campo existir. */}
+                        {f.prazo_label
+                          ? ` · ${tx.due} ${f.prazo_label}`
+                          : f.sla_days ? ` · ${tx.due} ${f.sla_days}d` : ''}
                       </div>
                     )}
                   </div>
