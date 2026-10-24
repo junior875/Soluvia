@@ -360,6 +360,50 @@ export default function Cases({ module = 'etica' }: CasesProps) {
               />
             </div>
 
+            {/* AJUSTE MANUAL DA GRAVIDADE.
+                Fica aqui, colado no chip que mostra a gravidade: o controle
+                que muda um valor tem de ficar onde esse valor é lido.
+
+                Não é a triagem de volta — a triagem (urgência + avançar
+                etapa) continua sendo do fluxo, e por isso este bloco NÃO
+                avança etapa nenhuma. É a escalada do administrador, e é o
+                ÚNICO caminho para "Crítica": a triagem só oferece
+                baixa/média/alta (`URGENCIAS` no backend), e o backend ainda
+                protege uma "Crítica" manual de ser rebaixada por ela. Sem
+                este seletor na tela, "Crítica" só existia por chamada de API
+                — o campo que decide a ordem de atendimento tinha um degrau
+                inalcançável por quem opera.
+
+                Por isso aparece TAMBÉM com fluxo ativo: um caso que piora no
+                meio da apuração é exatamente quando se precisa escalar.
+                Permissão: `respond`, a mesma que a rota POST /cases/{id}/events
+                exige. */}
+            {detail.status !== 'closed' && canRespond && (
+              <div>
+                <SectionLabel>{t.cases.severity}</SectionLabel>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <Select
+                    value={severity}
+                    onChange={(e) => setSeverity(e.target.value)}
+                    style={{ flex: '1 1 180px', width: 'auto' }}
+                  >
+                    {SEVS.map((s) => <option key={s} value={s}>{sevL(s)}</option>)}
+                  </Select>
+                  {/* Desabilitado quando o seletor já mostra o que está
+                      gravado: clicar sem mudar nada só geraria uma nota na
+                      trilha dizendo que a gravidade continua a mesma. */}
+                  <Button
+                    variant="ghost"
+                    loading={busy}
+                    disabled={severity === detail.severity}
+                    onClick={applySeverity}
+                  >
+                    {t.cases.applySev}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Relato */}
             <div>
               <SectionLabel>{tx.relato}</SectionLabel>
