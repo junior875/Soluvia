@@ -40,7 +40,13 @@
 	# como / - que e o mapeamento que as regras de ingress do App B ja esperam
 	# (/api -> backend, resto -> static site). Com "handle" puro o App B
 	# receberia /tiprojects/api/x e teria de mudar o ingress dele.
-	handle_path /tiprojects* {
+	#
+	# A BARRA no matcher importa (apontado pelo time do App B): com
+	# "/tiprojects*" um pedido a /tiprojectsQUALQUERCOISA tambem casaria e
+	# seria repassado com um caminho torto. Com "/tiprojects/*" so passa o que
+	# esta de fato sob o prefixo, e o caminho exato /tiprojects fica coberto
+	# pelo 308 acima.
+	handle_path /tiprojects/* {
 		reverse_proxy {$UPSTREAM} {
 			# O IP real do visitante. No App Platform o X-Forwarded-For carrega
 			# o IP do INGRESS da DO, nao o do cliente (documentado pela
@@ -65,6 +71,37 @@
 
 			# Upload de cronograma e resposta grandes passam em streaming.
 			flush_interval -1
+
+			# ISOLAMENTO DA ORIGEM COMPARTILHADA.
+			#
+			# O problema, medido no codigo do Soluvia: POST /api/v1/auth/refresh
+			# aceita SO o cookie httpOnly, sem token de CSRF. httpOnly impede ler
+			# o cookie, mas nao impede usa-lo: qualquer script rodando neste
+			# documento esta na MESMA ORIGEM e pode chamar
+			# fetch('/api/v1/auth/refresh', {credentials:'include'}) e LER a
+			# resposta, que traz um access token valido do Soluvia.
+			#
+			# Nao precisa de XSS para isso. Basta uma dependencia npm comprometida
+			# no build do outro app. Sem esta linha, toda a arvore de pacotes
+			# deles aponta para a sessao do Soluvia.
+			#
+			# connect-src aceita CAMINHO, nao so origem: restringir ao prefixo
+			# deixa o fetch da API deles passar e barra /api/v1/* do Soluvia.
+			# Soma-se (+) em vez de substituir, para nao apagar uma CSP que o
+			# proprio app de destino mande - duas CSPs valem pela intersecao.
+			#
+			# Se o front deles conectar em algum lugar fora do prefixo (telemetria,
+			# CDN, websocket), isto quebra o sistema deles e o console acusa.
+			#
+			# A politica INTEIRA vem da variavel, de proposito: esvaziar
+			# ISOLATION_CSP no painel desliga a protecao em segundos (politica sem
+			# diretivas nao restringe nada). Se a variavel fosse so a origem,
+			# esvazia-la geraria "connect-src ;" - que nao desliga, BLOQUEIA tudo.
+			#
+			# Valor a configurar (a lista que o time do App B confirmou, com
+			# connect-src e form-action por CAMINHO em vez de 'self'):
+			#   default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src https://gridcompliance.com/tiprojects/; frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action https://gridcompliance.com/tiprojects/
+			header_down +Content-Security-Policy "{$ISOLATION_CSP}"
 		}
 	}
 

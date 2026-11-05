@@ -104,9 +104,17 @@ tráfego vai pela internet pública nos dois casos.
 2. Regra de ingress `/tiprojects` → esse componente, **antes** da regra `/`, com
    `preserve_path_prefix: true`.
 3. Variáveis cifradas: `UPSTREAM`, `PROXY_SECRET`.
-4. Headers de segurança no app (CSP, HSTS, X-Frame-Options,
-   X-Content-Type-Options). **Hoje não existe nenhum** — e sem CSP, compartilhar
-   origem com outro sistema é o único item desta lista que não deveria passar.
+4. Variável `ISOLATION_CSP` — o isolamento da origem compartilhada, explicado na
+   seção seguinte. É o item desta lista que não deveria ir para produção sem.
+
+Sobre CSP no App A, para o registro: o Soluvia **tem** uma política, servida por
+`<meta http-equiv>` no próprio documento, com `script-src 'self'`,
+`object-src 'none'` e `connect-src` restrito. Ela não está em cabeçalho HTTP
+porque **static site na App Platform não permite cabeçalho de resposta
+customizado**. A consequência que importa aqui: `frame-ancestors` é ignorado
+quando a CSP vem por `<meta>`, então `X-Frame-Options`/`frame-ancestors` do
+Soluvia só serão possíveis se o SPA passar a ser servido por um componente de
+serviço em vez do CDN — decisão separada desta.
 
 O spec:
 
@@ -125,6 +133,18 @@ services:
       - key: PROXY_SECRET
         scope: RUN_TIME
         type: SECRET
+      - key: ISOLATION_CSP
+        scope: RUN_TIME
+        # A lista que o time do App B confirmou, com connect-src e form-action
+        # por CAMINHO em vez de 'self' — ver RESPOSTA-AO-APP-B.md.
+        value: >-
+          default-src 'self'; script-src 'self';
+          style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+          font-src 'self' https://fonts.gstatic.com data:;
+          img-src 'self' data: blob:;
+          connect-src https://gridcompliance.com/tiprojects/;
+          frame-ancestors 'self'; base-uri 'self'; object-src 'none';
+          form-action https://gridcompliance.com/tiprojects/
     health_check:
       http_path: /_proxy-health
 
@@ -163,6 +183,68 @@ repassar, então `/api` e o catchall de vocês continuam valendo como hoje.
 |---|---|---|
 | `PROXY_SECRET` | gerado por vocês | canal seguro — **nunca** repositório, chat ou ticket |
 | URL do App B | vocês → nós | já temos: `tiprojects-prod-nplrt.ondigitalocean.app` |
+
+---
+
+---
+
+## O risco da origem compartilhada é maior do que a proposta descreve — e tem conserto
+
+A proposta diz, no item 7: *"um XSS em qualquer um dos dois expõe a sessão do
+outro"*. **Não precisa de XSS.**
+
+Medido no código do Soluvia: `POST /api/v1/auth/refresh` aceita **só o cookie
+httpOnly**, sem token de CSRF e sem checar origem. `httpOnly` impede *ler* o
+cookie, mas não impede *usá-lo*: qualquer script rodando no documento do TI
+Projects está na **mesma origem** e pode chamar
+
+```js
+await fetch('/api/v1/auth/refresh', { credentials: 'include' })
+```
+
+e **ler a resposta**, que traz um access token válido do Soluvia — com acesso a
+canal de denúncias, LGPD, auditoria e assinatura digital. Basta uma dependência
+npm comprometida no build de vocês. Sem mitigação, toda a árvore de pacotes do
+TI Projects aponta para a sessão do Soluvia, e o contrário também vale: um XSS no
+Soluvia lê `ti-projects-auth` do localStorage.
+
+### A mitigação, já implementada e testada
+
+O proxy injeta uma CSP no documento do TI Projects restringindo `connect-src`
+**por caminho**:
+
+```
+connect-src https://gridcompliance.com/tiprojects/; form-action https://gridcompliance.com/tiprojects/
+```
+
+`connect-src` aceita caminho, não só origem — isso costuma surpreender, então foi
+verificado em navegador real, não presumido:
+
+| fetch, a partir do documento do TI Projects | resultado |
+|---|---|
+| `/api/v1/auth/refresh` (API do Soluvia) | **bloqueado** pelo navegador |
+| `/tiprojects/api/health` (API de vocês) | passou, 200 |
+
+Mensagem do console no caso bloqueado: *"Connecting to '…/api/v1/auth/refresh'
+violates the following Content Security Policy directive: `connect-src
+…/tiprojects/`. The action has been blocked."*
+
+A política é somada (`+`) à que o App B mandar, não substitui — duas CSPs valem
+pela interseção. E a política **inteira** vem da variável de propósito: esvaziar
+`ISOLATION_CSP` no painel desliga em segundos. Se fosse só a origem, esvaziar
+geraria `connect-src ;`, que não desliga — **bloqueia tudo**.
+
+### O que precisamos de vocês para isso
+
+**A lista de todos os destinos que o front do TI Projects conecta** — API,
+telemetria, CDN, websocket, mapa, qualquer coisa. Se algum estiver fora de
+`/tiprojects/`, essa diretiva quebra o sistema de vocês em silêncio na tela (o
+console acusa). Com a lista, incluímos os destinos na política.
+
+**E isso não torna a origem compartilhada equivalente a um subdomínio.** Reduz o
+vetor principal; não elimina a classe. O isolamento completo só vem com
+`tiprojects.gridcompliance.com` — que, segundo a documentação da DigitalOcean, é
+viável abrindo ticket no suporte para liberar o domínio entre as contas.
 
 ---
 
@@ -212,7 +294,7 @@ objeção.
 
 | # | lado | passo | por que nesta ordem |
 |---|---|---|---|
-| 1 | A | headers de segurança no app | pré-requisito da origem compartilhada; não afeta ninguém |
+| 0 | B | mandar a lista de destinos que o front conecta | sem ela a CSP de isolamento quebra o sistema de vocês |
 | 2 | A | componente proxy + regra de ingress, **com `UPSTREAM` apontando para o App B** | `/tiprojects` ainda não é divulgado; dá para testar à vontade |
 | 3 | B | trocar as 4 variáveis e **rebuildar** | aqui o App B quebra na URL `.ondigitalocean.app` dele — por minutos, e é a URL interna, não a pública |
 | 4 | — | bateria de testes abaixo | |
@@ -249,6 +331,8 @@ branca.
 | rate limit | dispara por usuário, não para todos juntos |
 | auditoria | registra o IP real do visitante, não o do ingress |
 | cookie do Soluvia | **não** aparece nas requisições que chegam ao App B |
+| console do TI Projects, navegando o sistema inteiro | **nenhuma** violação de CSP — se houver, falta um destino na lista |
+| `fetch('/api/v1/auth/refresh')` do console do TI Projects | bloqueado pela CSP |
 
 ## O que já está provado do lado A
 
