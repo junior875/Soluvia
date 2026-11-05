@@ -1,0 +1,75 @@
+# Proxy de caminho: gridcompliance.com/tiprojects -> app do TI Projects, que
+# vive em OUTRA conta da DigitalOcean.
+#
+# Existe porque a App Platform roteia por caminho apenas entre componentes do
+# MESMO app (o campo do spec e "component.name"). Para um host de fora ela so
+# oferece "redirect", que troca a URL na barra. Este componente e a unica peca
+# que falta para o visitante continuar vendo /tiprojects.
+
+{
+	admin off
+	auto_https off
+}
+
+:{$PORT:8080} {
+	log {
+		output stdout
+		# O Authorization do usuario e o segredo do proxy nao entram em log.
+		format filter {
+			wrap console
+			request>headers>Authorization delete
+			request>headers>X-Proxy-Secret delete
+			request>headers>Cookie delete
+		}
+	}
+
+	# A App Platform bate aqui direto, sem passar pelo ingress. Sem esta rota
+	# o health check pega o 404 do catch-all e o deploy nunca fica saudavel.
+	handle /_proxy-health {
+		respond "ok" 200
+	}
+
+	# Sem barra no fim o navegador resolveria caminhos relativos a partir da
+	# raiz. 308 e nao 301: preserva o metodo e nao fica gravado para sempre no
+	# cache do navegador, como um 301 de arquitetura nova ficaria.
+	@raiz path /tiprojects
+	redir @raiz /tiprojects/ 308
+
+	# handle_path, nao handle: o "_path" e o que REMOVE o prefixo antes de
+	# repassar. /tiprojects/api/x chega no App B como /api/x, e /tiprojects/
+	# como / - que e o mapeamento que as regras de ingress do App B ja esperam
+	# (/api -> backend, resto -> static site). Com "handle" puro o App B
+	# receberia /tiprojects/api/x e teria de mudar o ingress dele.
+	handle_path /tiprojects* {
+		reverse_proxy {$UPSTREAM} {
+			# O IP real do visitante. No App Platform o X-Forwarded-For carrega
+			# o IP do INGRESS da DO, nao o do cliente (documentado pela
+			# propria DO) - quem tem o IP do cliente e Do-Connecting-IP. Usar
+			# XFF aqui jogaria todos os usuarios no mesmo balde de rate limit.
+			header_up X-Client-IP {http.request.header.Do-Connecting-IP}
+
+			# Segredo compartilhado, so nas variaveis cifradas dos dois apps.
+			# Como estes dois header_up DEFINEM o valor, eles sobrescrevem o
+			# que o cliente tenha tentado mandar - nao da para falsificar.
+			header_up X-Proxy-Secret {$PROXY_SECRET}
+
+			# Os cookies do Soluvia nao tem o que fazer no outro app.
+			header_up -Cookie
+
+			# Nenhum header_up de Host: proxiando para HTTPS o Caddy ja manda
+			# o host do upstream no Host e no SNI, e ja repassa os
+			# X-Forwarded-*. "caddy validate" avisa quando a linha e redundante.
+			#
+			# Tambem nao declaramos trusted_proxies: confiar em 0.0.0.0/0
+			# deixaria qualquer um falsificar X-Forwarded-For.
+
+			# Upload de cronograma e resposta grandes passam em streaming.
+			flush_interval -1
+		}
+	}
+
+	# Qualquer outro caminho e erro de configuracao do ingress, nao do visitante.
+	handle {
+		respond "fora do escopo deste componente" 404
+	}
+}
