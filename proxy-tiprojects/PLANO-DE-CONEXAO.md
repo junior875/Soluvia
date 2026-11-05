@@ -7,6 +7,17 @@ código novo.
 **Nome fechado: `/tiprojects`, plural** — como já está no build de vocês. O lado
 A foi renomeado para acompanhar.
 
+> **Estado em 05/11/2026 — tudo acordado.** As cinco perguntas do fim deste
+> documento foram respondidas e estão fechadas: plural confirmado, string
+> canônica aceita, Fase 1 com segredo compartilhado, replay de 60 s aceito, e a
+> CSP final acertada. O App B confirmou que **não tem script inline, não usa web
+> worker nem `blob:`, e só conecta em `/tiprojects/api/*`** — e removeu o Google
+> Fonts, que por isso saiu da política. O histórico dessa troca está em
+> [`RESPOSTA-AO-APP-B.md`](RESPOSTA-AO-APP-B.md).
+>
+> Falta só o `PROXY_SECRET`, que vem por canal seguro, e aplicar o componente no
+> painel da DigitalOcean.
+
 ---
 
 ## Resposta curta: é só mexer em variável?
@@ -139,8 +150,8 @@ services:
         # por CAMINHO em vez de 'self' — ver RESPOSTA-AO-APP-B.md.
         value: >-
           default-src 'self'; script-src 'self';
-          style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-          font-src 'self' https://fonts.gstatic.com data:;
+          style-src 'self' 'unsafe-inline';
+          font-src 'self' data:;
           img-src 'self' data: blob:;
           connect-src https://gridcompliance.com/tiprojects/;
           frame-ancestors 'self'; base-uri 'self'; object-src 'none';

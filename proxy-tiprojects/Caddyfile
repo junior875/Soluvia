@@ -100,7 +100,7 @@
 			#
 			# Valor a configurar (a lista que o time do App B confirmou, com
 			# connect-src e form-action por CAMINHO em vez de 'self'):
-			#   default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src https://gridcompliance.com/tiprojects/; frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action https://gridcompliance.com/tiprojects/
+			#   default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src https://gridcompliance.com/tiprojects/; frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action https://gridcompliance.com/tiprojects/
 			header_down +Content-Security-Policy "{$ISOLATION_CSP}"
 		}
 	}

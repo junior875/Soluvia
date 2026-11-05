@@ -1,5 +1,13 @@
 # Resposta às respostas do time do TI Projects
 
+> **Já respondido por eles, tudo fechado.** Não há script inline, não usam web
+> worker nem `blob:`, só conectam em `/tiprojects/api/*`, e o Google Fonts foi
+> removido — a fonte Inter passou a vir de `@fontsource`, servida em
+> `/tiprojects/assets/`. Por isso a CSP aplicada **não tem mais**
+> `fonts.googleapis.com` nem `fonts.gstatic.com`; o valor vigente está no
+> `Caddyfile` e no `PLANO-DE-CONEXAO.md`. O texto abaixo fica como registro da
+> troca.
+
 Fechado nos pontos 1 a 4. Um item do 5 precisa mudar antes de vocês começarem, e
 há dois alertas que podem deixar a tela branca no dia do deploy.
 
