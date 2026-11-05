@@ -1,0 +1,41 @@
+# Proxy de caminho: gridcompliance.com/tiproject -> app do tiproject, que vive
+# em OUTRA conta da DigitalOcean.
+#
+# Existe porque a App Platform roteia por caminho apenas entre componentes do
+# MESMO app (o campo do spec e "component.name"). Para um host de fora ela so
+# oferece "redirect", que troca a URL na barra. Este componente e a unica peca
+# que falta para o visitante continuar vendo /tiproject.
+
+{
+	admin off
+	auto_https off
+}
+
+:{$PORT:8080} {
+	log {
+		output stdout
+		format console
+	}
+
+	# A App Platform bate aqui direto, sem passar pelo ingress. Sem esta rota
+	# o health check pega o 404 do catch-all e o deploy nunca fica saudavel.
+	handle /_proxy-health {
+		respond "ok" 200
+	}
+
+	handle /tiproject* {
+		# Nenhum header_up aqui de proposito: proxiando para HTTPS o Caddy ja
+		# manda o host do upstream no Host e no SNI, e ja repassa os
+		# X-Forwarded-*. "caddy validate" avisa quando a linha e redundante.
+		#
+		# Tambem nao declaramos trusted_proxies: confiar em 0.0.0.0/0 deixaria
+		# qualquer um falsificar X-Forwarded-For. Se o tiproject precisar do IP
+		# real do visitante, restringir a faixa do ingress da DO em vez de abrir.
+		reverse_proxy {$UPSTREAM}
+	}
+
+	# Qualquer outro caminho e erro de configuracao do ingress, nao do visitante.
+	handle {
+		respond "fora do escopo deste componente" 404
+	}
+}
